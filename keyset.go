@@ -1,29 +1,22 @@
 package quark
 
 import (
-	cryptorand "crypto/rand"
-	"io"
-
 	"github.com/karalef/quark/cipher"
 	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/sign"
 )
 
-func Generate(rand io.Reader, id Identity, scheme Scheme) (PrivateKeyset, error) {
+func Generate(id Identity, scheme Scheme) (PrivateKeyset, error) {
 	if !scheme.IsValid() {
 		return nil, ErrInvalidScheme
 	}
 
-	if rand == nil {
-		rand = cryptorand.Reader
-	}
-
-	signPriv, signPub, err := scheme.Sign.GenerateKey(rand)
+	signPriv, signPub, err := scheme.Sign.GenerateKey()
 	if err != nil {
 		return nil, err
 	}
 
-	kemPriv, kemPub, err := scheme.KEM.GenerateKey(rand)
+	kemPriv, kemPub, err := scheme.KEM.GenerateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +78,7 @@ type Identity struct {
 }
 
 func validateKEMSet(k kem.Scheme, c cipher.Scheme) bool {
-	return k.SharedKeySize() == c.KeySize()
+	return k.SharedSecretSize() == c.KeySize()
 }
 
 func NewPrivateKeyset(id Identity, k kem.PrivateKey, ciph cipher.Scheme, s sign.PrivateKey, h HashScheme) (*private, error) {

@@ -63,7 +63,7 @@ var Gen = &cli.Command{
 var DefaultScheme = quark.Scheme{
 	KEM:    kem.Kyber768.Scheme(),
 	Cipher: cipher.XChacha20Poly1305.Scheme(),
-	Sign:   sign.Dilithium3.Scheme(),
+	Sign:   sign.Dilithium3ED448.Scheme(),
 	Hash:   quark.HashSHA256.Scheme(),
 }.String()
 
@@ -73,7 +73,7 @@ func GenerateKeySet(scheme string, name, email string) (quark.PrivateKeyset, err
 		return nil, err
 	}
 
-	return quark.Generate(nil, quark.Identity{name, email}, sch)
+	return quark.Generate(quark.Identity{name, email}, sch)
 }
 
 func PrintSchemes() {
@@ -81,10 +81,10 @@ func PrintSchemes() {
 
 	fmt.Println()
 	fmt.Println("KEM:")
-	fmt.Println(kem.Kyber512, kem.Kyber512.Scheme().SharedKeySize())
-	fmt.Println(kem.Kyber768, kem.Kyber768.Scheme().SharedKeySize())
-	fmt.Println(kem.Kyber1024, kem.Kyber1024.Scheme().SharedKeySize())
-	fmt.Println(kem.Frodo, kem.Frodo.Scheme().SharedKeySize())
+	fmt.Println(kem.Kyber512, kem.Kyber512.Scheme().SharedSecretSize())
+	fmt.Println(kem.Kyber768, kem.Kyber768.Scheme().SharedSecretSize())
+	fmt.Println(kem.Kyber1024, kem.Kyber1024.Scheme().SharedSecretSize())
+	fmt.Println(kem.Frodo640, kem.Frodo640.Scheme().SharedSecretSize())
 
 	fmt.Println()
 	fmt.Println("CIPHERS:")
@@ -95,8 +95,8 @@ func PrintSchemes() {
 
 	fmt.Println()
 	fmt.Println("SIGNATURES:")
-	fmt.Println(sign.Dilithium2)
-	fmt.Println(sign.Dilithium3)
+	fmt.Println(sign.Dilithium2ED25519)
+	fmt.Println(sign.Dilithium3ED448)
 
 	fmt.Println()
 	fmt.Println("HASHES:")

@@ -54,8 +54,8 @@ func prepackPrivate(s quark.PrivateKeyset) PackedKeyset {
 		IsPrivate: true,
 		Identity:  s.Identity(),
 		Scheme:    quark.SchemeOf(s).String(),
-		SignKey:   s.SignPrivateKey().Pack(),
-		KEMKey:    s.KEMPrivateKey().Pack(),
+		SignKey:   s.SignPrivateKey().Bytes(),
+		KEMKey:    s.KEMPrivateKey().Bytes(),
 	}
 }
 
@@ -64,8 +64,8 @@ func prepackPublic(s quark.PublicKeyset) PackedKeyset {
 		IsPrivate: false,
 		Identity:  s.Identity(),
 		Scheme:    quark.SchemeOf(s).String(),
-		SignKey:   s.SignPublicKey().Pack(),
-		KEMKey:    s.KEMPublicKey().Pack(),
+		SignKey:   s.SignPublicKey().Bytes(),
+		KEMKey:    s.KEMPublicKey().Bytes(),
 	}
 }
 

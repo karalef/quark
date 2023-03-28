@@ -4,12 +4,8 @@ import (
 	"crypto/md5"
 )
 
-type publicKey interface {
-	Pack() []byte
-}
-
 func PublicFingerprint(p PublicKeyset) Fingerprint {
-	return FingerprintOf(p.SignPublicKey().Pack())
+	return FingerprintOf(p.SignPublicKey().Bytes())
 }
 
 func FingerprintOf(b []byte) Fingerprint {
