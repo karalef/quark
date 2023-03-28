@@ -1,9 +1,9 @@
 package cipher
 
-import "errors"
-
+// Algorithm type.
 type Algorithm string
 
+// available algorithms.
 const (
 	AESGCM128         Algorithm = "AESGCM128"
 	AESGCM192         Algorithm = "AESGCM192"
@@ -11,6 +11,7 @@ const (
 	XChacha20Poly1305 Algorithm = "XCHACHA20POLY1305"
 )
 
+// ListAll returns all available cipher algorithms.
 func ListAll() []Scheme {
 	a := make([]Scheme, 0, len(schemes))
 	for _, v := range schemes {
@@ -27,14 +28,8 @@ var schemes = map[Algorithm]Scheme{
 }
 
 func (alg Algorithm) Alg() Algorithm { return alg }
-
-func (alg Algorithm) Scheme() Scheme {
-	return schemes[alg]
-}
-
-func (alg Algorithm) IsValid() bool {
-	return alg.Scheme() != nil
-}
+func (alg Algorithm) Scheme() Scheme { return schemes[alg] }
+func (alg Algorithm) IsValid() bool  { return alg.Scheme() != nil }
 
 func (alg Algorithm) String() string {
 	if !alg.IsValid() {
@@ -43,14 +38,7 @@ func (alg Algorithm) String() string {
 	return string(alg)
 }
 
-func LoadKey(key []byte, alg Algorithm) (Cipher, error) {
-	scheme := alg.Scheme()
-	if scheme == nil {
-		return nil, ErrInvalidKeyAlgorithm
-	}
-	return scheme.Unpack(key)
-}
-
+// Cipher represents an authenticated cipher.
 type Cipher interface {
 	Scheme() Scheme
 
@@ -65,6 +53,7 @@ type Cipher interface {
 	Open(dst, nonce, ciphertext []byte) ([]byte, error)
 }
 
+// Scheme type.
 type Scheme interface {
 	Alg() Algorithm
 	KeySize() int
@@ -88,8 +77,3 @@ func (s baseScheme) KeySize() int                      { return s.keySize }
 func (s baseScheme) NonceSize() int                    { return s.nonceSize }
 func (s baseScheme) Overhead() int                     { return s.overhead }
 func (s baseScheme) Unpack(key []byte) (Cipher, error) { return s.unpack(key) }
-
-// errors
-var (
-	ErrInvalidKeyAlgorithm = errors.New("invalid cipher algorithm")
-)
