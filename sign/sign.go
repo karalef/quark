@@ -2,38 +2,31 @@ package sign
 
 import (
 	"errors"
-	"io"
 )
 
+// Algorithm type.
 type Algorithm string
 
+// available algorithms.
 const (
-	// Dilithium2 hybrids Dilithium mode2 with ed25519
-	Dilithium2 Algorithm = "DILITHIUM2ED25519"
+	// Dilithium2ED25519 hybrids Dilithium mode2 with ed25519
+	Dilithium2ED25519 Algorithm = "DILITHIUM2ED25519"
 
-	// Dilithium3 hybrids Dilithium mode3 with ed448
-	Dilithium3 Algorithm = "DILITHIUM3ED448"
+	// Dilithium3ED448 hybrids Dilithium mode3 with ed448
+	Dilithium3ED448 Algorithm = "DILITHIUM3ED448"
 
 	//Falcon
 	//Rainbow
 )
 
 var schemes = map[Algorithm]Scheme{
-	Dilithium2: dilithium2ed25519Scheme,
-	Dilithium3: dilithium3ed448Scheme,
+	Dilithium2ED25519: dilithium2ed25519Scheme,
+	Dilithium3ED448:   dilithium3ed448Scheme,
 }
 
-func (alg Algorithm) Alg() Algorithm {
-	return alg
-}
-
-func (alg Algorithm) Scheme() Scheme {
-	return schemes[alg]
-}
-
-func (alg Algorithm) IsValid() bool {
-	return alg.Scheme() != nil
-}
+func (alg Algorithm) Alg() Algorithm { return alg }
+func (alg Algorithm) Scheme() Scheme { return schemes[alg] }
+func (alg Algorithm) IsValid() bool  { return alg.Scheme() != nil }
 
 func (alg Algorithm) String() string {
 	if !alg.IsValid() {
@@ -42,28 +35,12 @@ func (alg Algorithm) String() string {
 	return string(alg)
 }
 
-func LoadPrivate(key []byte, alg Algorithm) (PrivateKey, error) {
-	scheme := alg.Scheme()
-	if scheme == nil {
-		return nil, ErrInvalidKeyAlgorithm
-	}
-	return scheme.UnpackPrivate(key)
-}
-
-func LoadPublic(key []byte, alg Algorithm) (PublicKey, error) {
-	scheme := alg.Scheme()
-	if scheme == nil {
-		return nil, ErrInvalidKeyAlgorithm
-	}
-	return scheme.UnpackPublic(key)
-}
-
 // Scheme represents signature scheme.
 type Scheme interface {
 	Alg() Algorithm
 
-	// GenerateKey creates a new key-pair.
-	GenerateKey(rand io.Reader) (PrivateKey, PublicKey, error)
+	// GenerateKey generates a new key-pair.
+	GenerateKey() (PrivateKey, PublicKey, error)
 
 	// DeriveKey derives a key-pair from a seed.
 	//
@@ -89,29 +66,34 @@ type Scheme interface {
 	SeedSize() int
 }
 
+// PrivateKey represents a signing private key.
 type PrivateKey interface {
 	Public() PublicKey
 	Scheme() Scheme
 
 	Equal(PrivateKey) bool
-	Pack() []byte
+
+	// Bytes allocates a new slice of bytes with Scheme().PrivateKeySize() length
+	// and writes the private key to it.
+	Bytes() []byte
 
 	Sign(msg []byte) ([]byte, error)
 }
 
+// PublicKey represents a signing public key.
 type PublicKey interface {
 	Scheme() Scheme
 
 	Equal(PublicKey) bool
-	Pack() []byte
+
+	// Bytes allocates a new slice of bytes with Scheme().PublicKeySize() length
+	// and writes the public key to it.
+	Bytes() []byte
 
 	Verify(msg []byte, signature []byte) (bool, error)
 }
 
 // errors.
 var (
-	ErrInvalidSignatureSize = errors.New("invalid signature size")
-	ErrInvalidKeySize       = errors.New("invalid key size")
-	ErrInvalidSignature     = errors.New("invalid signature")
-	ErrInvalidKeyAlgorithm  = errors.New("invalid key algorithm")
+	ErrInvalidSignature = errors.New("invalid signature")
 )

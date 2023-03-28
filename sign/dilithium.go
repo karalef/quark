@@ -1,8 +1,6 @@
 package sign
 
 import (
-	"io"
-
 	circlsign "github.com/cloudflare/circl/sign"
 	"github.com/cloudflare/circl/sign/eddilithium2"
 	"github.com/cloudflare/circl/sign/eddilithium3"
@@ -10,11 +8,11 @@ import (
 
 var (
 	dilithium2ed25519Scheme = dilithiumScheme{
-		Algorithm: Dilithium2,
+		Algorithm: Dilithium2ED25519,
 		Scheme:    eddilithium2.Scheme(),
 	}
 	dilithium3ed448Scheme = dilithiumScheme{
-		Algorithm: Dilithium3,
+		Algorithm: Dilithium3ED448,
 		Scheme:    eddilithium3.Scheme(),
 	}
 )
@@ -26,13 +24,12 @@ type dilithiumScheme struct {
 	circlsign.Scheme
 }
 
-func (s dilithiumScheme) GenerateKey(rand io.Reader) (PrivateKey, PublicKey, error) {
-	seed := make([]byte, s.SeedSize())
-	if _, err := io.ReadFull(rand, seed); err != nil {
+func (s dilithiumScheme) GenerateKey() (PrivateKey, PublicKey, error) {
+	pub, priv, err := s.Scheme.GenerateKey()
+	if err != nil {
 		return nil, nil, err
 	}
-	priv, pub := s.DeriveKey(seed)
-	return priv, pub, nil
+	return &dilithiumPrivKey{s, priv}, &dilithiumPubKey{s, pub}, nil
 }
 
 func (s dilithiumScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
@@ -78,7 +75,7 @@ func (priv *dilithiumPrivKey) Public() PublicKey {
 
 func (priv *dilithiumPrivKey) Scheme() Scheme          { return priv.scheme }
 func (priv *dilithiumPrivKey) Equal(p PrivateKey) bool { return priv.PrivateKey.Equal(p) }
-func (priv *dilithiumPrivKey) Pack() []byte {
+func (priv *dilithiumPrivKey) Bytes() []byte {
 	b, _ := priv.PrivateKey.MarshalBinary()
 	return b
 }
@@ -96,7 +93,7 @@ type dilithiumPubKey struct {
 
 func (pub *dilithiumPubKey) Scheme() Scheme         { return pub.scheme }
 func (pub *dilithiumPubKey) Equal(p PublicKey) bool { return pub.PublicKey.Equal(p) }
-func (pub *dilithiumPubKey) Pack() []byte {
+func (pub *dilithiumPubKey) Bytes() []byte {
 	b, _ := pub.MarshalBinary()
 	return b
 }
