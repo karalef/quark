@@ -1,8 +1,6 @@
 package kem
 
 import (
-	"io"
-
 	circlkem "github.com/cloudflare/circl/kem"
 	"github.com/cloudflare/circl/kem/frodo/frodo640shake"
 	"github.com/cloudflare/circl/kem/kyber/kyber1024"
@@ -24,7 +22,7 @@ var (
 		Scheme:    kyber1024.Scheme(),
 	}
 	frodoScheme = circlScheme{
-		Algorithm: Frodo,
+		Algorithm: Frodo640,
 		Scheme:    frodo640shake.Scheme(),
 	}
 )
@@ -36,13 +34,12 @@ type circlScheme struct {
 	circlkem.Scheme
 }
 
-func (s circlScheme) GenerateKey(rand io.Reader) (PrivateKey, PublicKey, error) {
-	seed := make([]byte, s.SeedSize())
-	if _, err := io.ReadFull(rand, seed); err != nil {
+func (s circlScheme) GenerateKey() (PrivateKey, PublicKey, error) {
+	pub, priv, err := s.Scheme.GenerateKeyPair()
+	if err != nil {
 		return nil, nil, err
 	}
-	priv, pub := s.DeriveKey(seed)
-	return priv, pub, nil
+	return &circlPrivKey{s, priv}, &circlPubKey{s, pub}, nil
 }
 
 func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
@@ -72,7 +69,7 @@ func (s circlScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
 	}, nil
 }
 
-func (s circlScheme) EncapsKeySize() int { return s.Scheme.CiphertextSize() }
+func (s circlScheme) SharedSecretSize() int { return s.Scheme.SharedKeySize() }
 
 var _ PrivateKey = &circlPrivKey{}
 
@@ -90,7 +87,7 @@ func (priv *circlPrivKey) Public() PublicKey {
 
 func (priv *circlPrivKey) Scheme() Scheme { return priv.scheme }
 
-func (priv *circlPrivKey) Pack() []byte {
+func (priv *circlPrivKey) Bytes() []byte {
 	b, _ := priv.PrivateKey.MarshalBinary()
 	return b
 }
@@ -116,7 +113,7 @@ type circlPubKey struct {
 
 func (pub *circlPubKey) Scheme() Scheme { return pub.scheme }
 
-func (pub *circlPubKey) Pack() []byte {
+func (pub *circlPubKey) Bytes() []byte {
 	b, _ := pub.MarshalBinary()
 	return b
 }
