@@ -66,13 +66,6 @@ type dilithiumPrivKey struct {
 	circlsign.PrivateKey
 }
 
-func (priv *dilithiumPrivKey) Public() PublicKey {
-	return &dilithiumPubKey{
-		scheme:    priv.scheme,
-		PublicKey: priv.PrivateKey.Public().(circlsign.PublicKey),
-	}
-}
-
 func (priv *dilithiumPrivKey) Scheme() Scheme          { return priv.scheme }
 func (priv *dilithiumPrivKey) Equal(p PrivateKey) bool { return priv.PrivateKey.Equal(p) }
 func (priv *dilithiumPrivKey) Bytes() []byte {

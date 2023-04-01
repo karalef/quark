@@ -1,8 +1,6 @@
 package sign
 
-import (
-	"errors"
-)
+import "errors"
 
 // Algorithm type.
 type Algorithm string
@@ -10,12 +8,12 @@ type Algorithm string
 // available algorithms.
 const (
 	// Dilithium2ED25519 hybrids Dilithium mode2 with ed25519
-	Dilithium2ED25519 Algorithm = "DILITHIUM2ED25519"
+	Dilithium2ED25519 Algorithm = "DILITHIUM2_ED25519"
 
 	// Dilithium3ED448 hybrids Dilithium mode3 with ed448
-	Dilithium3ED448 Algorithm = "DILITHIUM3ED448"
+	Dilithium3ED448 Algorithm = "DILITHIUM3_ED448"
 
-	//Falcon
+	Falcon1024 Algorithm = "FALCON1024"
 	//Rainbow
 )
 
@@ -31,6 +29,7 @@ func ListAll() []Scheme {
 var schemes = map[Algorithm]Scheme{
 	Dilithium2ED25519: dilithium2ed25519Scheme,
 	Dilithium3ED448:   dilithium3ed448Scheme,
+	Falcon1024:        falcon1024Scheme,
 }
 
 func (alg Algorithm) Alg() Algorithm { return alg }
@@ -77,7 +76,6 @@ type Scheme interface {
 
 // PrivateKey represents a signing private key.
 type PrivateKey interface {
-	Public() PublicKey
 	Scheme() Scheme
 
 	Equal(PrivateKey) bool
@@ -105,4 +103,6 @@ type PublicKey interface {
 // errors.
 var (
 	ErrInvalidSignature = errors.New("invalid signature")
+	ErrInvalidSeedSize  = errors.New("invalid seed size")
+	ErrInvalidKeySize   = errors.New("invalid key size")
 )
