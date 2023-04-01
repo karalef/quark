@@ -19,6 +19,15 @@ const (
 	//Rainbow
 )
 
+// ListAll returns all available signature schemes.
+func ListAll() []Scheme {
+	a := make([]Scheme, 0, len(schemes))
+	for _, v := range schemes {
+		a = append(a, v)
+	}
+	return a
+}
+
 var schemes = map[Algorithm]Scheme{
 	Dilithium2ED25519: dilithium2ed25519Scheme,
 	Dilithium3ED448:   dilithium3ed448Scheme,

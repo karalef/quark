@@ -11,6 +11,15 @@ const (
 	Frodo640  Algorithm = "FRODO640SHAKE"
 )
 
+// ListAll returns all available KEM schemes.
+func ListAll() []Scheme {
+	a := make([]Scheme, 0, len(schemes))
+	for _, v := range schemes {
+		a = append(a, v)
+	}
+	return a
+}
+
 var schemes = map[Algorithm]Scheme{
 	Kyber512:  kyber512Scheme,
 	Kyber768:  kyber768Scheme,

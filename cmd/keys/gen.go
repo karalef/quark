@@ -6,6 +6,7 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cipher"
 	"github.com/karalef/quark/cmd/storage"
+	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/sign"
 	"github.com/urfave/cli/v2"
@@ -64,7 +65,7 @@ var DefaultScheme = quark.Scheme{
 	KEM:    kem.Kyber768.Scheme(),
 	Cipher: cipher.XChacha20Poly1305.Scheme(),
 	Sign:   sign.Dilithium3ED448.Scheme(),
-	Hash:   quark.HashSHA256.Scheme(),
+	Hash:   hash.SHA256.Scheme(),
 }.String()
 
 func GenerateKeySet(scheme string, name, email string) (quark.PrivateKeyset, error) {
@@ -79,28 +80,23 @@ func GenerateKeySet(scheme string, name, email string) (quark.PrivateKeyset, err
 func PrintSchemes() {
 	fmt.Println("All available algorithms")
 
-	fmt.Println()
-	fmt.Println("KEM:")
-	fmt.Println(kem.Kyber512, kem.Kyber512.Scheme().SharedSecretSize())
-	fmt.Println(kem.Kyber768, kem.Kyber768.Scheme().SharedSecretSize())
-	fmt.Println(kem.Kyber1024, kem.Kyber1024.Scheme().SharedSecretSize())
-	fmt.Println(kem.Frodo640, kem.Frodo640.Scheme().SharedSecretSize())
+	fmt.Println("\nKEM:")
+	for _, k := range kem.ListAll() {
+		fmt.Printf("%s\t%d\n", k.Alg(), k.SharedSecretSize())
+	}
 
-	fmt.Println()
-	fmt.Println("CIPHERS:")
-	fmt.Println(cipher.AESGCM128, cipher.AESGCM128.Scheme().KeySize())
-	fmt.Println(cipher.AESGCM192, cipher.AESGCM192.Scheme().KeySize())
-	fmt.Println(cipher.AESGCM256, cipher.AESGCM256.Scheme().KeySize())
-	fmt.Println(cipher.XChacha20Poly1305, cipher.XChacha20Poly1305.Scheme().KeySize())
+	fmt.Println("\nCIPHERS:")
+	for _, c := range cipher.ListAll() {
+		fmt.Printf("%s\t%d\n", c.Alg(), c.KeySize())
+	}
 
-	fmt.Println()
-	fmt.Println("SIGNATURES:")
-	fmt.Println(sign.Dilithium2ED25519)
-	fmt.Println(sign.Dilithium3ED448)
+	fmt.Println("\nSIGNATURES:")
+	for _, s := range sign.ListAll() {
+		fmt.Println(s.Alg())
+	}
 
-	fmt.Println()
-	fmt.Println("HASHES:")
-	fmt.Println(quark.HashSHA256)
-	fmt.Println(quark.HashSHA384)
-	fmt.Println(quark.HashSHA512)
+	fmt.Println("\nHASHES:")
+	for _, h := range hash.ListAll() {
+		fmt.Println(h.Alg())
+	}
 }

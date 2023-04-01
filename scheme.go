@@ -5,12 +5,13 @@ import (
 	"strings"
 
 	"github.com/karalef/quark/cipher"
+	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/sign"
 )
 
 const (
-	schemeDelim = "_"
+	schemeDelim = "::"
 
 	// kem, cipher, sign, hash
 	schemeParts = 4
@@ -26,7 +27,7 @@ func ParseScheme(s string) (Scheme, error) {
 		KEM:    kem.Algorithm(parts[0]).Scheme(),
 		Cipher: cipher.Algorithm(parts[1]).Scheme(),
 		Sign:   sign.Algorithm(parts[2]).Scheme(),
-		Hash:   HashAlg(parts[3]).Scheme(),
+		Hash:   hash.Algorithm(parts[3]).Scheme(),
 	}
 	if !sch.IsValid() {
 		return Scheme{}, ErrInvalidScheme
@@ -40,7 +41,7 @@ type Scheme struct {
 	KEM    kem.Scheme
 	Cipher cipher.Scheme
 	Sign   sign.Scheme
-	Hash   HashScheme
+	Hash   hash.Scheme
 }
 
 func (s Scheme) String() string {

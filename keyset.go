@@ -2,6 +2,7 @@ package quark
 
 import (
 	"github.com/karalef/quark/cipher"
+	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/sign"
 )
@@ -50,7 +51,7 @@ type PublicKeyset interface {
 	SignPublicKey() sign.PublicKey
 
 	CipherScheme() cipher.Scheme
-	Hash() HashScheme
+	Hash() hash.Scheme
 
 	// Encapsulate generates and encapsulates the key and creates a new Cipher with generated key.
 	Encapsulate() ([]byte, cipher.Cipher, error)
@@ -81,7 +82,7 @@ func validateKEMSet(k kem.Scheme, c cipher.Scheme) bool {
 	return k.SharedSecretSize() == c.KeySize()
 }
 
-func NewPrivateKeyset(id Identity, k kem.PrivateKey, ciph cipher.Scheme, s sign.PrivateKey, h HashScheme) (*private, error) {
+func NewPrivateKeyset(id Identity, k kem.PrivateKey, ciph cipher.Scheme, s sign.PrivateKey, h hash.Scheme) (*private, error) {
 	pub, err := NewPublicKeyset(id, k.Public(), ciph, s.Public(), h)
 	if err != nil {
 		return nil, err
@@ -116,7 +117,7 @@ func (p *private) Sign(msg []byte) ([]byte, error) {
 	return p.sign.Sign(p.hash.Sum(msg))
 }
 
-func NewPublicKeyset(id Identity, k kem.PublicKey, ciph cipher.Scheme, s sign.PublicKey, h HashScheme) (*public, error) {
+func NewPublicKeyset(id Identity, k kem.PublicKey, ciph cipher.Scheme, s sign.PublicKey, h hash.Scheme) (*public, error) {
 	if !validateKEMSet(k.Scheme(), ciph) {
 		return nil, ErrInvalidScheme
 	}
@@ -136,14 +137,14 @@ type public struct {
 	sign     sign.PublicKey
 	kem      kem.PublicKey
 	cipher   cipher.Scheme
-	hash     HashScheme
+	hash     hash.Scheme
 }
 
 func (p *public) Identity() Identity            { return p.identity }
 func (p *public) KEMPublicKey() kem.PublicKey   { return p.kem }
 func (p *public) SignPublicKey() sign.PublicKey { return p.sign }
 func (p *public) CipherScheme() cipher.Scheme   { return p.cipher }
-func (p *public) Hash() HashScheme              { return p.hash }
+func (p *public) Hash() hash.Scheme             { return p.hash }
 
 func (p *public) Encapsulate() ([]byte, cipher.Cipher, error) {
 	ct, ss, err := p.kem.Encapsulate()
