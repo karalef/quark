@@ -1,11 +1,6 @@
 package sign
 
-import (
-	"crypto/rand"
-	"io"
-
-	"github.com/algorand/falcon"
-)
+import "github.com/algorand/falcon"
 
 var falcon1024Scheme Scheme = falconScheme{}
 
@@ -14,14 +9,6 @@ type falconScheme struct{}
 const falconSeedSize = 48
 
 func (falconScheme) Alg() Algorithm { return Falcon1024 }
-
-func (s falconScheme) GenerateKey() (PrivateKey, PublicKey, error) {
-	var seed [falconSeedSize]byte
-	if _, err := io.ReadFull(rand.Reader, seed[:]); err != nil {
-		return nil, nil, err
-	}
-	return s.derive(seed[:])
-}
 
 func (s falconScheme) derive(seed []byte) (PrivateKey, PublicKey, error) {
 	if len(seed) != s.SeedSize() {

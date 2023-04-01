@@ -24,14 +24,6 @@ type dilithiumScheme struct {
 	circlsign.Scheme
 }
 
-func (s dilithiumScheme) GenerateKey() (PrivateKey, PublicKey, error) {
-	pub, priv, err := s.Scheme.GenerateKey()
-	if err != nil {
-		return nil, nil, err
-	}
-	return &dilithiumPrivKey{s, priv}, &dilithiumPubKey{s, pub}, nil
-}
-
 func (s dilithiumScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
 	pub, priv := s.Scheme.DeriveKey(seed)
 	return &dilithiumPrivKey{s, priv}, &dilithiumPubKey{s, pub}

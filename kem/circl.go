@@ -34,14 +34,6 @@ type circlScheme struct {
 	circlkem.Scheme
 }
 
-func (s circlScheme) GenerateKey() (PrivateKey, PublicKey, error) {
-	pub, priv, err := s.Scheme.GenerateKeyPair()
-	if err != nil {
-		return nil, nil, err
-	}
-	return &circlPrivKey{s, priv}, &circlPubKey{s, pub}, nil
-}
-
 func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
 	pub, priv := s.Scheme.DeriveKeyPair(seed)
 	return &circlPrivKey{s, priv}, &circlPubKey{s, pub}
@@ -116,6 +108,10 @@ func (pub *circlPubKey) Equal(p PublicKey) bool {
 	return pub.pk.Equal(pk.pk)
 }
 
-func (pub *circlPubKey) Encapsulate() (ciphertext, secret []byte, err error) {
-	return pub.sch.Scheme.Encapsulate(pub.pk)
+func (pub *circlPubKey) Encapsulate(seed []byte) (ciphertext, secret []byte) {
+	ct, ss, err := pub.sch.Scheme.EncapsulateDeterministically(pub.pk, seed)
+	if err != nil {
+		panic(err)
+	}
+	return ct, ss
 }
