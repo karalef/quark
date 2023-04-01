@@ -74,7 +74,6 @@ type Scheme interface {
 
 // PrivateKey represents a KEM private key.
 type PrivateKey interface {
-	Public() PublicKey
 	Scheme() Scheme
 
 	Equal(PrivateKey) bool

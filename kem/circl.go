@@ -39,20 +39,12 @@ func (s circlScheme) GenerateKey() (PrivateKey, PublicKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	pk := &circlPubKey{
-		scheme: s,
-		pk:     pub,
-	}
-	return &circlPrivKey{pk: pk, sk: priv}, pk, nil
+	return &circlPrivKey{s, priv}, &circlPubKey{s, pub}, nil
 }
 
 func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
 	pub, priv := s.Scheme.DeriveKeyPair(seed)
-	pk := &circlPubKey{
-		scheme: s,
-		pk:     pub,
-	}
-	return &circlPrivKey{pk: pk, sk: priv}, pk
+	return &circlPrivKey{s, priv}, &circlPubKey{s, pub}
 }
 
 func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
@@ -61,8 +53,8 @@ func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
 		return nil, err
 	}
 	return &circlPubKey{
-		scheme: s,
-		pk:     pub,
+		sch: s,
+		pk:  pub,
 	}, nil
 }
 
@@ -72,11 +64,8 @@ func (s circlScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
 		return nil, err
 	}
 	return &circlPrivKey{
-		pk: &circlPubKey{
-			scheme: s,
-			pk:     priv.Public(),
-		},
-		sk: priv,
+		sch: s,
+		sk:  priv,
 	}, nil
 }
 
@@ -85,12 +74,11 @@ func (s circlScheme) SharedSecretSize() int { return s.Scheme.SharedKeySize() }
 var _ PrivateKey = &circlPrivKey{}
 
 type circlPrivKey struct {
-	pk *circlPubKey
-	sk circlkem.PrivateKey
+	sch circlScheme
+	sk  circlkem.PrivateKey
 }
 
-func (priv *circlPrivKey) Public() PublicKey { return priv.pk }
-func (priv *circlPrivKey) Scheme() Scheme    { return priv.pk.scheme }
+func (priv *circlPrivKey) Scheme() Scheme { return priv.sch }
 
 func (priv *circlPrivKey) Bytes() []byte {
 	b, _ := priv.sk.MarshalBinary()
@@ -103,17 +91,17 @@ func (priv *circlPrivKey) Equal(p PrivateKey) bool {
 }
 
 func (priv *circlPrivKey) Decapsulate(ciphertext []byte) ([]byte, error) {
-	return priv.pk.scheme.Decapsulate(priv.sk, ciphertext)
+	return priv.sch.Decapsulate(priv.sk, ciphertext)
 }
 
 var _ PublicKey = &circlPubKey{}
 
 type circlPubKey struct {
-	scheme circlScheme
-	pk     circlkem.PublicKey
+	sch circlScheme
+	pk  circlkem.PublicKey
 }
 
-func (pub *circlPubKey) Scheme() Scheme { return pub.scheme }
+func (pub *circlPubKey) Scheme() Scheme { return pub.sch }
 
 func (pub *circlPubKey) Bytes() []byte {
 	b, _ := pub.pk.MarshalBinary()
@@ -129,5 +117,5 @@ func (pub *circlPubKey) Equal(p PublicKey) bool {
 }
 
 func (pub *circlPubKey) Encapsulate() (ciphertext, secret []byte, err error) {
-	return pub.scheme.Scheme.Encapsulate(pub.pk)
+	return pub.sch.Scheme.Encapsulate(pub.pk)
 }
