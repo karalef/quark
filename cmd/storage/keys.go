@@ -15,14 +15,14 @@ var pubkeysOnce, privkeysOnce sync.Once
 
 func PublicKeysFS() wfs.Filesystem {
 	pubkeysOnce.Do(func() {
-		rootFS.MkdirAll(pubkeysDir, 0600)
+		rootFS.MkdirAll(pubkeysDir, 0700)
 	})
 	return rootFS.ChangeDir(pubkeysDir)
 }
 
 func PrivateKeysFS() wfs.Filesystem {
 	privkeysOnce.Do(func() {
-		rootFS.MkdirAll(privkeysDir, 0600)
+		rootFS.MkdirAll(privkeysDir, 0700)
 	})
 	return rootFS.ChangeDir(privkeysDir)
 }

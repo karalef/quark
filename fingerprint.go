@@ -7,13 +7,16 @@ import (
 
 // KeysetIDOf returns keyset ID of a public keyset.
 func KeysetIDOf(p PublicKeyset) KeysetID {
-	fp := FingerprintOf(p)
-	return KeysetID(fp[:8])
+	return KeysetIDByFP(FingerprintOf(p))
 }
 
 // KeysetIDBytes returns keyset ID of a byte slice.
 func KeysetIDBytes(b []byte) KeysetID {
-	fp := FingerprintBytes(b)
+	return KeysetIDByFP(FingerprintBytes(b))
+}
+
+// KeysetIDByFP calculates keyset ID by fingerprint.
+func KeysetIDByFP(fp Fingerprint) KeysetID {
 	return KeysetID(fp[:8])
 }
 

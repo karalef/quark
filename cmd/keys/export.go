@@ -1,24 +1,24 @@
 package keys
 
 import (
+	"fmt"
 	"os"
 
-	"github.com/karalef/quark/cmd/storage"
 	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
 
 var ExportCMD = &cli.Command{
-	Name:     "export",
-	Usage:    "export a keyset",
-	Category: "key management",
-	Aliases:  []string{"exp"},
+	Name:      "export",
+	Usage:     "export a public keyset to a file",
+	Category:  "key management",
+	Aliases:   []string{"exp"},
+	ArgsUsage: "<id>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "f",
-			Usage:    "export to file",
-			Aliases:  []string{"file"},
-			Required: true,
+			Name:    "f",
+			Usage:   "file name",
+			Aliases: []string{"file"},
 		},
 	},
 	Action: func(c *cli.Context) error {
@@ -26,28 +26,29 @@ var ExportCMD = &cli.Command{
 			return cli.ShowCommandHelp(c, "export")
 		}
 
-		fs := storage.PrivateKeysFS()
-		pksFileName, err := findKeysetFile(fs, c.Args().First())
+		pks, err := UsePublic(c.Args().First())
 		if err != nil {
 			return err
 		}
 
-		pksFile, err := fs.Open(pksFileName)
+		file := c.String("f")
+		if file == "" {
+			file = pubFileName(pks.Identity().Name)
+		}
+
+		f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			return err
 		}
-		defer pksFile.Close()
+		defer f.Close()
 
-		pks, err := pack.UnpackPrivate(pksFile)
+		err = pack.Public(f, pks)
 		if err != nil {
 			return err
 		}
 
-		f, err := os.OpenFile(c.String("f"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-		if err != nil {
-			return err
-		}
+		fmt.Println("exported", IDOf(pks), file)
 
-		return pack.Public(f, pks)
+		return nil
 	},
 }

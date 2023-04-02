@@ -14,8 +14,15 @@ var rootPath = func() string {
 	if err != nil {
 		panic("unable to get user home directory")
 	}
-	os.MkdirAll(filepath.Join(p, dirName), 0755)
+	err = os.MkdirAll(filepath.Join(p, dirName), 0700)
+	if err != nil && err != os.ErrExist {
+		panic("unable to create storage directory")
+	}
 	return filepath.Join(p, dirName)
 }()
 
 var rootFS = wfs.OpenOS(rootPath)
+
+func RootFS() wfs.Filesystem {
+	return rootFS
+}

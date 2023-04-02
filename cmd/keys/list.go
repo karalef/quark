@@ -3,51 +3,44 @@ package keys
 import (
 	"fmt"
 
-	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/storage"
-	"github.com/karalef/wfs"
+	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
 
 var ListCMD = &cli.Command{
-	Name:  "list",
-	Usage: "list keys",
+	Name:    "list",
+	Aliases: []string{"ls"},
+	Usage:   "list keysets",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "s",
+			Aliases: []string{"secrets"},
+			Usage:   "list secret keysets",
+		},
+	},
 	Action: func(c *cli.Context) error {
-		priv, pub, err := listAll()
+		pubs, err := list(c.Bool("s"))
 		if err != nil {
 			return err
 		}
-		PrintKeys(priv, pub)
+		for i := range pubs {
+			printKey(pubs[i])
+		}
 		return nil
 	},
 }
 
-type KeysetEntry struct {
-	ID          string
-	Fingerprint string
-	Name        string
-	Email       string
-	Scheme      string
-}
-
-func listAll() (priv, pub []KeysetEntry, err error) {
-	priv, err = listFS(storage.PrivateKeysFS())
-	if err != nil {
-		return nil, nil, err
+func list(secrets bool) ([]pack.KeysetData, error) {
+	fs := storage.PublicKeysFS()
+	if secrets {
+		fs = storage.PrivateKeysFS()
 	}
-	pub, err = listFS(storage.PublicKeysFS())
-	if err != nil {
-		return nil, nil, err
-	}
-	return priv, pub, nil
-}
-
-func listFS(fs wfs.Filesystem) ([]KeysetEntry, error) {
 	dir, err := fs.ReadDir(".")
 	if err != nil {
 		return nil, err
 	}
-	list := make([]KeysetEntry, 0, len(dir))
+	list := make([]pack.KeysetData, 0, len(dir))
 	for _, entry := range dir {
 		if entry.IsDir() {
 			continue
@@ -56,58 +49,27 @@ func listFS(fs wfs.Filesystem) ([]KeysetEntry, error) {
 		if err != nil {
 			return nil, err
 		}
-		e, err := loadKeysetEntry(f)
-		if err != nil {
-			return nil, err
+		var ksd pack.KeysetData
+		if secrets {
+			pk, err := pack.PreunpackPrivate(f)
+			if err != nil {
+				return nil, err
+			}
+			ksd = pk.KeysetData
+		} else {
+			pk, err := pack.PreunpackPublic(f)
+			if err != nil {
+				return nil, err
+			}
+			ksd = pk.KeysetData
+
 		}
 
-		list = append(list, e)
+		list = append(list, ksd)
 	}
 	return list, err
 }
 
-func loadKeysetEntry(f wfs.File) (KeysetEntry, error) {
-	pk, err := loadKeyset(f)
-	if err != nil {
-		return KeysetEntry{}, err
-	}
-	e := KeysetEntry{
-		Name:   pk.Identity.Name,
-		Email:  pk.Identity.Email,
-		Scheme: pk.Scheme,
-	}
-
-	var ks quark.PublicKeyset
-	if pk.IsPrivate {
-		ks, err = pk.UnpackPrivate()
-	} else {
-		ks, err = pk.UnpackPublic()
-	}
-	if err != nil {
-		return KeysetEntry{}, err
-	}
-
-	e.Fingerprint = Fingerprint(ks)
-	e.ID = KeyID(ks)
-	return e, nil
-}
-
-func PrintKeys(priv, pub []KeysetEntry) {
-	if len(priv) > 0 {
-		fmt.Println("private keys:")
-		for _, k := range priv {
-			printKey(k)
-		}
-	}
-
-	if len(pub) > 0 {
-		fmt.Println("\npublic keys:")
-		for _, k := range pub {
-			printKey(k)
-		}
-	}
-}
-
-func printKey(k KeysetEntry) {
-	fmt.Printf("%s\t%s <%s>\n\t%s\t%s\n", k.ID, k.Name, k.Email, k.Scheme, k.Fingerprint)
+func printKey(k pack.KeysetData) {
+	fmt.Printf("%s\t%s <%s>\n\t%s\t%s\n", IDByFP(k.Fingerprint), k.Identity.Name, k.Identity.Email, k.Scheme, k.Fingerprint.String())
 }

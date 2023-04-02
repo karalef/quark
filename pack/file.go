@@ -14,7 +14,7 @@ func File(out io.Writer, file *quark.File) error {
 // UnpackFile unpacks a file object in binary format.
 func UnpackFile(in io.Reader) (*quark.File, error) {
 	file := new(quark.File)
-	err := Unpack(in, new(quark.File))
+	err := Unpack(in, file)
 	if err != nil {
 		return nil, err
 	}

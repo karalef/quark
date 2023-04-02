@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/karalef/quark/cmd/enc"
@@ -26,6 +27,6 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 }

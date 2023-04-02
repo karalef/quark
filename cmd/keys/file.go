@@ -4,14 +4,22 @@ import (
 	"os"
 
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/cmd/storage"
 	"github.com/karalef/quark/pack"
 	"github.com/karalef/wfs"
 )
 
-const keysetExt = ".qks"
+const (
+	pubKeysetExt  = ".qpk"
+	privKeysetExt = ".qsk"
+)
 
-func keysetFileName(keyID string) string {
-	return keyID + keysetExt
+func pubFileName(id string) string {
+	return id + pubKeysetExt
+}
+
+func privFileName(id string) string {
+	return id + privKeysetExt
 }
 
 // CreateFile creates a new WRONLY file and returns error if it already exists.
@@ -19,54 +27,39 @@ func CreateFile(fs wfs.Filesystem, name string) (wfs.File, error) {
 	return fs.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 }
 
-func loadKeyset(f wfs.File) (*pack.PackedKeyset, error) {
-	var ks pack.PackedKeyset
-	if err := pack.Unpack(f, &ks); err != nil {
-		return nil, err
-	}
-	return &ks, nil
-}
-
-func LoadKey(fs wfs.Filesystem, keyID string) (*pack.PackedKeyset, error) {
-	f, err := fs.Open(keysetFileName(keyID))
+func LoadPublic(keysetID string) (quark.PublicKeyset, error) {
+	f, err := storage.PublicKeysFS().Open(pubFileName(keysetID))
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	return loadKeyset(f)
+	return pack.UnpackPublic(f)
 }
 
-func LoadPub(fs wfs.Filesystem, keyID string) (quark.PublicKeyset, error) {
-	pks, err := LoadKey(fs, keyID)
+func LoadPrivavte(keysetID string) (quark.PrivateKeyset, error) {
+	f, err := storage.PublicKeysFS().Open(privFileName(keysetID))
 	if err != nil {
 		return nil, err
 	}
-	return pks.UnpackPublic()
+	defer f.Close()
+
+	return pack.UnpackPrivate(f)
 }
 
-func LoadPriv(fs wfs.Filesystem, keyID string) (quark.PrivateKeyset, error) {
-	pks, err := LoadKey(fs, keyID)
-	if err != nil {
-		return nil, err
-	}
-	return pks.UnpackPrivate()
-}
-
-func WritePubFile(fs wfs.Filesystem, k quark.PublicKeyset) error {
-	f, err := CreateFile(fs, keysetFileName(KeyID(k)))
+func writeFile(fs wfs.Filesystem, name string, v any) error {
+	f, err := CreateFile(fs, name)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	return pack.Public(f, k)
+	return pack.Pack(f, v)
 }
 
-func WritePrivFile(fs wfs.Filesystem, k quark.PrivateKeyset) error {
-	f, err := CreateFile(fs, keysetFileName(KeyID(k)))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return pack.Private(f, k)
+func writePubPrepacked(fs wfs.Filesystem, k pack.PackedPublic) error {
+	return writeFile(fs, pubFileName(quark.KeysetIDByFP(k.Fingerprint).String()), k)
+}
+
+func writePrivPrepacked(fs wfs.Filesystem, k pack.PackedPrivate) error {
+	return writeFile(fs, privFileName(quark.KeysetIDByFP(k.Fingerprint).String()), k)
 }

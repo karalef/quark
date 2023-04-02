@@ -5,7 +5,6 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cipher"
-	"github.com/karalef/quark/cmd/storage"
 	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/sign"
@@ -52,11 +51,11 @@ var Gen = &cli.Command{
 			return err
 		}
 
-		err = WritePrivFile(storage.PrivateKeysFS(), ks)
+		err = ImportPrivate(ks)
 		if err != nil {
 			return err
 		}
-		fmt.Println("generated keyset", KeyID(ks))
+		fmt.Println("generated keyset", quark.KeysetIDOf(ks))
 		return nil
 	},
 }
