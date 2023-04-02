@@ -1,6 +1,8 @@
 package quark
 
 import (
+	"errors"
+
 	"github.com/karalef/quark/cipher"
 	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
@@ -12,12 +14,12 @@ func Generate(id Identity, scheme Scheme) (PrivateKeyset, error) {
 		return nil, ErrInvalidScheme
 	}
 
-	signPriv, signPub, err := scheme.Sign.GenerateKey()
+	signPriv, signPub, err := sign.Generate(scheme.Sign, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	kemPriv, kemPub, err := scheme.KEM.GenerateKey()
+	kemPriv, kemPub, err := kem.Generate(scheme.KEM, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -82,10 +84,10 @@ func validateKEMSet(k kem.Scheme, c cipher.Scheme) bool {
 	return k.SharedSecretSize() == c.KeySize()
 }
 
-func NewPrivateKeyset(id Identity, k kem.PrivateKey, ciph cipher.Scheme, s sign.PrivateKey, h hash.Scheme) (*private, error) {
-	pub, err := NewPublicKeyset(id, k.Public(), ciph, s.Public(), h)
-	if err != nil {
-		return nil, err
+func NewPrivateKeyset(pk PublicKeyset, k kem.PrivateKey, s sign.PrivateKey) (*private, error) {
+	pub, ok := pk.(*public)
+	if !ok {
+		return nil, errors.New("invalid public key")
 	}
 	return &private{
 		public: pub,
@@ -147,7 +149,7 @@ func (p *public) CipherScheme() cipher.Scheme   { return p.cipher }
 func (p *public) Hash() hash.Scheme             { return p.hash }
 
 func (p *public) Encapsulate() ([]byte, cipher.Cipher, error) {
-	ct, ss, err := p.kem.Encapsulate()
+	ct, ss, err := kem.Encapsulate(p.kem, nil)
 	if err != nil {
 		return nil, nil, err
 	}

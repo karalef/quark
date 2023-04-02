@@ -35,8 +35,12 @@ func ParseScheme(s string) (Scheme, error) {
 	return sch, nil
 }
 
-var ErrInvalidScheme = errors.New("invalid scheme")
+// scheme errors.
+var (
+	ErrInvalidScheme = errors.New("invalid scheme")
+)
 
+// Scheme type.
 type Scheme struct {
 	KEM    kem.Scheme
 	Cipher cipher.Scheme
@@ -51,6 +55,7 @@ func (s Scheme) String() string {
 		s.Hash.Alg().String())
 }
 
+// IsValid returns true if scheme is valid.
 func (s Scheme) IsValid() bool {
 	if !(s.KEM != nil && s.Cipher != nil &&
 		s.Sign != nil && s.Hash != nil) {
