@@ -12,46 +12,50 @@ import (
 )
 
 var EncryptCMD = &cli.Command{
-	Name:     "enc",
-	Aliases:  []string{"e", "encrypt"},
-	Category: "encrypt/decrypt",
-	Usage:    "encrypt and sign",
+	Name:      "encrypt",
+	Aliases:   []string{"e", "enc"},
+	Category:  "encrypt/decrypt",
+	Usage:     "encrypt and sign",
+	ArgsUsage: "<input file>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "r",
+			Name:     "recipient",
 			Usage:    "encrypt for given keyset",
-			Aliases:  []string{"recipient"},
+			Aliases:  []string{"r"},
 			Required: true,
 		},
 		&cli.StringFlag{
-			Name:    "k",
+			Name:    "key",
 			Usage:   "sign with given private keyset",
-			Aliases: []string{"key"},
+			Aliases: []string{"k"},
 		},
 		&cli.StringFlag{
-			Name:     "i",
-			Usage:    "input file",
-			Aliases:  []string{"input", "file"},
-			Required: true,
+			Name:        "out",
+			Usage:       "output file",
+			Aliases:     []string{"o", "output"},
+			DefaultText: "/dev/stdout",
 		},
 	},
 	Action: func(c *cli.Context) error {
-		out := io.Writer(os.Stdout)
-		if c.Args().Present() {
-			var err error
-			out, err = os.OpenFile(c.Args().First(), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		var input = c.Args().First()
+		if input == "" {
+			return cli.NewExitError("missing input file", 1)
+		}
+		inputFile, err := os.Open(input)
+		if err != nil {
+			return err
+		}
+		defer inputFile.Close()
+
+		out := os.Stdout
+		if outFile := c.String("out"); outFile != "" {
+			out, err = os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 			if err != nil {
 				return err
 			}
 		}
 
-		input, err := os.Open(c.String("i"))
-		if err != nil {
-			return err
-		}
-		defer input.Close()
-
-		return encrypt(input, out, c.String("k"), c.String("r"))
+		return encrypt(inputFile, out, c.String("k"), c.String("r"))
 	},
 }
 
