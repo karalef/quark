@@ -17,7 +17,7 @@ const (
 	schemeParts = 4
 )
 
-// ParseScheme parses string with format "KEM_CIPHER_SIGN_HASH".
+// ParseScheme parses string with format "KEM::CIPHER::SIGN::HASH".
 func ParseScheme(s string) (Scheme, error) {
 	parts := strings.Split(strings.ToUpper(s), schemeDelim)
 	if len(parts) != schemeParts {

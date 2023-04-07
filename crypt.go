@@ -33,9 +33,9 @@ func Decrypt(ciphertext []byte, encryptedKey []byte, to PrivateKeyset) (data []b
 		return nil, err
 	}
 
-	ciphScheme := to.CipherScheme()
+	nonceSize := to.CipherScheme().NonceSize()
 
-	data = make([]byte, 0, len(ciphertext[ciphScheme.NonceSize():])+ciphScheme.Overhead())
+	data = make([]byte, 0, len(ciphertext)-nonceSize)
 
-	return cipher.Open(data, ciphertext[:ciphScheme.NonceSize()], ciphertext[ciphScheme.NonceSize():])
+	return cipher.Open(data, ciphertext[:nonceSize], ciphertext[nonceSize:])
 }
