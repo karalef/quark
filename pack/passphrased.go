@@ -10,78 +10,79 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
+// passphrased consts
 const (
 	PassphrasedSaltSize = 32
 	PassphrasedIVSize   = aes.BlockSize
 )
 
-var (
-	ErrInvalidPassphrase = errors.New("invalid passphrase")
-)
+// ErrInvalidPassphrase is returned when the passphrase is empty.
+var ErrInvalidPassphrase = errors.New("invalid passphrase")
 
-func Passphrased(w io.Writer, passphrase string, rand io.Reader) (io.Writer, error) {
-	salt, err := internal.RandRead(rand, PassphrasedSaltSize)
-	if err != nil {
-		return nil, err
-	}
-	iv, err := internal.RandRead(rand, PassphrasedIVSize)
-	if err != nil {
-		return nil, err
-	}
-	return PassphrasedOpts(w, passphrase, salt, iv)
-}
-
-func PassphrasedOpts(w io.Writer, passphrase string, salt, iv []byte) (io.Writer, error) {
+func newPasspharsed(passphrase string, salt, iv []byte) (cipher.Stream, error) {
 	if len(passphrase) == 0 {
 		return nil, ErrInvalidPassphrase
 	}
 	if len(salt) != PassphrasedSaltSize {
 		panic("invalid salt size")
 	}
-	key := argon2.IDKey([]byte(passphrase), salt, 1, 64*1024, 4, 32) // aes256
-
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err)
-	}
-	if len(iv) != block.BlockSize() {
+	if len(iv) != PassphrasedIVSize {
 		panic("invalid iv size")
 	}
 
-	// write header
-	_, err = w.Write(salt)
-	if err != nil {
-		return nil, err
-	}
-	_, err = w.Write(iv)
-	if err != nil {
-		return nil, err
-	}
-
-	return &cipher.StreamWriter{S: cipher.NewCTR(block, iv), W: w}, nil
-}
-
-func PassphrasedDecoder(r io.Reader, passphrase string) (io.Reader, error) {
-	if len(passphrase) == 0 {
-		return nil, ErrInvalidPassphrase
-	}
-
-	// read header
-	salt := make([]byte, PassphrasedSaltSize)
-	if _, err := io.ReadFull(r, salt); err != nil {
-		return nil, err
-	}
-	iv := make([]byte, aes.BlockSize)
-	if _, err := io.ReadFull(r, iv); err != nil {
-		return nil, err
-	}
-
-	key := argon2.IDKey([]byte(passphrase), salt, 1, 64*1024, 4, 32) // aes256
+	// derive aes256 key in one pass with 64MiB memory cost on 4 threads.
+	key := argon2.IDKey([]byte(passphrase), salt, 1, 64*1024, 4, 32)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		panic(err)
+		panic(err) // must never happen
 	}
 
-	return &cipher.StreamReader{S: cipher.NewCTR(block, iv), R: r}, nil
+	return cipher.NewCTR(block, iv), nil
+}
+
+// Passphrased returns a writer encrypted with provided passphrase.
+func Passphrased(w io.Writer, passphrase string, rand io.Reader) (io.Writer, error) {
+	saltIV, err := internal.RandRead(rand, PassphrasedSaltSize+PassphrasedIVSize)
+	if err != nil {
+		return nil, err
+	}
+	return PassphrasedOpts(w, passphrase, saltIV[:PassphrasedSaltSize], saltIV[PassphrasedSaltSize:])
+}
+
+// PassphrasedOpts returns a writer encrypted with provided passphrase.
+// It panics if the provided salt or iv sizes are not equal to PassphrasedSaltSize and PassphrasedIVSize.
+func PassphrasedOpts(w io.Writer, passphrase string, salt, iv []byte) (io.Writer, error) {
+	stream, err := newPasspharsed(passphrase, salt, iv)
+	if err != nil {
+		return nil, err
+	}
+
+	// write header
+	err = internal.WriteFull(w, salt)
+	if err != nil {
+		return nil, err
+	}
+	err = internal.WriteFull(w, iv)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cipher.StreamWriter{S: stream, W: w}, nil
+}
+
+// PassphrasedDecrypter returns a reader decrypted with provided passphrase.
+func PassphrasedDecrypter(r io.Reader, passphrase string) (io.Reader, error) {
+	// read header
+	saltIV := make([]byte, PassphrasedSaltSize+PassphrasedIVSize)
+	if _, err := io.ReadFull(r, saltIV); err != nil {
+		return nil, err
+	}
+
+	stream, err := newPasspharsed(passphrase, saltIV[:PassphrasedSaltSize], saltIV[PassphrasedSaltSize:])
+	if err != nil {
+		return nil, err
+	}
+
+	return &cipher.StreamReader{S: stream, R: r}, nil
 }

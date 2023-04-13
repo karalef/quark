@@ -19,7 +19,7 @@ func TestPassphrased(t *testing.T) {
 
 	io.WriteString(w, testdata)
 
-	r, err := PassphrasedDecoder(buf, passphrase)
+	r, err := PassphrasedDecrypter(buf, passphrase)
 	if err != nil {
 		t.Fatal(err)
 	}
