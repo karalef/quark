@@ -6,8 +6,10 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
+// XChaCha20Poly1305 returns XChaCha20-Poly1305 scheme.
+func XChaCha20Poly1305() Scheme { return xchacha20poly1305Scheme }
+
 var xchacha20poly1305Scheme Scheme = baseScheme{
-	Algorithm: XChacha20Poly1305,
 	keySize:   chacha20poly1305.KeySize,
 	nonceSize: chacha20poly1305.NonceSizeX,
 	overhead:  chacha20poly1305.Overhead,

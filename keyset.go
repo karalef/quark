@@ -3,9 +3,9 @@ package quark
 import (
 	"errors"
 
-	"github.com/karalef/quark/cipher"
 	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
+	"github.com/karalef/quark/kem/cipher"
 	"github.com/karalef/quark/sign"
 )
 
@@ -29,7 +29,6 @@ func Generate(id Identity, scheme Scheme) (PrivateKeyset, error) {
 			identity: id,
 			sign:     signPub,
 			kem:      kemPub,
-			cipher:   scheme.Cipher,
 			hash:     scheme.Hash,
 		},
 		sign: signPriv,
@@ -39,10 +38,9 @@ func Generate(id Identity, scheme Scheme) (PrivateKeyset, error) {
 
 func SchemeOf(k PublicKeyset) Scheme {
 	return Scheme{
-		KEM:    k.KEMPublicKey().Scheme(),
-		Cipher: k.CipherScheme(),
-		Sign:   k.SignPublicKey().Scheme(),
-		Hash:   k.Hash(),
+		KEM:  k.KEMPublicKey().Scheme(),
+		Sign: k.SignPublicKey().Scheme(),
+		Hash: k.Hash(),
 	}
 }
 
@@ -52,7 +50,6 @@ type PublicKeyset interface {
 	KEMPublicKey() kem.PublicKey
 	SignPublicKey() sign.PublicKey
 
-	CipherScheme() cipher.Scheme
 	Hash() hash.Scheme
 
 	// Encapsulate generates and encapsulates the key and creates a new Cipher with generated key.
@@ -80,10 +77,6 @@ type Identity struct {
 	Email string
 }
 
-func validateKEMSet(k kem.Scheme, c cipher.Scheme) bool {
-	return k.SharedSecretSize() == c.KeySize()
-}
-
 func NewPrivateKeyset(pk PublicKeyset, k kem.PrivateKey, s sign.PrivateKey) (*private, error) {
 	pub, ok := pk.(*public)
 	if !ok {
@@ -108,26 +101,18 @@ func (p *private) KEMPrivateKey() kem.PrivateKey   { return p.kem }
 func (p *private) SignPrivateKey() sign.PrivateKey { return p.sign }
 
 func (p *private) Decapsulate(ciphertext []byte) (cipher.Cipher, error) {
-	key, err := p.kem.Decapsulate(ciphertext)
-	if err != nil {
-		return nil, err
-	}
-	return p.cipher.Unpack(key)
+	return kem.Decapsulate(p.kem, ciphertext)
 }
 
 func (p *private) Sign(msg []byte) ([]byte, error) {
 	return p.sign.Sign(p.hash.Sum(msg))
 }
 
-func NewPublicKeyset(id Identity, k kem.PublicKey, ciph cipher.Scheme, s sign.PublicKey, h hash.Scheme) (*public, error) {
-	if !validateKEMSet(k.Scheme(), ciph) {
-		return nil, ErrInvalidScheme
-	}
+func NewPublicKeyset(id Identity, k kem.PublicKey, s sign.PublicKey, h hash.Scheme) (*public, error) {
 	return &public{
 		identity: id,
 		sign:     s,
 		kem:      k,
-		cipher:   ciph,
 		hash:     h,
 	}, nil
 }
@@ -138,26 +123,16 @@ type public struct {
 	identity Identity
 	sign     sign.PublicKey
 	kem      kem.PublicKey
-	cipher   cipher.Scheme
 	hash     hash.Scheme
 }
 
 func (p *public) Identity() Identity            { return p.identity }
 func (p *public) KEMPublicKey() kem.PublicKey   { return p.kem }
 func (p *public) SignPublicKey() sign.PublicKey { return p.sign }
-func (p *public) CipherScheme() cipher.Scheme   { return p.cipher }
 func (p *public) Hash() hash.Scheme             { return p.hash }
 
 func (p *public) Encapsulate() ([]byte, cipher.Cipher, error) {
-	ct, ss, err := kem.Encapsulate(p.kem, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	ciph, err := p.cipher.Unpack(ss)
-	if err != nil {
-		return nil, nil, err
-	}
-	return ct, ciph, nil
+	return kem.Encapsulate(p.kem, nil)
 }
 
 func (p *public) Verify(msg []byte, signature []byte) (bool, error) {

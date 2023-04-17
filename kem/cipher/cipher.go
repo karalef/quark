@@ -1,43 +1,5 @@
 package cipher
 
-// Algorithm type.
-type Algorithm string
-
-// available algorithms.
-const (
-	AESGCM128         Algorithm = "AESGCM128"
-	AESGCM192         Algorithm = "AESGCM192"
-	AESGCM256         Algorithm = "AESGCM256"
-	XChacha20Poly1305 Algorithm = "XCHACHA20POLY1305"
-)
-
-// ListAll returns all available cipher algorithms.
-func ListAll() []Scheme {
-	a := make([]Scheme, 0, len(schemes))
-	for _, v := range schemes {
-		a = append(a, v)
-	}
-	return a
-}
-
-var schemes = map[Algorithm]Scheme{
-	AESGCM128:         aesgcm128Scheme,
-	AESGCM192:         aesgcm192Scheme,
-	AESGCM256:         aesgcm256Scheme,
-	XChacha20Poly1305: xchacha20poly1305Scheme,
-}
-
-func (alg Algorithm) Alg() Algorithm { return alg }
-func (alg Algorithm) Scheme() Scheme { return schemes[alg] }
-func (alg Algorithm) IsValid() bool  { return alg.Scheme() != nil }
-
-func (alg Algorithm) String() string {
-	if !alg.IsValid() {
-		return "INVALID"
-	}
-	return string(alg)
-}
-
 // Cipher represents an authenticated cipher.
 type Cipher interface {
 	Scheme() Scheme
@@ -55,7 +17,6 @@ type Cipher interface {
 
 // Scheme type.
 type Scheme interface {
-	Alg() Algorithm
 	KeySize() int
 	NonceSize() int
 	Overhead() int
@@ -66,7 +27,6 @@ type Scheme interface {
 var _ Scheme = baseScheme{}
 
 type baseScheme struct {
-	Algorithm
 	keySize   int
 	nonceSize int
 	overhead  int

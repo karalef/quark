@@ -34,7 +34,7 @@ func (p PackedPublic) Load() (quark.PublicKeyset, error) {
 	if err != nil {
 		return nil, err
 	}
-	pub, err := quark.NewPublicKeyset(p.Identity, kemPub, sch.Cipher, signPub, sch.Hash)
+	pub, err := quark.NewPublicKeyset(p.Identity, kemPub, signPub, sch.Hash)
 	if err != nil {
 		return nil, err
 	}

@@ -6,24 +6,44 @@ import (
 	"github.com/cloudflare/circl/kem/kyber/kyber1024"
 	"github.com/cloudflare/circl/kem/kyber/kyber512"
 	"github.com/cloudflare/circl/kem/kyber/kyber768"
+	"github.com/karalef/quark/kem/cipher"
 )
 
 var (
-	kyber512Scheme = circlScheme{
-		Algorithm: Kyber512,
+	kyber512aesgcmScheme = circlScheme{
+		Algorithm: Kyber512AESGCM,
 		Scheme:    kyber512.Scheme(),
+		cipher:    cipher.AESGCM256(),
 	}
-	kyber768Scheme = circlScheme{
-		Algorithm: Kyber768,
+	kyber512XChaCha20Poly1305Scheme = circlScheme{
+		Algorithm: Kyber512XChaCha20Poly1305,
+		Scheme:    kyber512.Scheme(),
+		cipher:    cipher.XChaCha20Poly1305(),
+	}
+	kyber768AESGCMScheme = circlScheme{
+		Algorithm: Kyber768AESGCM,
 		Scheme:    kyber768.Scheme(),
+		cipher:    cipher.AESGCM256(),
 	}
-	kyber1024Scheme = circlScheme{
-		Algorithm: Kyber1024,
+	kyber768XChaCha20Poly1305Scheme = circlScheme{
+		Algorithm: Kyber768XChaCha20Poly1305,
+		Scheme:    kyber768.Scheme(),
+		cipher:    cipher.XChaCha20Poly1305(),
+	}
+	kyber1024AESGCMScheme = circlScheme{
+		Algorithm: Kyber1024AESGCM,
 		Scheme:    kyber1024.Scheme(),
+		cipher:    cipher.AESGCM256(),
 	}
-	frodoScheme = circlScheme{
-		Algorithm: Frodo640,
+	kyber1024XChaCha20Poly1305Scheme = circlScheme{
+		Algorithm: Kyber1024XChaCha20Poly1305,
+		Scheme:    kyber1024.Scheme(),
+		cipher:    cipher.XChaCha20Poly1305(),
+	}
+	frodo640ShakeAESGCMScheme = circlScheme{
+		Algorithm: Frodo640ShakeAESGCM,
 		Scheme:    frodo640shake.Scheme(),
+		cipher:    cipher.AESGCM128(),
 	}
 )
 
@@ -32,7 +52,10 @@ var _ Scheme = circlScheme{}
 type circlScheme struct {
 	Algorithm
 	circlkem.Scheme
+	cipher cipher.Scheme
 }
+
+func (s circlScheme) Cipher() cipher.Scheme { return s.cipher }
 
 func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
 	pub, priv := s.Scheme.DeriveKeyPair(seed)

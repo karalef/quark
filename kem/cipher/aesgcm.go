@@ -11,10 +11,18 @@ const (
 	aesgcmOverhead  = 12
 )
 
+// AESGCM128 returns AES128-GCM scheme.
+func AESGCM128() Scheme { return aesgcm128Scheme }
+
+// AESGCM192 returns AES192-GCM scheme.
+func AESGCM192() Scheme { return aesgcm192Scheme }
+
+// AESGCM256 returns AES256-GCM scheme.
+func AESGCM256() Scheme { return aesgcm256Scheme }
+
 var (
 	aesgcm128Scheme = aesgcmScheme{
 		baseScheme: baseScheme{
-			Algorithm: AESGCM128,
 			keySize:   16,
 			nonceSize: aesgcmNonceSize,
 			overhead:  aesgcmOverhead,
@@ -22,7 +30,6 @@ var (
 	}
 	aesgcm192Scheme = aesgcmScheme{
 		baseScheme: baseScheme{
-			Algorithm: AESGCM192,
 			keySize:   24,
 			nonceSize: aesgcmNonceSize,
 			overhead:  aesgcmOverhead,
@@ -30,7 +37,6 @@ var (
 	}
 	aesgcm256Scheme = aesgcmScheme{
 		baseScheme: baseScheme{
-			Algorithm: AESGCM256,
 			keySize:   32,
 			nonceSize: aesgcmNonceSize,
 			overhead:  aesgcmOverhead,

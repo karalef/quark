@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/cipher"
 	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/sign"
@@ -61,10 +60,9 @@ var Gen = &cli.Command{
 }
 
 var DefaultScheme = quark.Scheme{
-	KEM:    kem.Kyber768.Scheme(),
-	Cipher: cipher.XChacha20Poly1305.Scheme(),
-	Sign:   sign.Dilithium3ED448.Scheme(),
-	Hash:   hash.SHA256.Scheme(),
+	KEM:  kem.Kyber768XChaCha20Poly1305.Scheme(),
+	Sign: sign.Dilithium3ED448.Scheme(),
+	Hash: hash.SHA256.Scheme(),
 }.String()
 
 func GenerateKeySet(scheme string, name, email string) (quark.PrivateKeyset, error) {
@@ -81,12 +79,7 @@ func PrintSchemes() {
 
 	fmt.Println("\nKEM:")
 	for _, k := range kem.ListAll() {
-		fmt.Printf("%s\t%d\n", k.Alg(), k.SharedSecretSize())
-	}
-
-	fmt.Println("\nCIPHERS:")
-	for _, c := range cipher.ListAll() {
-		fmt.Printf("%s\t%d\n", c.Alg(), c.KeySize())
+		fmt.Printf("%s", k.Alg())
 	}
 
 	fmt.Println("\nSIGNATURES:")
