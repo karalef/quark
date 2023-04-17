@@ -79,7 +79,7 @@ func PrintSchemes() {
 
 	fmt.Println("\nKEM:")
 	for _, k := range kem.ListAll() {
-		fmt.Printf("%s", k.Alg())
+		fmt.Println(k.Alg())
 	}
 
 	fmt.Println("\nSIGNATURES:")
