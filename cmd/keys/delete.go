@@ -36,7 +36,7 @@ func DeleteByID(id string) (found bool, err error) {
 		return false, err
 	}
 	if privks != "" {
-		err = storage.PrivateKeysFS().Remove(privks)
+		err = storage.PrivateFS().Remove(privks)
 		if err != nil {
 			return true, err
 		}
@@ -49,5 +49,5 @@ func DeleteByID(id string) (found bool, err error) {
 		}
 		return false, err
 	}
-	return true, storage.PublicKeysFS().Remove(pubks)
+	return true, storage.PublicFS().Remove(pubks)
 }

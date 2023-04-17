@@ -32,9 +32,9 @@ var ListCMD = &cli.Command{
 }
 
 func list(secrets bool) ([]pack.KeysetData, error) {
-	fs := storage.PublicKeysFS()
+	fs := storage.PublicFS()
 	if secrets {
-		fs = storage.PrivateKeysFS()
+		fs = storage.PrivateFS()
 	}
 	dir, err := fs.ReadDir(".")
 	if err != nil {

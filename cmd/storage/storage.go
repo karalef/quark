@@ -23,6 +23,7 @@ var rootPath = func() string {
 
 var rootFS = wfs.OpenOS(rootPath)
 
+// RootFS returns the root filesystem.
 func RootFS() wfs.Filesystem {
 	return rootFS
 }

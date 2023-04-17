@@ -36,7 +36,7 @@ var ImportCMD = &cli.Command{
 			if err != nil {
 				return err
 			}
-			return writePubPrepacked(storage.PublicKeysFS(), ks.PackedPublic)
+			return writePubPrepacked(storage.PublicFS(), ks.PackedPublic)
 		}
 
 		// verify private
@@ -45,12 +45,12 @@ var ImportCMD = &cli.Command{
 			return err
 		}
 
-		err = writePubPrepacked(storage.PublicKeysFS(), ks.PackedPublic)
+		err = writePubPrepacked(storage.PublicFS(), ks.PackedPublic)
 		if err != nil {
 			return err
 		}
 
-		return writePrivPrepacked(storage.PrivateKeysFS(), ks)
+		return writePrivPrepacked(storage.PrivateFS(), ks)
 	},
 }
 
@@ -67,7 +67,7 @@ func ImportPrivate(ks quark.PrivateKeyset) error {
 }
 
 func importPublic(k quark.PublicKeyset) error {
-	f, err := CreateFile(storage.PublicKeysFS(), pubFileName(quark.KeysetIDOf(k).String()))
+	f, err := CreateFile(storage.PublicFS(), pubFileName(quark.KeysetIDOf(k).String()))
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func importPublic(k quark.PublicKeyset) error {
 }
 
 func importPrivate(k quark.PrivateKeyset) error {
-	f, err := CreateFile(storage.PrivateKeysFS(), privFileName(quark.KeysetIDOf(k).String()))
+	f, err := CreateFile(storage.PrivateFS(), privFileName(quark.KeysetIDOf(k).String()))
 	if err != nil {
 		return err
 	}

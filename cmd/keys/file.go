@@ -28,7 +28,7 @@ func CreateFile(fs wfs.Filesystem, name string) (wfs.File, error) {
 }
 
 func LoadPublic(keysetID string) (quark.PublicKeyset, error) {
-	f, err := storage.PublicKeysFS().Open(pubFileName(keysetID))
+	f, err := storage.PublicFS().Open(pubFileName(keysetID))
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func LoadPublic(keysetID string) (quark.PublicKeyset, error) {
 }
 
 func LoadPrivavte(keysetID string) (quark.PrivateKeyset, error) {
-	f, err := storage.PublicKeysFS().Open(privFileName(keysetID))
+	f, err := storage.PublicFS().Open(privFileName(keysetID))
 	if err != nil {
 		return nil, err
 	}

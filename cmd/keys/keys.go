@@ -23,7 +23,7 @@ func IDOf(ks quark.PublicKeyset) string {
 }
 
 func UsePublic(keysetID string) (quark.PublicKeyset, error) {
-	f, err := storage.PublicKeysFS().Open(pubFileName(keysetID))
+	f, err := storage.PublicFS().Open(pubFileName(keysetID))
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func UsePublic(keysetID string) (quark.PublicKeyset, error) {
 }
 
 func UsePrivate(keysetID string) (quark.PrivateKeyset, error) {
-	f, err := storage.PrivateKeysFS().Open(privFileName(keysetID))
+	f, err := storage.PrivateFS().Open(privFileName(keysetID))
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +56,9 @@ func findFile(fs wfs.Filesystem, id string, ext string) (string, error) {
 }
 
 func findPrivate(id string) (string, error) {
-	return findFile(storage.PrivateKeysFS(), id, privKeysetExt)
+	return findFile(storage.PrivateFS(), id, privKeysetExt)
 }
 
 func findPublic(id string) (string, error) {
-	return findFile(storage.PublicKeysFS(), id, pubKeysetExt)
+	return findFile(storage.PublicFS(), id, pubKeysetExt)
 }
