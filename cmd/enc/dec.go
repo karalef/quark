@@ -81,7 +81,7 @@ func verify(fp quark.Fingerprint, data []byte, sig []byte) string {
 		return "sender cannot be verified"
 	}
 
-	ok, err := pubKS.Verify(data, sig)
+	ok, err := quark.Verify(data, sig, pubKS)
 	if err != nil {
 		return "sender cannot be verified: " + err.Error()
 	}

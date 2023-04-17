@@ -27,7 +27,7 @@ func encryptData(data []byte, to PublicKeyset, signWith PrivateKeyset) (Data, er
 		return d, nil
 	}
 
-	signature, err := signWith.Sign(data)
+	signature, err := Sign(data, signWith)
 	if err != nil {
 		return Data{}, err
 	}

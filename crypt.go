@@ -34,3 +34,13 @@ func Decrypt(ciphertext []byte, encryptedSecret []byte, to PrivateKeyset) (data 
 	data = make([]byte, 0, len(ciphertext)-nonce-ciphScheme.Overhead())
 	return kem.Open(to.KEMPrivateKey(), data, encryptedSecret, ciphertext[:nonce], ciphertext[nonce:])
 }
+
+// Sign hashes and signs the message.
+func Sign(msg []byte, with PrivateKeyset) ([]byte, error) {
+	return with.SignPrivateKey().Sign(with.Hash().Sum(msg))
+}
+
+// Verify calculates the message hash and verifies the signature.
+func Verify(msg []byte, signature []byte, with PublicKeyset) (bool, error) {
+	return with.SignPublicKey().Verify(with.Hash().Sum(msg), signature)
+}

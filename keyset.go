@@ -5,7 +5,6 @@ import (
 
 	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
-	"github.com/karalef/quark/kem/cipher"
 	"github.com/karalef/quark/sign"
 )
 
@@ -51,12 +50,6 @@ type PublicKeyset interface {
 	SignPublicKey() sign.PublicKey
 
 	Hash() hash.Scheme
-
-	// Encapsulate generates and encapsulates the key and creates a new Cipher with generated key.
-	Encapsulate() ([]byte, cipher.Cipher, error)
-
-	// Verify calculates the message hash and verifies the signature.
-	Verify(msg []byte, signature []byte) (bool, error)
 }
 
 type PrivateKeyset interface {
@@ -64,12 +57,6 @@ type PrivateKeyset interface {
 
 	KEMPrivateKey() kem.PrivateKey
 	SignPrivateKey() sign.PrivateKey
-
-	// Decapsulate decapsulates the ciphertext and creates a new Cipher with decapsulated key.
-	Decapsulate(ciphertext []byte) (cipher.Cipher, error)
-
-	// Sign hashes and signs the message.
-	Sign(msg []byte) ([]byte, error)
 }
 
 type Identity struct {
@@ -100,14 +87,6 @@ type private struct {
 func (p *private) KEMPrivateKey() kem.PrivateKey   { return p.kem }
 func (p *private) SignPrivateKey() sign.PrivateKey { return p.sign }
 
-func (p *private) Decapsulate(ciphertext []byte) (cipher.Cipher, error) {
-	return kem.Decapsulate(p.kem, ciphertext)
-}
-
-func (p *private) Sign(msg []byte) ([]byte, error) {
-	return p.sign.Sign(p.hash.Sum(msg))
-}
-
 func NewPublicKeyset(id Identity, k kem.PublicKey, s sign.PublicKey, h hash.Scheme) (*public, error) {
 	return &public{
 		identity: id,
@@ -130,11 +109,3 @@ func (p *public) Identity() Identity            { return p.identity }
 func (p *public) KEMPublicKey() kem.PublicKey   { return p.kem }
 func (p *public) SignPublicKey() sign.PublicKey { return p.sign }
 func (p *public) Hash() hash.Scheme             { return p.hash }
-
-func (p *public) Encapsulate() ([]byte, cipher.Cipher, error) {
-	return kem.Encapsulate(p.kem, nil)
-}
-
-func (p *public) Verify(msg []byte, signature []byte) (bool, error) {
-	return p.sign.Verify(p.hash.Sum(msg), signature)
-}
