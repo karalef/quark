@@ -14,10 +14,8 @@ type Algorithm string
 // algorithms.
 const (
 	SHA256   Algorithm = "SHA256"
-	SHA384   Algorithm = "SHA384"
 	SHA512   Algorithm = "SHA512"
 	SHA3_256 Algorithm = "SHA3_256"
-	SHA3_384 Algorithm = "SHA3_384"
 	SHA3_512 Algorithm = "SHA3_512"
 )
 
@@ -40,15 +38,6 @@ var hashSchemes = map[Algorithm]Scheme{
 			return h[:]
 		},
 	},
-	SHA384: hashScheme{
-		Algorithm: SHA384,
-		hashSize:  sha512.Size384,
-		newFunc:   sha512.New384,
-		sumFunc: func(b []byte) []byte {
-			h := sha512.Sum384(b)
-			return h[:]
-		},
-	},
 	SHA512: hashScheme{
 		Algorithm: SHA512,
 		hashSize:  sha512.Size,
@@ -64,15 +53,6 @@ var hashSchemes = map[Algorithm]Scheme{
 		newFunc:   sha3.New256,
 		sumFunc: func(b []byte) []byte {
 			h := sha3.Sum256(b)
-			return h[:]
-		},
-	},
-	SHA3_384: hashScheme{
-		Algorithm: SHA3_384,
-		hashSize:  48,
-		newFunc:   sha3.New384,
-		sumFunc: func(b []byte) []byte {
-			h := sha3.Sum384(b)
 			return h[:]
 		},
 	},
