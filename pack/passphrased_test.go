@@ -12,7 +12,7 @@ func TestPassphrased(t *testing.T) {
 
 	buf := bytes.NewBuffer(make([]byte, 0, 2048))
 
-	w, err := Passphrased(buf, passphrase, nil)
+	w, err := Passphrased(buf, passphrase)
 	if err != nil {
 		t.Fatal(err)
 	}
