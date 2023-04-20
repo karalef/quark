@@ -50,6 +50,46 @@ func unpack[T any](in io.Reader) (v *T, err error) {
 	return v, msgpack.NewDecoder(in).Decode(v)
 }
 
+// Decode decodes an object from binary format.
+// It can automaticaly determine armor encoding.
+// It returns ErrInvalidBlockType if the block type missmatches with the tag.
+func Decode(in io.Reader) (Tag, any, error) {
+	armor, in, err := DetermineArmor(in)
+	if err != nil {
+		return TagInvalid, nil, err
+	}
+
+	if !armor {
+		return Unpack(in)
+	}
+
+	block, err := DecodeArmored(in)
+	if err != nil {
+		return TagInvalid, nil, err
+	}
+
+	tag, v, err := Unpack(block.Body)
+	if err != nil {
+		return tag, v, err
+	}
+
+	if tag.String() != block.Type {
+		return tag, v, ErrInvalidBlockType
+	}
+
+	return tag, v, nil
+}
+
+const armorStart = "-----BEGIN "
+
+// DetermineArmor determines if an input is an OpenPGP armored block.
+// It returns multireader with peeked data.
+func DetermineArmor(in io.Reader) (bool, io.Reader, error) {
+	buf := make([]byte, len(armorStart))
+	n, err := io.ReadFull(in, buf)
+	return string(buf) == armorStart, io.MultiReader(bytes.NewReader(buf[:n]), in), err
+}
+
 // Armored encodes an object into binary format with an OpenPGP armor.
 func Armored(out io.Writer, v Packable, h map[string]string) error {
 	wc, err := ArmoredEncoder(out, v.Type().BlockType, h)
