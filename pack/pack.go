@@ -1,26 +1,58 @@
 package pack
 
 import (
-	"encoding/gob"
+	"bytes"
 	"errors"
 	"io"
 
+	"github.com/vmihailenco/msgpack/v5"
 	"golang.org/x/crypto/openpgp/armor"
 )
 
+// Packable reprsents a packable object.
+type Packable interface {
+	Type() MsgType
+}
+
 // Pack encodes an object into binary format.
-func Pack(out io.Writer, v any) error {
-	return gob.NewEncoder(out).Encode(v)
+func Pack(out io.Writer, v Packable) error {
+	return msgpack.NewEncoder(out).Encode(struct {
+		Tag   Tag      `msgpack:"tag"`
+		Block Packable `msgpack:"block"`
+	}{
+		Tag:   v.Type().Tag,
+		Block: v,
+	})
 }
 
 // Unpack decodes an object from binary format.
-func Unpack(in io.Reader, v any) error {
-	return gob.NewDecoder(in).Decode(v)
+func Unpack(in io.Reader) (Tag, any, error) {
+	var block struct {
+		Tag   Tag                `msgpack:"tag"`
+		Block msgpack.RawMessage `msgpack:"block"`
+	}
+	err := msgpack.NewDecoder(in).Decode(&block)
+	if err != nil {
+		return TagInvalid, nil, err
+	}
+
+	unp, err := block.Tag.Unpacker()
+	if err != nil {
+		return block.Tag, nil, err
+	}
+
+	v, err := unp(bytes.NewReader(block.Block))
+	return block.Tag, v, err
+}
+
+func unpack[T any](in io.Reader) (v *T, err error) {
+	v = new(T)
+	return v, msgpack.NewDecoder(in).Decode(v)
 }
 
 // Armored encodes an object into binary format with an OpenPGP armor.
-func Armored(out io.Writer, v any, blockType string, h map[string]string) error {
-	wc, err := ArmoredEncoder(out, blockType, h)
+func Armored(out io.Writer, v Packable, h map[string]string) error {
+	wc, err := ArmoredEncoder(out, v.Type().BlockType, h)
 	if err != nil {
 		return err
 	}
@@ -32,22 +64,6 @@ func Armored(out io.Writer, v any, blockType string, h map[string]string) error 
 	}
 
 	return wc.Close()
-}
-
-// UnpackArmored decodes an object from binary format with an OpenPGP armor.
-func UnpackArmored(in io.Reader, v any, blockType ...string) (string, map[string]string, error) {
-	block, err := DecodeArmored(in)
-	if err != nil {
-		return "", nil, err
-	}
-
-	for _, bt := range blockType {
-		if block.Type == bt {
-			return block.Type, block.Header, Unpack(block.Body, v)
-		}
-	}
-
-	return "", nil, ErrInvalidBlockType
 }
 
 // armor errors
