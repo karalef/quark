@@ -1,6 +1,8 @@
 package quark
 
 import (
+	"errors"
+
 	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/kem"
@@ -97,11 +99,17 @@ func (p *Public) KEM() kem.PublicKey { return p.kem }
 // Sign returns the signature public key.
 func (p *Public) Sign() sign.PublicKey { return p.sign }
 
+// ErrInvalidSeed is returned if the seed size does not match the scheme.
+var ErrInvalidSeed = errors.New("invalid seed size")
+
 // NewPrivate creates a new private keyset from scheme and seeds.
-// Panics if seed sizes don't match the scheme.
 func NewPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (*Private, error) {
 	if !scheme.IsValid() {
 		return nil, ErrInvalidScheme
+	}
+
+	if len(signSeed) != scheme.Sign.SeedSize() || len(kemSeed) != scheme.KEM.SeedSize() {
+		return nil, ErrInvalidSeed
 	}
 
 	// derive keys
