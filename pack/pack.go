@@ -3,6 +3,7 @@ package pack
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -50,9 +51,40 @@ func unpack[T any](in io.Reader) (v *T, err error) {
 	return v, msgpack.NewDecoder(in).Decode(v)
 }
 
+// ErrMismatchTag is returned when the message tag mismatches the expected tag.
+type ErrMismatchTag struct {
+	expected, got Tag
+}
+
+func (e ErrMismatchTag) Error() string {
+	return fmt.Sprintf("message tag mismatches the expected %s (got %s)", e.expected.String(), e.got.String())
+}
+
+// DecodeExact decodes an object from binary format with specified tag and type.
+// Returns ErrMismatchTag if the message tag mismatches the expected tag.
+// It panics if the type parameter mismatches the type of unpacked object.
+func DecodeExact[T any](in io.Reader, tag Tag) (v T, err error) {
+	t, val, err := Decode(in)
+	if err != nil {
+		return
+	}
+	if t != tag {
+		return v, ErrMismatchTag{expected: tag, got: t}
+	}
+
+	v, ok := val.(T)
+	if !ok {
+		panic("type parameter mismatches the type of unpacked object")
+	}
+	return
+}
+
+// ErrMssmatchBlockType is returned when the message tag mismatches the armor block type.
+var ErrMismatchBlockType = errors.New("message tag mssmatches the block type")
+
 // Decode decodes an object from binary format.
 // It can automaticaly determine armor encoding.
-// It returns ErrInvalidBlockType if the block type missmatches with the tag.
+// It returns ErrMismatchBlockType if the block type mismatches the tag.
 func Decode(in io.Reader) (Tag, any, error) {
 	armor, in, err := DetermineArmor(in)
 	if err != nil {
@@ -74,7 +106,7 @@ func Decode(in io.Reader) (Tag, any, error) {
 	}
 
 	if tag.String() != block.Type {
-		return tag, v, ErrInvalidBlockType
+		return tag, v, ErrMismatchBlockType
 	}
 
 	return tag, v, nil
@@ -105,11 +137,6 @@ func Armored(out io.Writer, v Packable, h map[string]string) error {
 
 	return wc.Close()
 }
-
-// armor errors
-var (
-	ErrInvalidBlockType = errors.New("invalid block type")
-)
 
 // ArmoredBlock represents an OpenPGP armored block.
 type ArmoredBlock = armor.Block
