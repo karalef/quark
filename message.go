@@ -10,7 +10,7 @@ var (
 
 // EncryptPlain encrypts a plaintext message.
 // If signWith is nil, the message will be anonymous.
-func EncryptPlain(plaintext []byte, to PublicKeyset, signWith PrivateKeyset) (Message, error) {
+func EncryptPlain(plaintext []byte, to *Public, signWith *Private) (Message, error) {
 	if len(plaintext) == 0 {
 		return Message{}, ErrEmpty
 	}
@@ -35,14 +35,14 @@ func EncryptPlain(plaintext []byte, to PublicKeyset, signWith PrivateKeyset) (Me
 	}
 
 	m.Signature = signature
-	m.Fingerprint = FingerprintOf(signWith)
+	m.Fingerprint = signWith.Fingerprint()
 
 	return m, nil
 }
 
 // EncryptFile encrypts a file.
 // If signWith is nil, the message will be anonymous.
-func EncryptFile(fileName string, data []byte, to PublicKeyset, signWith PrivateKeyset) (Message, error) {
+func EncryptFile(fileName string, data []byte, to *Public, signWith *Private) (Message, error) {
 	if fileName == "" {
 		return Message{}, ErrEmptyFileName
 	}
@@ -57,7 +57,7 @@ func EncryptFile(fileName string, data []byte, to PublicKeyset, signWith Private
 }
 
 // ClearSign signs a plaintext message.
-func ClearSign(plaintext []byte, signWith PrivateKeyset) (Message, error) {
+func ClearSign(plaintext []byte, signWith *Private) (Message, error) {
 	if len(plaintext) == 0 {
 		return Message{}, ErrEmpty
 	}
@@ -68,14 +68,14 @@ func ClearSign(plaintext []byte, signWith PrivateKeyset) (Message, error) {
 	}
 
 	return Message{
-		Fingerprint: FingerprintOf(signWith),
+		Fingerprint: signWith.Fingerprint(),
 		Signature:   signature,
 		Data:        plaintext,
 	}, nil
 }
 
 // ClearSignFile signs a file.
-func ClearSignFile(fileName string, data []byte, signWith PrivateKeyset) (Message, error) {
+func ClearSignFile(fileName string, data []byte, signWith *Private) (Message, error) {
 	if fileName == "" {
 		return Message{}, ErrEmptyFileName
 	}

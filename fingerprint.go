@@ -3,29 +3,14 @@ package quark
 import (
 	"crypto/md5"
 	"encoding/hex"
+
+	"github.com/karalef/quark/kem"
+	"github.com/karalef/quark/sign"
 )
 
-// KeysetIDOf returns keyset ID of a public keyset.
-func KeysetIDOf(p PublicKeyset) KeysetID {
-	return KeysetIDByFP(FingerprintOf(p))
-}
-
-// KeysetIDBytes returns keyset ID of a byte slice.
-func KeysetIDBytes(b []byte) KeysetID {
-	return KeysetIDByFP(FingerprintBytes(b))
-}
-
-// KeysetIDByFP calculates keyset ID by fingerprint.
-func KeysetIDByFP(fp Fingerprint) KeysetID {
+// KeysetIDFromFP calculates keyset ID from fingerprint.
+func KeysetIDFromFP(fp Fingerprint) KeysetID {
 	return KeysetID(fp[:8])
-}
-
-// FingerprintOf returns fingerprint of a keyset.
-func FingerprintOf(p PublicKeyset) Fingerprint {
-	md5 := md5.New()
-	md5.Write(p.SignPublicKey().Bytes())
-	md5.Write(p.KEMPublicKey().Bytes())
-	return Fingerprint(md5.Sum(nil))
 }
 
 // FingerprintBytes returns fingerprint of a byte slice.
@@ -38,6 +23,13 @@ type KeysetID [8]byte
 
 func (k KeysetID) String() string {
 	return hex.EncodeToString(k[:])
+}
+
+func calculateFingerprint(sign sign.PublicKey, kem kem.PublicKey) Fingerprint {
+	md5 := md5.New()
+	md5.Write(sign.Bytes())
+	md5.Write(kem.Bytes())
+	return Fingerprint(md5.Sum(nil))
 }
 
 // Fingerprint represents keyset fingerprint.
