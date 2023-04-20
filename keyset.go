@@ -149,7 +149,7 @@ func (p *Private) Identity() Identity { return p.pub.Identity() }
 func (p *Private) ID() KeysetID { return p.pub.ID() }
 
 // Fingerprint returns the fingerprint of the keyset.
-func (p *Private) Fingerprint() Fingerprint { return p.Fingerprint() }
+func (p *Private) Fingerprint() Fingerprint { return p.pub.Fingerprint() }
 
 // Scheme returns the scheme of the keyset.
 func (p *Private) Scheme() Scheme { return p.pub.Scheme() }
