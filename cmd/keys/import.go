@@ -1,6 +1,8 @@
 package keys
 
 import (
+	"errors"
+	"fmt"
 	"os"
 
 	"github.com/karalef/quark"
@@ -10,10 +12,11 @@ import (
 )
 
 var ImportCMD = &cli.Command{
-	Name:     "import",
-	Usage:    "import a keyset",
-	Category: "key management",
-	Aliases:  []string{"imp"},
+	Name:      "import",
+	Usage:     "import a keyset",
+	Category:  "key management",
+	Aliases:   []string{"imp"},
+	ArgsUsage: "<file>",
 	Action: func(c *cli.Context) error {
 		if !c.Args().Present() {
 			return cli.NewExitError("must specify a keyset file to import", 1)
@@ -24,62 +27,41 @@ var ImportCMD = &cli.Command{
 		}
 		defer f.Close()
 
-		ks, err := pack.PreunpackPrivate(f)
+		tag, v, err := pack.Decode(f)
 		if err != nil {
 			return err
 		}
 
-		// keyset is public
-		if len(ks.SignPrivKey) == 0 {
-			// verify public
-			_, err := ks.PackedPublic.Load()
-			if err != nil {
-				return err
-			}
-			return writePubPrepacked(storage.PublicFS(), ks.PackedPublic)
+		var pub *quark.Public
+		switch tag {
+		case pack.TagPublicKeyset:
+			pub = v.(*quark.Public)
+			err = ImportPublic(pub)
+		case pack.TagPrivateKeyset:
+			priv := v.(*quark.Private)
+			pub = priv.Public()
+			err = ImportPrivate(priv)
+		default:
+			return errors.New("input does not contain a keyset")
 		}
 
-		// verify private
-		_, err = ks.Load()
 		if err != nil {
 			return err
 		}
 
-		err = writePubPrepacked(storage.PublicFS(), ks.PackedPublic)
-		if err != nil {
-			return err
-		}
-
-		return writePrivPrepacked(storage.PrivateFS(), ks)
+		fmt.Println("imported", pub.ID())
+		return err
 	},
 }
 
-func ImportPublic(ks quark.PublicKeyset) error {
-	return importPublic(ks)
+func ImportPublic(k *quark.Public) error {
+	return writePub(storage.PublicFS(), k, "")
 }
 
-func ImportPrivate(ks quark.PrivateKeyset) error {
-	err := importPublic(ks)
+func ImportPrivate(ks *quark.Private) error {
+	err := ImportPublic(ks.Public())
 	if err != nil {
 		return err
 	}
-	return importPrivate(ks)
-}
-
-func importPublic(k quark.PublicKeyset) error {
-	f, err := CreateFile(storage.PublicFS(), pubFileName(quark.KeysetIDOf(k).String()))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return pack.Public(f, k)
-}
-
-func importPrivate(k quark.PrivateKeyset) error {
-	f, err := CreateFile(storage.PrivateFS(), privFileName(quark.KeysetIDOf(k).String()))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return pack.Private(f, k)
+	return writePriv(storage.PrivateFS(), ks, "")
 }

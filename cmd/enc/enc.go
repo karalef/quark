@@ -55,11 +55,11 @@ var EncryptCMD = &cli.Command{
 			}
 		}
 
-		return encrypt(inputFile, out, c.String("k"), c.String("r"))
+		return encrypt(inputFile, out, c.String("k"), c.String("r"), out == os.Stdout)
 	},
 }
 
-func encrypt(in io.Reader, out io.Writer, priv, pub string) error {
+func encrypt(in io.Reader, out io.Writer, priv, pub string, armor bool) error {
 	privKS, _ := keys.UsePrivate(priv)
 	if privKS == nil {
 		fmt.Fprintln(os.Stderr, "anonymous message\n")
@@ -75,9 +75,18 @@ func encrypt(in io.Reader, out io.Writer, priv, pub string) error {
 		return err
 	}
 
-	msg, err := quark.EncryptMessage(data, pubKS, privKS)
+	msg, err := quark.EncryptPlain(data, pubKS, privKS)
 	if err != nil {
 		return err
+	}
+
+	if armor {
+		wc, err := pack.ArmoredEncoder(out, pack.BlockTypeMessage, nil)
+		if err != nil {
+			return err
+		}
+		defer wc.Close()
+		out = wc
 	}
 
 	return pack.Message(out, msg)

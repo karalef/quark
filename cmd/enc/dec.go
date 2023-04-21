@@ -35,13 +35,14 @@ var DecryptCMD = &cli.Command{
 		if input == "" {
 			return cli.NewExitError("missing input file", 1)
 		}
-		inputFile, err := os.Open(input)
+
+		f, err := os.Open(input)
 		if err != nil {
 			return err
 		}
-		defer inputFile.Close()
+		defer f.Close()
 
-		msg, err := pack.UnpackMessage(inputFile)
+		msg, err := pack.DecodeExact[quark.Message](f, pack.TagMessage)
 		if err != nil {
 			return err
 		}
@@ -50,7 +51,7 @@ var DecryptCMD = &cli.Command{
 		if err != nil {
 			return err
 		}
-		data, err := quark.Decrypt(msg.EncryptedData, msg.EncryptedKey, privKS)
+		data, err := quark.Decrypt(msg.Data, msg.Key, privKS)
 		if err != nil {
 			return err
 		}
@@ -87,7 +88,7 @@ func verify(fp quark.Fingerprint, data []byte, sig []byte) string {
 	}
 	id := pubKS.Identity()
 	if !ok {
-		return fmt.Sprintf("signature mismatches the sender %s %s %s", quark.KeysetIDOf(pubKS).String(), id.Name, id.Email)
+		return fmt.Sprintf("signature mismatches the sender %s %s %s", pubKS.ID(), id.Name, id.Email)
 	}
-	return fmt.Sprintf("signature verified: %s %s %s", quark.KeysetIDOf(pubKS).String(), id.Name, id.Email)
+	return fmt.Sprintf("signature verified: %s %s %s", pubKS.ID(), id.Name, id.Email)
 }

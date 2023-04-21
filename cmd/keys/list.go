@@ -1,8 +1,10 @@
 package keys
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/storage"
 	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
@@ -25,13 +27,19 @@ var ListCMD = &cli.Command{
 			return err
 		}
 		for i := range pubs {
-			printKey(pubs[i])
+			printKeyset(pubs[i])
 		}
 		return nil
 	},
 }
 
-func list(secrets bool) ([]pack.KeysetData, error) {
+type keysetData struct {
+	fp       quark.Fingerprint
+	identity quark.Identity
+	scheme   quark.Scheme
+}
+
+func list(secrets bool) ([]keysetData, error) {
 	fs := storage.PublicFS()
 	if secrets {
 		fs = storage.PrivateFS()
@@ -40,7 +48,7 @@ func list(secrets bool) ([]pack.KeysetData, error) {
 	if err != nil {
 		return nil, err
 	}
-	list := make([]pack.KeysetData, 0, len(dir))
+	list := make([]keysetData, 0, len(dir))
 	for _, entry := range dir {
 		if entry.IsDir() {
 			continue
@@ -49,27 +57,33 @@ func list(secrets bool) ([]pack.KeysetData, error) {
 		if err != nil {
 			return nil, err
 		}
-		var ksd pack.KeysetData
-		if secrets {
-			pk, err := pack.PreunpackPrivate(f)
-			if err != nil {
-				return nil, err
-			}
-			ksd = pk.KeysetData
-		} else {
-			pk, err := pack.PreunpackPublic(f)
-			if err != nil {
-				return nil, err
-			}
-			ksd = pk.KeysetData
 
+		tag, v, err := pack.Unpack(f)
+		f.Close()
+		if err != nil {
+			return nil, err
 		}
 
-		list = append(list, ksd)
+		var pub *quark.Public
+		switch tag {
+		case pack.TagPublicKeyset:
+			pub = v.(*quark.Public)
+		case pack.TagPrivateKeyset:
+			pub = v.(*quark.Private).Public()
+		default:
+			return nil, errors.New(f.Name() + " does not contain a keyset")
+		}
+
+		list = append(list, keysetData{
+			fp:       pub.Fingerprint(),
+			identity: pub.Identity(),
+			scheme:   pub.Scheme(),
+		})
 	}
 	return list, err
 }
 
-func printKey(k pack.KeysetData) {
-	fmt.Printf("%s\t%s <%s>\n\t%s\t%s\n", IDByFP(k.Fingerprint), k.Identity.Name, k.Identity.Email, k.Scheme, k.Fingerprint.String())
+func printKeyset(k keysetData) {
+	id := k.identity
+	fmt.Printf("%s\t%s <%s>\n\t%s\t%s\n", IDByFP(k.fp), id.Name, id.Email, k.scheme.String(), k.fp.String())
 }

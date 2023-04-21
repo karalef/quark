@@ -6,40 +6,19 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/storage"
-	"github.com/karalef/quark/pack"
 	"github.com/karalef/wfs"
 )
 
-func FP(ks quark.PublicKeyset) string {
-	return quark.FingerprintOf(ks).String()
-}
-
 func IDByFP(fp quark.Fingerprint) string {
-	return quark.KeysetIDByFP(fp).String()
+	return quark.KeysetIDFromFP(fp).String()
 }
 
-func IDOf(ks quark.PublicKeyset) string {
-	return quark.KeysetIDOf(ks).String()
+func UsePublic(keysetID string) (*quark.Public, error) {
+	return readPub(storage.PublicFS(), pubFileName(keysetID))
 }
 
-func UsePublic(keysetID string) (quark.PublicKeyset, error) {
-	f, err := storage.PublicFS().Open(pubFileName(keysetID))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	return pack.UnpackPublic(f)
-}
-
-func UsePrivate(keysetID string) (quark.PrivateKeyset, error) {
-	f, err := storage.PrivateFS().Open(privFileName(keysetID))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	return pack.UnpackPrivate(f)
+func UsePrivate(keysetID string) (*quark.Private, error) {
+	return readPriv(storage.PrivateFS(), privFileName(keysetID))
 }
 
 func findFile(fs wfs.Filesystem, id string, ext string) (string, error) {

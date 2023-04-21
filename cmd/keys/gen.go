@@ -54,7 +54,7 @@ var Gen = &cli.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Println("generated keyset", quark.KeysetIDOf(ks))
+		fmt.Println("generated keyset", ks.ID())
 		return nil
 	},
 }
@@ -65,7 +65,7 @@ var DefaultScheme = quark.Scheme{
 	Hash: hash.SHA256.Scheme(),
 }.String()
 
-func GenerateKeySet(scheme string, name, email string) (quark.PrivateKeyset, error) {
+func GenerateKeySet(scheme string, name, email string) (*quark.Private, error) {
 	sch, err := quark.ParseScheme(scheme)
 	if err != nil {
 		return nil, err

@@ -47,7 +47,7 @@ var ExportCMD = &cli.Command{
 			return err
 		}
 
-		fmt.Println("exported", IDOf(pks), file)
+		fmt.Println("exported", pks.ID(), file)
 
 		return nil
 	},
