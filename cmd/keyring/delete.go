@@ -1,30 +1,32 @@
 package keyring
 
 import (
-	"errors"
-	"os"
-
 	"github.com/karalef/quark/cmd/storage"
 )
 
-func DeleteByID(id string) (found bool, err error) {
-	privks, err := findPrivate(id)
-	if err != nil && err != os.ErrNotExist {
-		return false, err
+// Delete finds keyset by ID, owner name or email and deletes it.
+// It return ErrNotFound if the keyset is not found.
+func Delete(query string) (id string, err error) {
+	priv, err := FindPrivate(query)
+	if err != nil && err != ErrNotFound {
+		return "", err
 	}
-	if privks != "" {
-		err = storage.PrivateFS().Remove(privks)
+	if err == nil {
+		id = priv.ID().String()
+		err = storage.PrivateFS().Remove(PrivateFileName(id))
 		if err != nil {
-			return true, err
+			return id, err
 		}
+
+		// fast way
+		return id, storage.PublicFS().Remove(PublicFileName(id))
 	}
 
-	pubks, err := findPublic(id)
+	pub, err := Find(query)
 	if err != nil {
-		if err == os.ErrNotExist && privks != "" {
-			return true, errors.New("private keyset was found but public was not")
-		}
-		return false, err
+		return "", err
 	}
-	return true, storage.PublicFS().Remove(pubks)
+
+	id = pub.ID().String()
+	return id, storage.PublicFS().Remove(PublicFileName(id))
 }

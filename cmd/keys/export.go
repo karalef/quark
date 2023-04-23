@@ -15,7 +15,7 @@ var ExportCMD = &cli.Command{
 	Usage:     "export a public keyset to a file",
 	Category:  "key management",
 	Aliases:   []string{"exp"},
-	ArgsUsage: "<id>",
+	ArgsUsage: "<keyset>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:    "f",
@@ -31,7 +31,7 @@ func export(ctx *cli.Context) error {
 		return cli.ShowCommandHelp(ctx, "export")
 	}
 
-	pks, err := keyring.UsePublic(ctx.Args().First())
+	pks, err := keyring.Find(ctx.Args().First())
 	if err != nil {
 		return err
 	}

@@ -13,7 +13,7 @@ var DeleteCMD = &cli.Command{
 	Usage:     "delete a keyset",
 	Category:  "key management",
 	Aliases:   []string{"del"},
-	ArgsUsage: "<id>",
+	ArgsUsage: "<keyset>",
 	Action:    delete,
 }
 
@@ -21,13 +21,13 @@ func delete(ctx *cli.Context) error {
 	if !ctx.Args().Present() {
 		return cli.Exit("must specify a keyset to delete", 1)
 	}
-	keyID := ctx.Args().First()
+	query := ctx.Args().First()
 
-	_, err := keyring.DeleteByID(keyID)
+	id, err := keyring.Delete(query)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("deleted", keyID)
+	fmt.Println("deleted", id)
 	return nil
 }

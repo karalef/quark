@@ -62,7 +62,7 @@ var EncryptCMD = &cli.Command{
 func encrypt(in io.Reader, out io.Writer, priv, pub string, armor bool) error {
 	var privKS *quark.Private
 	if priv != "" {
-		priv, err := keyring.UsePrivate(priv)
+		priv, err := keyring.FindPrivate(priv)
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func encrypt(in io.Reader, out io.Writer, priv, pub string, armor bool) error {
 		fmt.Fprintln(os.Stderr, "anonymous message\n")
 	}
 
-	pubKS, err := keyring.UsePublic(pub)
+	pubKS, err := keyring.Find(pub)
 	if err != nil {
 		return err
 	}

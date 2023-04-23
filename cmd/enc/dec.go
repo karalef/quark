@@ -47,7 +47,7 @@ var DecryptCMD = &cli.Command{
 			return err
 		}
 
-		privKS, err := keyring.UsePrivate(c.String("key"))
+		privKS, err := keyring.FindPrivate(c.String("key"))
 		if err != nil {
 			return err
 		}
@@ -77,9 +77,9 @@ var DecryptCMD = &cli.Command{
 }
 
 func verify(fp quark.Fingerprint, data []byte, sig []byte) string {
-	pubKS, err := keyring.UsePublic(fp.ID().String())
+	pubKS, err := keyring.ByID(fp.ID().String())
 	if err != nil {
-		return "sender cannot be verified"
+		return "sender cannot be verified: " + err.Error()
 	}
 
 	ok, err := quark.Verify(data, sig, pubKS)

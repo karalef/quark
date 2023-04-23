@@ -1,13 +1,11 @@
 package keyring
 
 import (
-	"errors"
-
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/storage"
-	"github.com/karalef/quark/pack"
 )
 
+// KeysetEntry contains general keyset info.
 type KeysetEntry struct {
 	ID       string
 	FP       quark.Fingerprint
@@ -15,39 +13,25 @@ type KeysetEntry struct {
 	Scheme   quark.Scheme
 }
 
+// List lists all keysets.
 func List(secrets bool) ([]KeysetEntry, error) {
 	fs := storage.PublicFS()
 	if secrets {
 		fs = storage.PrivateFS()
 	}
-	dir, err := fs.ReadDir(".")
+	dir, err := loadDir(fs)
 	if err != nil {
 		return nil, err
 	}
 	list := make([]KeysetEntry, 0, len(dir))
 	for _, entry := range dir {
-		if entry.IsDir() {
-			continue
-		}
-		f, err := fs.Open(entry.Name())
-		if err != nil {
-			return nil, err
-		}
-
-		tag, v, err := pack.Unpack(f)
-		f.Close()
-		if err != nil {
-			return nil, err
-		}
-
 		var pub *quark.Public
-		switch tag {
-		case pack.TagPublicKeyset:
-			pub = v.(*quark.Public)
-		case pack.TagPrivateKeyset:
-			pub = v.(*quark.Private).Public()
-		default:
-			return nil, errors.New(f.Name() + " does not contain a keyset")
+		if secrets {
+			var priv *quark.Private
+			priv, err = readPriv(entry)
+			pub = priv.Public()
+		} else {
+			pub, err = readPub(entry)
 		}
 
 		list = append(list, KeysetEntry{

@@ -1,39 +1,142 @@
 package keyring
 
 import (
+	"errors"
 	"os"
 	"strings"
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/storage"
+	"github.com/karalef/quark/pack"
 	"github.com/karalef/wfs"
 )
 
-func UsePublic(keysetID string) (*quark.Public, error) {
-	return readPub(keysetID)
+// keyset file extensions
+const (
+	PublicFileExt  = ".qpk"
+	PrivateFileExt = ".qsk"
+)
+
+// PublicFileName returns the name of a public keyset file.
+func PublicFileName(name string) string {
+	return name + PublicFileExt
 }
 
-func UsePrivate(keysetID string) (*quark.Private, error) {
-	return readPriv(keysetID)
+// PrivateFileName returns the name of a private keyset file.
+func PrivateFileName(name string) string {
+	return name + PrivateFileExt
 }
 
-func findFile(fs wfs.Filesystem, id string, ext string) (string, error) {
+// ErrNotFound is returned when a keyset is not found.
+var ErrNotFound = errors.New("keyset not found")
+
+type keyset interface {
+	*quark.Public | *quark.Private
+	ID() quark.KeysetID
+	Fingerprint() quark.Fingerprint
+	Identity() quark.Identity
+}
+
+func readKeyset[T keyset](fs wfs.Filesystem, name string, tag pack.Tag) (t T, err error) {
+	f, err := fs.Open(name)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	return pack.DecodeExact[T](f, tag)
+}
+
+func readPub(name string) (*quark.Public, error) {
+	return readKeyset[*quark.Public](storage.PublicFS(), name, pack.TagPublicKeyset)
+}
+
+func readPriv(name string) (*quark.Private, error) {
+	return readKeyset[*quark.Private](storage.PrivateFS(), name, pack.TagPrivateKeyset)
+}
+
+// ByID returns a keyset by its ID.
+func ByID(id string) (*quark.Public, error) {
+	pub, err := readPub(PublicFileName(id))
+	if os.IsNotExist(err) {
+		return nil, ErrNotFound
+	}
+	return pub, err
+}
+
+// ByIDPrivate returns a keyset by its ID.
+func ByIDPrivate(id string) (*quark.Private, error) {
+	priv, err := readPriv(PrivateFileName(id))
+	if os.IsNotExist(err) {
+		return nil, ErrNotFound
+	}
+	return priv, err
+}
+
+var idSize = len(quark.KeysetID{}) * 2 // hex encoded
+
+func validateFileName(name string, ext string) bool {
+	if !strings.HasSuffix(name, ext) {
+		return false
+	}
+	id := name[:len(name)-len(ext)]
+	return len(id) == idSize
+}
+
+func loadDir(fs wfs.Filesystem) ([]string, error) {
+	ext := PublicFileExt
+	if fs == storage.PrivateFS() {
+		ext = PrivateFileExt
+	}
 	dir, err := fs.ReadDir(".")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	list := make([]string, 0, len(dir))
 	for _, entry := range dir {
-		if strings.TrimSuffix(entry.Name(), ext) == id {
-			return entry.Name(), nil
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !validateFileName(name, ext) {
+			continue
+		}
+
+		list = append(list, name)
+	}
+	return list, nil
+}
+
+func match[T keyset](ks T, query string) bool {
+	ident := ks.Identity()
+	return ks.ID().String() == query || ident.Name == query || ident.Email == query
+}
+
+func find[T keyset](fs wfs.Filesystem, reader func(string) (T, error), query string) (T, error) {
+	entries, err := loadDir(fs)
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries {
+		ks, err := reader(entry)
+		if err != nil {
+			return nil, err
+		}
+		if match(ks, query) {
+			return ks, nil
 		}
 	}
-	return "", os.ErrNotExist
+	return nil, ErrNotFound
 }
 
-func findPrivate(id string) (string, error) {
-	return findFile(storage.PrivateFS(), id, PrivateFileExt)
+// Find finds public keyset by id, owner name or email.
+// It return ErrNotFound if the keyset is not found.
+func Find(query string) (*quark.Public, error) {
+	return find(storage.PublicFS(), readPub, query)
 }
 
-func findPublic(id string) (string, error) {
-	return findFile(storage.PublicFS(), id, PublicFileExt)
+// FindPrivate finds private keyset by id, owner name or email.
+// It return ErrNotFound if the keyset is not found.
+func FindPrivate(query string) (*quark.Private, error) {
+	return find(storage.PrivateFS(), readPriv, query)
 }
