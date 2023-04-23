@@ -79,7 +79,7 @@ type Public struct {
 func (p *Public) Identity() Identity { return p.identity }
 
 // ID returns the ID of the keyset.
-func (p *Public) ID() KeysetID { return KeysetIDFromFP(p.fp) }
+func (p *Public) ID() KeysetID { return p.fp.ID() }
 
 // Fingerprint returns the fingerprint of the keyset.
 func (p *Public) Fingerprint() Fingerprint { return p.fp }

@@ -77,7 +77,7 @@ var DecryptCMD = &cli.Command{
 }
 
 func verify(fp quark.Fingerprint, data []byte, sig []byte) string {
-	pubKS, err := keyring.UsePublic(quark.KeysetIDFromFP(fp).String())
+	pubKS, err := keyring.UsePublic(fp.ID().String())
 	if err != nil {
 		return "sender cannot be verified"
 	}

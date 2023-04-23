@@ -8,16 +8,6 @@ import (
 	"github.com/karalef/quark/sign"
 )
 
-// KeysetIDFromFP calculates keyset ID from fingerprint.
-func KeysetIDFromFP(fp Fingerprint) KeysetID {
-	return KeysetID(fp[:8])
-}
-
-// FingerprintBytes returns fingerprint of a byte slice.
-func FingerprintBytes(b []byte) Fingerprint {
-	return Fingerprint(md5.Sum(b))
-}
-
 // KeysetID represents keyset ID.
 type KeysetID [8]byte
 
@@ -34,6 +24,11 @@ func calculateFingerprint(sign sign.PublicKey, kem kem.PublicKey) Fingerprint {
 
 // Fingerprint represents keyset fingerprint.
 type Fingerprint [md5.Size]byte
+
+// ID calculates keyset ID from fingerprint.
+func (f Fingerprint) ID() KeysetID {
+	return KeysetID(f[:8])
+}
 
 func (f Fingerprint) String() string {
 	const hex = "0123456789abcdef"
