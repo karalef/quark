@@ -1,12 +1,11 @@
 package keys
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/cmd/storage"
+	"github.com/karalef/quark/cmd/keyring"
 	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
@@ -19,7 +18,7 @@ var ImportCMD = &cli.Command{
 	ArgsUsage: "<file>",
 	Action: func(c *cli.Context) error {
 		if !c.Args().Present() {
-			return cli.NewExitError("must specify a keyset file to import", 1)
+			return cli.Exit("must specify a keyset file to import", 1)
 		}
 		f, err := os.Open(c.Args().First())
 		if err != nil {
@@ -36,13 +35,13 @@ var ImportCMD = &cli.Command{
 		switch tag {
 		case pack.TagPublicKeyset:
 			pub = v.(*quark.Public)
-			err = ImportPublic(pub)
+			err = keyring.ImportPublic(pub)
 		case pack.TagPrivateKeyset:
 			priv := v.(*quark.Private)
 			pub = priv.Public()
-			err = ImportPrivate(priv)
+			err = keyring.ImportPrivate(priv)
 		default:
-			return errors.New("input does not contain a keyset")
+			return cli.Exit("input does not contain a keyset", 1)
 		}
 
 		if err != nil {
@@ -52,16 +51,4 @@ var ImportCMD = &cli.Command{
 		fmt.Println("imported", pub.ID())
 		return err
 	},
-}
-
-func ImportPublic(k *quark.Public) error {
-	return writePub(storage.PublicFS(), k, "")
-}
-
-func ImportPrivate(ks *quark.Private) error {
-	err := ImportPublic(ks.Public())
-	if err != nil {
-		return err
-	}
-	return writePriv(storage.PrivateFS(), ks, "")
 }

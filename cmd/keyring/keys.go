@@ -1,4 +1,4 @@
-package keys
+package keyring
 
 import (
 	"os"
@@ -9,16 +9,12 @@ import (
 	"github.com/karalef/wfs"
 )
 
-func IDByFP(fp quark.Fingerprint) string {
-	return quark.KeysetIDFromFP(fp).String()
-}
-
 func UsePublic(keysetID string) (*quark.Public, error) {
-	return readPub(storage.PublicFS(), pubFileName(keysetID))
+	return readPub(keysetID)
 }
 
 func UsePrivate(keysetID string) (*quark.Private, error) {
-	return readPriv(storage.PrivateFS(), privFileName(keysetID))
+	return readPriv(keysetID)
 }
 
 func findFile(fs wfs.Filesystem, id string, ext string) (string, error) {
@@ -35,9 +31,9 @@ func findFile(fs wfs.Filesystem, id string, ext string) (string, error) {
 }
 
 func findPrivate(id string) (string, error) {
-	return findFile(storage.PrivateFS(), id, privKeysetExt)
+	return findFile(storage.PrivateFS(), id, PrivateFileExt)
 }
 
 func findPublic(id string) (string, error) {
-	return findFile(storage.PublicFS(), id, pubKeysetExt)
+	return findFile(storage.PublicFS(), id, PublicFileExt)
 }

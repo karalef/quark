@@ -16,7 +16,7 @@ func main() {
 		Usage:                  "encrypt and sign messages",
 		UseShortOptionHandling: true,
 		Commands: []*cli.Command{
-			keys.Gen,
+			keys.GenerateCMD,
 			keys.ListCMD,
 			keys.ImportCMD,
 			keys.ExportCMD,

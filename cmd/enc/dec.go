@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/cmd/keys"
+	"github.com/karalef/quark/cmd/keyring"
 	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
@@ -33,7 +33,7 @@ var DecryptCMD = &cli.Command{
 	Action: func(c *cli.Context) error {
 		var input = c.Args().First()
 		if input == "" {
-			return cli.NewExitError("missing input file", 1)
+			return cli.Exit("missing input file", 1)
 		}
 
 		f, err := os.Open(input)
@@ -47,7 +47,7 @@ var DecryptCMD = &cli.Command{
 			return err
 		}
 
-		privKS, err := keys.UsePrivate(c.String("key"))
+		privKS, err := keyring.UsePrivate(c.String("key"))
 		if err != nil {
 			return err
 		}
@@ -77,7 +77,7 @@ var DecryptCMD = &cli.Command{
 }
 
 func verify(fp quark.Fingerprint, data []byte, sig []byte) string {
-	pubKS, err := keys.UsePublic(keys.IDByFP(fp))
+	pubKS, err := keyring.UsePublic(quark.KeysetIDFromFP(fp).String())
 	if err != nil {
 		return "sender cannot be verified"
 	}

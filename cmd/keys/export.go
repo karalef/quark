@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/karalef/quark/cmd/keyring"
 	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
 
+// ExportCMD is the command to export a public keyset to a file.
 var ExportCMD = &cli.Command{
 	Name:      "export",
 	Usage:     "export a public keyset to a file",
@@ -21,34 +23,36 @@ var ExportCMD = &cli.Command{
 			Aliases: []string{"file"},
 		},
 	},
-	Action: func(c *cli.Context) error {
-		if !c.Args().Present() {
-			return cli.ShowCommandHelp(c, "export")
-		}
+	Action: export,
+}
 
-		pks, err := UsePublic(c.Args().First())
-		if err != nil {
-			return err
-		}
+func export(ctx *cli.Context) error {
+	if !ctx.Args().Present() {
+		return cli.ShowCommandHelp(ctx, "export")
+	}
 
-		file := c.String("f")
-		if file == "" {
-			file = pubFileName(pks.Identity().Name)
-		}
+	pks, err := keyring.UsePublic(ctx.Args().First())
+	if err != nil {
+		return err
+	}
 
-		f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
+	file := ctx.String("f")
+	if file == "" {
+		file = keyring.PublicFileName(pks.Identity().Name)
+	}
 
-		err = pack.Public(f, pks)
-		if err != nil {
-			return err
-		}
+	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
-		fmt.Println("exported", pks.ID(), file)
+	err = pack.Public(f, pks)
+	if err != nil {
+		return err
+	}
 
-		return nil
-	},
+	fmt.Println("exported", pks.ID(), file)
+
+	return nil
 }

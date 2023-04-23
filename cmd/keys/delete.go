@@ -1,53 +1,33 @@
 package keys
 
 import (
-	"errors"
 	"fmt"
-	"os"
 
-	"github.com/karalef/quark/cmd/storage"
+	"github.com/karalef/quark/cmd/keyring"
 	"github.com/urfave/cli/v2"
 )
 
+// DeleteCMD is the command to delete a keyset.
 var DeleteCMD = &cli.Command{
-	Name:     "delete",
-	Usage:    "delete a keyset",
-	Category: "key management",
-	Aliases:  []string{"del"},
-	Action: func(c *cli.Context) error {
-		if !c.Args().Present() {
-			return errors.New("must specify a keyset to delete")
-		}
-		keyID := c.Args().First()
-
-		_, err := DeleteByID(keyID)
-		if err != nil {
-			return err
-		}
-
-		fmt.Println("deleted", keyID)
-		return nil
-	},
+	Name:      "delete",
+	Usage:     "delete a keyset",
+	Category:  "key management",
+	Aliases:   []string{"del"},
+	ArgsUsage: "<id>",
+	Action:    delete,
 }
 
-func DeleteByID(id string) (found bool, err error) {
-	privks, err := findPrivate(id)
-	if err != nil && err != os.ErrNotExist {
-		return false, err
+func delete(ctx *cli.Context) error {
+	if !ctx.Args().Present() {
+		return cli.Exit("must specify a keyset to delete", 1)
 	}
-	if privks != "" {
-		err = storage.PrivateFS().Remove(privks)
-		if err != nil {
-			return true, err
-		}
+	keyID := ctx.Args().First()
+
+	_, err := keyring.DeleteByID(keyID)
+	if err != nil {
+		return err
 	}
 
-	pubks, err := findPublic(id)
-	if err != nil {
-		if err == os.ErrNotExist && privks != "" {
-			return true, errors.New("private keyset was found but public was not")
-		}
-		return false, err
-	}
-	return true, storage.PublicFS().Remove(pubks)
+	fmt.Println("deleted", keyID)
+	return nil
 }

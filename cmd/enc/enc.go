@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/cmd/keys"
+	"github.com/karalef/quark/cmd/keyring"
 	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
@@ -39,7 +39,7 @@ var EncryptCMD = &cli.Command{
 	Action: func(c *cli.Context) error {
 		var input = c.Args().First()
 		if input == "" {
-			return cli.NewExitError("missing input file", 1)
+			return cli.Exit("missing input file", 1)
 		}
 		inputFile, err := os.Open(input)
 		if err != nil {
@@ -60,12 +60,18 @@ var EncryptCMD = &cli.Command{
 }
 
 func encrypt(in io.Reader, out io.Writer, priv, pub string, armor bool) error {
-	privKS, _ := keys.UsePrivate(priv)
-	if privKS == nil {
+	var privKS *quark.Private
+	if priv != "" {
+		priv, err := keyring.UsePrivate(priv)
+		if err != nil {
+			return err
+		}
+		privKS = priv
+	} else {
 		fmt.Fprintln(os.Stderr, "anonymous message\n")
 	}
 
-	pubKS, err := keys.UsePublic(pub)
+	pubKS, err := keyring.UsePublic(pub)
 	if err != nil {
 		return err
 	}
