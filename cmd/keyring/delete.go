@@ -13,13 +13,13 @@ func Delete(query string) (id string, err error) {
 	}
 	if err == nil {
 		id = priv.ID().String()
-		err = storage.PrivateFS().Remove(PrivateFileName(id))
+		err = storage.Private().Remove(PrivateFileName(id))
 		if err != nil {
 			return id, err
 		}
 
 		// fast way
-		return id, storage.PublicFS().Remove(PublicFileName(id))
+		return id, storage.Public().Remove(PublicFileName(id))
 	}
 
 	pub, err := Find(query)
@@ -28,5 +28,5 @@ func Delete(query string) (id string, err error) {
 	}
 
 	id = pub.ID().String()
-	return id, storage.PublicFS().Remove(PublicFileName(id))
+	return id, storage.Public().Remove(PublicFileName(id))
 }

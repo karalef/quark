@@ -8,7 +8,6 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/storage"
 	"github.com/karalef/quark/pack"
-	"github.com/karalef/wfs"
 )
 
 // keyset file extensions
@@ -37,7 +36,7 @@ type keyset interface {
 	Identity() quark.Identity
 }
 
-func readKeyset[T keyset](fs wfs.Filesystem, name string, tag pack.Tag) (t T, err error) {
+func readKeyset[T keyset](fs storage.FS, name string, tag pack.Tag) (t T, err error) {
 	f, err := fs.Open(name)
 	if err != nil {
 		return
@@ -48,11 +47,11 @@ func readKeyset[T keyset](fs wfs.Filesystem, name string, tag pack.Tag) (t T, er
 }
 
 func readPub(name string) (*quark.Public, error) {
-	return readKeyset[*quark.Public](storage.PublicFS(), name, pack.TagPublicKeyset)
+	return readKeyset[*quark.Public](storage.Public(), name, pack.TagPublicKeyset)
 }
 
 func readPriv(name string) (*quark.Private, error) {
-	return readKeyset[*quark.Private](storage.PrivateFS(), name, pack.TagPrivateKeyset)
+	return readKeyset[*quark.Private](storage.Private(), name, pack.TagPrivateKeyset)
 }
 
 // ByID returns a keyset by its ID.
@@ -73,19 +72,17 @@ func ByIDPrivate(id string) (*quark.Private, error) {
 	return priv, err
 }
 
-var idSize = len(quark.KeysetID{}) * 2 // hex encoded
-
 func validateFileName(name string, ext string) bool {
 	if !strings.HasSuffix(name, ext) {
 		return false
 	}
-	id := name[:len(name)-len(ext)]
-	return len(id) == idSize
+	_, ok := quark.IDFromString(name[:len(name)-len(ext)])
+	return ok
 }
 
-func loadDir(fs wfs.Filesystem) ([]string, error) {
+func loadDir(fs storage.FS) ([]string, error) {
 	ext := PublicFileExt
-	if fs == storage.PrivateFS() {
+	if fs == storage.Private() {
 		ext = PrivateFileExt
 	}
 	dir, err := fs.ReadDir(".")
@@ -112,7 +109,7 @@ func match[T keyset](ks T, query string) bool {
 	return ks.ID().String() == query || ident.Name == query || ident.Email == query
 }
 
-func find[T keyset](fs wfs.Filesystem, reader func(string) (T, error), query string) (T, error) {
+func find[T keyset](fs storage.FS, reader func(string) (T, error), query string) (T, error) {
 	entries, err := loadDir(fs)
 	if err != nil {
 		return nil, err
@@ -132,11 +129,11 @@ func find[T keyset](fs wfs.Filesystem, reader func(string) (T, error), query str
 // Find finds public keyset by id, owner name or email.
 // It return ErrNotFound if the keyset is not found.
 func Find(query string) (*quark.Public, error) {
-	return find(storage.PublicFS(), readPub, query)
+	return find(storage.Public(), readPub, query)
 }
 
 // FindPrivate finds private keyset by id, owner name or email.
 // It return ErrNotFound if the keyset is not found.
 func FindPrivate(query string) (*quark.Private, error) {
-	return find(storage.PrivateFS(), readPriv, query)
+	return find(storage.Private(), readPriv, query)
 }

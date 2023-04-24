@@ -8,6 +8,18 @@ import (
 	"github.com/karalef/quark/sign"
 )
 
+// IDFromString creates keyset ID from string.
+// It returns false if the string is not a valid keyset ID.
+func IDFromString(strID string) (id KeysetID, ok bool) {
+	if len(strID) != idStringSize {
+		return
+	}
+	_, err := hex.Decode(id[:], []byte(strID))
+	return id, err == nil
+}
+
+const idStringSize = 8 * 2 // hexed id
+
 // KeysetID represents keyset ID.
 type KeysetID [8]byte
 

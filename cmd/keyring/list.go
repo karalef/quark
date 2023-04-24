@@ -15,9 +15,9 @@ type KeysetEntry struct {
 
 // List lists all keysets.
 func List(secrets bool) ([]KeysetEntry, error) {
-	fs := storage.PublicFS()
+	fs := storage.Public()
 	if secrets {
-		fs = storage.PrivateFS()
+		fs = storage.Private()
 	}
 	dir, err := loadDir(fs)
 	if err != nil {
