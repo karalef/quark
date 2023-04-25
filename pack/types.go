@@ -37,7 +37,7 @@ func (t Tag) String() string {
 }
 
 // Unpacker returns the unpacker for the tag.
-func (t Tag) Unpacker() (UnpackerFunc, error) {
+func (t Tag) Unpacker() (Unpacker, error) {
 	typ, err := t.Type()
 	if err != nil {
 		return nil, err
@@ -55,8 +55,11 @@ var tagToType = map[Tag]MsgType{
 type MsgType struct {
 	Tag       Tag
 	BlockType string
-	Unpacker  UnpackerFunc
+	Unpacker  Unpacker
 }
 
-// UnpackerFunc represents an unpacker function.
-type UnpackerFunc func(in io.Reader) (any, error)
+// Packer represents a packer function.
+type Packer[T any] func(io.Writer, T) error
+
+// Unpacker represents an unpacker function.
+type Unpacker func(in io.Reader) (any, error)

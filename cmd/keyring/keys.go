@@ -29,14 +29,15 @@ func PrivateFileName(name string) string {
 // ErrNotFound is returned when a keyset is not found.
 var ErrNotFound = errors.New("keyset not found")
 
-type keyset interface {
+// Keyset represents a keyset.
+type Keyset interface {
 	*quark.Public | *quark.Private
 	ID() quark.KeysetID
 	Fingerprint() quark.Fingerprint
 	Identity() quark.Identity
 }
 
-func readKeyset[T keyset](fs storage.FS, name string, tag pack.Tag) (t T, err error) {
+func readKeyset[T Keyset](fs storage.FS, name string, tag pack.Tag) (t T, err error) {
 	f, err := fs.Open(name)
 	if err != nil {
 		return
@@ -104,12 +105,12 @@ func loadDir(fs storage.FS) ([]string, error) {
 	return list, nil
 }
 
-func match[T keyset](ks T, query string) bool {
+func match[T Keyset](ks T, query string) bool {
 	ident := ks.Identity()
 	return ks.ID().String() == query || ident.Name == query || ident.Email == query
 }
 
-func find[T keyset](fs storage.FS, reader func(string) (T, error), query string) (T, error) {
+func find[T Keyset](fs storage.FS, reader func(string) (T, error), query string) (T, error) {
 	if query == "" {
 		return nil, ErrNotFound
 	}
