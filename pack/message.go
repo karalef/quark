@@ -21,7 +21,6 @@ type packedMessage struct {
 	Fingerprint quark.Fingerprint `msgpack:"fp,omitempty"`
 	Signature   []byte            `msgpack:"sig,omitempty"`
 	Key         []byte            `msgpack:"key,omitempty"`
-	FileName    string            `msgpack:"file,omitempty"`
 	Data        []byte            `msgpack:"data"`
 }
 
@@ -33,7 +32,6 @@ func Message(out io.Writer, msg quark.Message) error {
 		Fingerprint: msg.Fingerprint,
 		Signature:   msg.Signature,
 		Key:         msg.Key,
-		FileName:    msg.File,
 		Data:        msg.Data,
 	})
 }
@@ -47,7 +45,6 @@ func unpackMessage(in io.Reader) (any, error) {
 		Fingerprint: msg.Fingerprint,
 		Signature:   msg.Signature,
 		Key:         msg.Key,
-		File:        msg.FileName,
 		Data:        msg.Data,
 	}, nil
 }

@@ -79,7 +79,7 @@ func DecodeExact[T any](in io.Reader, tag Tag) (v T, err error) {
 	return
 }
 
-// ErrMssmatchBlockType is returned when the message tag mismatches the armor block type.
+// ErrMismatchBlockType is returned when the message tag mismatches the armor block type.
 var ErrMismatchBlockType = errors.New("message tag mssmatches the block type")
 
 // Decode decodes an object from binary format.

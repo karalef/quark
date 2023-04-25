@@ -2,10 +2,9 @@ package quark
 
 import "errors"
 
-// file errors.
+// errors
 var (
-	ErrEmpty         = errors.New("empty data")
-	ErrEmptyFileName = errors.New("empty file name")
+	ErrEmpty = errors.New("empty data")
 )
 
 // EncryptPlain encrypts a plaintext message.
@@ -40,22 +39,6 @@ func EncryptPlain(plaintext []byte, to *Public, signWith *Private) (Message, err
 	return m, nil
 }
 
-// EncryptFile encrypts a file.
-// If signWith is nil, the message will be anonymous.
-func EncryptFile(fileName string, data []byte, to *Public, signWith *Private) (Message, error) {
-	if fileName == "" {
-		return Message{}, ErrEmptyFileName
-	}
-
-	m, err := EncryptPlain(data, to, signWith)
-	if err != nil {
-		return m, err
-	}
-	m.File = fileName
-
-	return m, nil
-}
-
 // ClearSign signs a plaintext message.
 func ClearSign(plaintext []byte, signWith *Private) (Message, error) {
 	if len(plaintext) == 0 {
@@ -74,21 +57,6 @@ func ClearSign(plaintext []byte, signWith *Private) (Message, error) {
 	}, nil
 }
 
-// ClearSignFile signs a file.
-func ClearSignFile(fileName string, data []byte, signWith *Private) (Message, error) {
-	if fileName == "" {
-		return Message{}, ErrEmptyFileName
-	}
-
-	m, err := ClearSign(data, signWith)
-	if err != nil {
-		return m, err
-	}
-	m.File = fileName
-
-	return m, nil
-}
-
 // Message contains a message.
 type Message struct {
 	// sender`s public keyset fingerprint
@@ -99,9 +67,6 @@ type Message struct {
 
 	// encapsulated shared secret
 	Key []byte
-
-	// file name
-	File string
 
 	// data
 	Data []byte
