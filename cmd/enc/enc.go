@@ -24,6 +24,11 @@ var EncryptCMD = &cli.Command{
 			Aliases:  []string{"r"},
 			Required: true,
 		},
+		&cli.BoolFlag{
+			Name:    "no-sign",
+			Usage:   "do not sign",
+			Aliases: []string{"n"},
+		},
 		&cli.StringFlag{
 			Name:    "key",
 			Usage:   "sign with given private keyset",
@@ -54,21 +59,23 @@ var EncryptCMD = &cli.Command{
 				return err
 			}
 		}
-
-		return encrypt(inputFile, out, c.String("k"), c.String("r"), out == os.Stdout)
+		return encrypt(inputFile, out, !c.Bool("no-sign"), c.String("key"), c.String("r"), out == os.Stdout)
 	},
 }
 
-func encrypt(in io.Reader, out io.Writer, priv, pub string, armor bool) error {
+func encrypt(in io.Reader, out io.Writer, sign bool, priv, pub string, armor bool) error {
 	var privKS *quark.Private
-	if priv != "" {
-		priv, err := keyring.FindPrivate(priv)
-		if err != nil {
-			return err
+	var err error
+	if sign {
+		if priv == "" {
+			privKS, err = keyring.Default()
 		}
-		privKS = priv
+		privKS, err = keyring.FindPrivate(priv)
 	} else {
-		fmt.Fprintln(os.Stderr, "anonymous message\n")
+		fmt.Fprintln(os.Stderr, "anonymous message")
+	}
+	if err != nil {
+		return err
 	}
 
 	pubKS, err := keyring.Find(pub)

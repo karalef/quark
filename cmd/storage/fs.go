@@ -20,6 +20,16 @@ func (f FS) abs(name string) string {
 	return filepath.Join(f.root, name)
 }
 
+// Symlink calls os.Symlink relatively FS`s root.
+func (f FS) Symlink(oldname, newname string) error {
+	return os.Symlink(f.abs(oldname), f.abs(newname))
+}
+
+// Readlink calls os.Readlink relatively FS`s root.
+func (f FS) Readlink(name string) (string, error) {
+	return os.Readlink(f.abs(name))
+}
+
 // OpenFile calls os.OpenFile relatively FS`s root.
 func (f FS) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
 	return os.OpenFile(f.abs(name), flag, perm)

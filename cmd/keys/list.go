@@ -7,10 +7,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// ListCMD is the command to list keysets.
 var ListCMD = &cli.Command{
-	Name:    "list",
-	Aliases: []string{"ls"},
-	Usage:   "list keysets",
+	Name:     "list",
+	Aliases:  []string{"ls"},
+	Usage:    "list keysets",
+	Category: "key management",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:    "s",

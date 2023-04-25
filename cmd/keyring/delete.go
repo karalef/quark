@@ -13,6 +13,16 @@ func Delete(query string) (id string, err error) {
 	}
 	if err == nil {
 		id = priv.ID().String()
+
+		if def, err := IsDefault(id); err != nil {
+			return id, err
+		} else if def {
+			err = SetDefault("")
+			if err != nil {
+				return id, err
+			}
+		}
+
 		err = storage.Private().Remove(PrivateFileName(id))
 		if err != nil {
 			return id, err
