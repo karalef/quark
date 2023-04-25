@@ -1,8 +1,7 @@
 package keys
 
 import (
-	"fmt"
-
+	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
 	"github.com/urfave/cli/v2"
 )
@@ -34,5 +33,5 @@ var ListCMD = &cli.Command{
 
 func printKeyset(k keyring.KeysetEntry) {
 	id := k.Identity
-	fmt.Printf("%s\t%s <%s>\n\t%s\t%s\n", k.ID, id.Name, id.Email, k.Scheme.String(), k.FP.String())
+	cmdio.Statusf("%s\t%s <%s>\n\t%s\t%s\n", k.ID, id.Name, id.Email, k.Scheme.String(), k.FP.String())
 }

@@ -1,8 +1,7 @@
 package keys
 
 import (
-	"fmt"
-
+	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
 	"github.com/urfave/cli/v2"
 )
@@ -47,7 +46,8 @@ func setDefault(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("default keyset unset")
+		cmdio.Status("default keyset unset")
+		return nil
 	}
 	priv, err := keyring.FindPrivate(ctx.Args().First())
 	if err != nil {
@@ -57,6 +57,6 @@ func setDefault(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("default keyset set:", priv.ID().String())
+	cmdio.Status("default keyset set:", priv.ID().String())
 	return nil
 }

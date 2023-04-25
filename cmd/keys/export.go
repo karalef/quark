@@ -1,9 +1,7 @@
 package keys
 
 import (
-	"fmt"
-	"os"
-
+	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
 	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
@@ -16,14 +14,7 @@ var ExportCMD = &cli.Command{
 	Category:  "key management",
 	Aliases:   []string{"exp"},
 	ArgsUsage: "<keyset>",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:    "f",
-			Usage:   "file name",
-			Aliases: []string{"file"},
-		},
-	},
-	Action: export,
+	Action:    export,
 }
 
 func export(ctx *cli.Context) error {
@@ -36,23 +27,18 @@ func export(ctx *cli.Context) error {
 		return err
 	}
 
-	file := ctx.String("f")
-	if file == "" {
-		file = keyring.PublicFileName(pks.Identity().Name)
-	}
-
-	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	output, err := cmdio.Output(pack.BlockTypePublic)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer output.Close()
 
-	err = pack.Public(f, pks)
+	err = pack.Public(output, pks)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("exported", pks.ID(), file)
+	cmdio.Status("exported", pks.ID())
 
 	return nil
 }

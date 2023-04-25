@@ -1,9 +1,8 @@
 package keys
 
 import (
-	"fmt"
-
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
 	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
@@ -13,24 +12,24 @@ import (
 
 // GenerateCMD is the command to generate a new keyset.
 var GenerateCMD = &cli.Command{
-	Name:      "gen",
+	Name:      "generate",
 	Usage:     "generate a new keyset",
 	Category:  "key management",
-	Aliases:   []string{"generate"},
+	Aliases:   []string{"gen"},
 	ArgsUsage: "<scheme>",
 	Subcommands: []*cli.Command{
 		listCMD,
 	},
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:    "n",
+			Name:    "name",
 			Usage:   "owner name",
-			Aliases: []string{"name"},
+			Aliases: []string{"n"},
 		},
 		&cli.StringFlag{
-			Name:    "e",
+			Name:    "email",
 			Usage:   "owner email",
-			Aliases: []string{"email"},
+			Aliases: []string{"e"},
 		},
 	},
 	Action: generate,
@@ -64,7 +63,7 @@ func generate(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("generated keyset", ks.ID())
+	cmdio.Status("generated keyset", ks.ID())
 	return nil
 }
 
@@ -77,26 +76,26 @@ var defaultScheme = quark.Scheme{
 var listCMD = &cli.Command{
 	Name:    "list",
 	Usage:   "list all available schemes",
-	Aliases: []string{"l", "list-schemes"},
+	Aliases: []string{"l"},
 	Action:  printSchemes,
 }
 
 func printSchemes(*cli.Context) error {
-	fmt.Println("All available algorithms")
+	cmdio.Status("All available algorithms")
 
-	fmt.Println("\nKEM:")
+	cmdio.Status("\nKEM:")
 	for _, k := range kem.ListAll() {
-		fmt.Println(k.Alg())
+		cmdio.Status(k.Alg())
 	}
 
-	fmt.Println("\nSIGNATURES:")
+	cmdio.Status("\nSIGNATURES:")
 	for _, s := range sign.ListAll() {
-		fmt.Println(s.Alg())
+		cmdio.Status(s.Alg())
 	}
 
-	fmt.Println("\nHASHES:")
+	cmdio.Status("\nHASHES:")
 	for _, h := range hash.ListAll() {
-		fmt.Println(h.Alg())
+		cmdio.Status(h.Alg())
 	}
 
 	return nil

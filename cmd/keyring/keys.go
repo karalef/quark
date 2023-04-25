@@ -110,6 +110,9 @@ func match[T keyset](ks T, query string) bool {
 }
 
 func find[T keyset](fs storage.FS, reader func(string) (T, error), query string) (T, error) {
+	if query == "" {
+		return nil, ErrNotFound
+	}
 	entries, err := loadDir(fs)
 	if err != nil {
 		return nil, err

@@ -1,22 +1,25 @@
 package enc
 
 import (
-	"fmt"
 	"io"
-	"os"
+	"path/filepath"
 
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
 	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
 
+const messageExt = ".quark"
+
 var EncryptCMD = &cli.Command{
-	Name:      "encrypt",
-	Aliases:   []string{"e", "enc"},
-	Category:  "encrypt/decrypt",
-	Usage:     "encrypt and sign",
-	ArgsUsage: "<input file>",
+	Name:        "encrypt",
+	Aliases:     []string{"enc"},
+	Category:    "encrypt/decrypt",
+	Usage:       "encrypt and sign",
+	Description: "If the file is passed as argument it overrides the default input and output and encrypts the file instead of a message",
+	ArgsUsage:   "<input file>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "recipient",
@@ -34,51 +37,46 @@ var EncryptCMD = &cli.Command{
 			Usage:   "sign with given private keyset",
 			Aliases: []string{"k"},
 		},
-		&cli.StringFlag{
-			Name:        "out",
-			Usage:       "output file",
-			Aliases:     []string{"o", "output"},
-			DefaultText: "/dev/stdout",
-		},
 	},
-	Action: func(c *cli.Context) error {
-		var input = c.Args().First()
-		if input == "" {
-			return cli.Exit("missing input file", 1)
-		}
-		inputFile, err := os.Open(input)
-		if err != nil {
-			return err
-		}
-		defer inputFile.Close()
+	Action: func(c *cli.Context) (err error) {
+		input := cmdio.Input()
+		var output io.WriteCloser
 
-		out := os.Stdout
-		if outFile := c.String("out"); outFile != "" {
-			out, err = os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if c.Args().Present() { // override stdin and stdout
+			name := c.Args().First()
+			input, err = cmdio.CustomInput(name)
 			if err != nil {
 				return err
 			}
+			name = filepath.Base(name) + messageExt
+			output, err = cmdio.CustomOutput(name, pack.BlockTypeMessage)
+		} else {
+			output, err = cmdio.Output(pack.BlockTypeMessage)
 		}
-		return encrypt(inputFile, out, !c.Bool("no-sign"), c.String("key"), c.String("r"), out == os.Stdout)
+		if err != nil {
+			return err
+		}
+		defer output.Close()
+
+		return encrypt(input, output, !c.Bool("no-sign"), c.String("key"), c.String("r"))
 	},
 }
 
-func encrypt(in io.Reader, out io.Writer, sign bool, priv, pub string, armor bool) error {
+func encrypt(in io.Reader, out io.Writer, sign bool, signWith string, recipient string) error {
 	var privKS *quark.Private
 	var err error
 	if sign {
-		if priv == "" {
+		if signWith == "" {
 			privKS, err = keyring.Default()
+		} else {
+			privKS, err = keyring.FindPrivate(signWith)
 		}
-		privKS, err = keyring.FindPrivate(priv)
-	} else {
-		fmt.Fprintln(os.Stderr, "anonymous message")
 	}
 	if err != nil {
 		return err
 	}
 
-	pubKS, err := keyring.Find(pub)
+	pubKS, err := keyring.Find(recipient)
 	if err != nil {
 		return err
 	}
@@ -91,15 +89,6 @@ func encrypt(in io.Reader, out io.Writer, sign bool, priv, pub string, armor boo
 	msg, err := quark.EncryptPlain(data, pubKS, privKS)
 	if err != nil {
 		return err
-	}
-
-	if armor {
-		wc, err := pack.ArmoredEncoder(out, pack.BlockTypeMessage, nil)
-		if err != nil {
-			return err
-		}
-		defer wc.Close()
-		out = wc
 	}
 
 	return pack.Message(out, msg)

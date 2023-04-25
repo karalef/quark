@@ -1,8 +1,7 @@
 package keys
 
 import (
-	"fmt"
-
+	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
 	"github.com/urfave/cli/v2"
 )
@@ -28,6 +27,6 @@ func delete(ctx *cli.Context) error {
 		return err
 	}
 
-	fmt.Println("deleted", id)
+	cmdio.Status("deleted", id)
 	return nil
 }

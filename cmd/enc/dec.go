@@ -2,20 +2,23 @@ package enc
 
 import (
 	"fmt"
-	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
 	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
 
 var DecryptCMD = &cli.Command{
-	Name:      "decrypt",
-	Aliases:   []string{"d", "dec"},
-	Category:  "encrypt/decrypt",
-	Usage:     "decrypt and verify messages",
-	ArgsUsage: "<input file>",
+	Name:        "decrypt",
+	Aliases:     []string{"dec"},
+	Category:    "encrypt/decrypt",
+	Usage:       "decrypt and verify messages",
+	Description: "If the file is passed as argument it overrides the default input and output.\nBe careful when using file argument because the output file can be rewritten\n(output file will be with the same name but without quark extension).",
+	ArgsUsage:   "<input file>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "key",
@@ -23,26 +26,28 @@ var DecryptCMD = &cli.Command{
 			Aliases:  []string{"k"},
 			Required: true,
 		},
-		&cli.StringFlag{
-			Name:        "out",
-			Usage:       "output file",
-			Aliases:     []string{"o", "output"},
-			DefaultText: "/dev/stdout",
-		},
 	},
-	Action: func(c *cli.Context) error {
-		var input = c.Args().First()
-		if input == "" {
-			return cli.Exit("missing input file", 1)
+	Action: func(c *cli.Context) (err error) {
+		input := cmdio.Input()
+		output := cmdio.RawOutput()
+
+		if c.Args().Present() { // override stdin and stdout
+			name := c.Args().First()
+			input, err = cmdio.CustomInput(name)
+			if err != nil {
+				return err
+			}
+			defer input.Close()
+
+			name = strings.TrimSuffix(filepath.Base(name), messageExt)
+			output, err = cmdio.CustomRawOutput(name)
+			if err != nil {
+				return err
+			}
+			defer output.Close()
 		}
 
-		f, err := os.Open(input)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		msg, err := pack.DecodeExact[quark.Message](f, pack.TagMessage)
+		msg, err := pack.DecodeExact[quark.Message](input, pack.TagMessage)
 		if err != nil {
 			return err
 		}
@@ -56,22 +61,14 @@ var DecryptCMD = &cli.Command{
 			return err
 		}
 
-		out := os.Stdout
-		if outFile := c.String("out"); outFile != "" {
-			out, err = os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-			if err != nil {
-				return err
-			}
-		}
-
 		if msg.IsAnonymous() {
-			fmt.Fprintln(os.Stderr, "anonymous message")
+			cmdio.Status("anonymous message")
 		} else {
 			status := verify(msg.Fingerprint, data, msg.Signature)
-			fmt.Fprint(os.Stderr, status, "\n\n")
+			cmdio.Status(status)
 		}
 
-		_, err = out.Write(data)
+		_, err = output.Write(data)
 		return err
 	},
 }
