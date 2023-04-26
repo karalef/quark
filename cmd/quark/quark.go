@@ -39,7 +39,7 @@ var flagIn = &cli.StringFlag{
 func main() {
 	app := &cli.App{
 		Name:                   "quark",
-		Version:                "0.0.1-first-half-working-build",
+		Version:                "0.1 working alpha",
 		Usage:                  "encrypt and sign messages",
 		UseShortOptionHandling: true,
 		Flags: []cli.Flag{
