@@ -46,7 +46,7 @@ var DecryptCMD = &cli.Command{
 		}
 
 		if msg.Type().IsEncrypted() {
-			privKS, err := keyring.FindPrivate(msg.Recipient.String())
+			privKS, err := keyring.FindPrivate(msg.Recipient.ID().String())
 			if err != nil {
 				return err
 			}
