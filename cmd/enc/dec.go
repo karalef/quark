@@ -56,7 +56,7 @@ var DecryptCMD = &cli.Command{
 		}
 
 		if !msg.Type().IsSigned() {
-			cmdio.Status("anonymous message")
+			cmdio.Status(msg.Type().String(), "message")
 		} else {
 			cmdio.Status(verify(msg.Sender, msg.Data, msg.Signature))
 		}

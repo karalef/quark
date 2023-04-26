@@ -40,9 +40,9 @@ func EncryptMessage(plaintext []byte, to *Public, signWith *Private) (Message, e
 	return m, nil
 }
 
-// ClearSign signs a plaintext message.
+// SignMessage signs a plaintext message.
 // If signWith is nil, the message will be raw.
-func ClearSign(plaintext []byte, signWith *Private) (Message, error) {
+func SignMessage(plaintext []byte, signWith *Private) (Message, error) {
 	if len(plaintext) == 0 {
 		return Message{}, ErrEmpty
 	}
