@@ -13,6 +13,7 @@ import (
 
 const messageExt = ".quark"
 
+// EncryptCMD is the command to encrypt a message.
 var EncryptCMD = &cli.Command{
 	Name:        "encrypt",
 	Aliases:     []string{"enc"},

@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// DecryptCMD is the command to decrypt a message.
 var DecryptCMD = &cli.Command{
 	Name:        "decrypt",
 	Aliases:     []string{"dec"},
