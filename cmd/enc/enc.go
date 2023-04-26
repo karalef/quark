@@ -22,15 +22,19 @@ var EncryptCMD = &cli.Command{
 	ArgsUsage:   "<input file>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "recipient",
-			Usage:    "encrypt for given keyset",
-			Aliases:  []string{"r"},
-			Required: true,
+			Name:    "recipient",
+			Usage:   "encrypt for given keyset",
+			Aliases: []string{"r"},
 		},
 		&cli.BoolFlag{
 			Name:    "no-sign",
 			Usage:   "do not sign",
 			Aliases: []string{"n"},
+		},
+		&cli.BoolFlag{
+			Name:    "clear-sign",
+			Usage:   "clear signature (disable message encryption, but require signature)",
+			Aliases: []string{"c"},
 		},
 		&cli.StringFlag{
 			Name:    "key",
@@ -39,6 +43,11 @@ var EncryptCMD = &cli.Command{
 		},
 	},
 	Action: func(c *cli.Context) (err error) {
+		sign := !c.Bool("no-sign")
+		cs := c.Bool("clear-sign")
+		if !sign && cs {
+			return cli.Exit("--no-sign and --clear-sign are mutually exclusive", 1)
+		}
 		input := cmdio.Input()
 		var output io.WriteCloser
 
@@ -58,19 +67,25 @@ var EncryptCMD = &cli.Command{
 		}
 		defer output.Close()
 
-		return encrypt(input, output, !c.Bool("no-sign"), c.String("key"), c.String("r"))
+		if cs {
+			return clearSign(input, output, c.String("key"))
+		}
+
+		return encrypt(input, output, sign, c.String("key"), c.String("r"))
 	},
 }
 
-func encrypt(in io.Reader, out io.Writer, sign bool, signWith string, recipient string) error {
+func findPrivate(query string) (*quark.Private, error) {
+	if query == "" {
+		return keyring.Default()
+	}
+	return keyring.FindPrivate(query)
+}
+
+func encrypt(in io.Reader, out io.Writer, sign bool, signWith string, recipient string) (err error) {
 	var privKS *quark.Private
-	var err error
 	if sign {
-		if signWith == "" {
-			privKS, err = keyring.Default()
-		} else {
-			privKS, err = keyring.FindPrivate(signWith)
-		}
+		privKS, err = findPrivate(signWith)
 	}
 	if err != nil {
 		return err
@@ -87,6 +102,25 @@ func encrypt(in io.Reader, out io.Writer, sign bool, signWith string, recipient 
 	}
 
 	msg, err := quark.EncryptPlain(data, pubKS, privKS)
+	if err != nil {
+		return err
+	}
+
+	return pack.Message(out, msg)
+}
+
+func clearSign(in io.Reader, out io.Writer, signWith string) error {
+	privKS, err := findPrivate(signWith)
+	if err != nil {
+		return err
+	}
+
+	data, err := io.ReadAll(in)
+	if err != nil {
+		return err
+	}
+
+	msg, err := quark.ClearSign(data, privKS)
 	if err != nil {
 		return err
 	}

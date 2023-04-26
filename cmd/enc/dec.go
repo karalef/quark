@@ -21,10 +21,9 @@ var DecryptCMD = &cli.Command{
 	ArgsUsage:   "<input file>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "key",
-			Usage:    "use given private keyset",
-			Aliases:  []string{"k"},
-			Required: true,
+			Name:    "key",
+			Usage:   "use given private keyset",
+			Aliases: []string{"k"},
 		},
 	},
 	Action: func(c *cli.Context) (err error) {
@@ -52,23 +51,24 @@ var DecryptCMD = &cli.Command{
 			return err
 		}
 
-		privKS, err := keyring.FindPrivate(c.String("key"))
-		if err != nil {
-			return err
-		}
-		data, err := quark.Decrypt(msg.Data, msg.Key, privKS)
-		if err != nil {
-			return err
+		if msg.IsEncrypted() {
+			privKS, err := keyring.FindPrivate(c.String("key"))
+			if err != nil {
+				return err
+			}
+			msg.Data, err = quark.Decrypt(msg.Data, msg.Key, privKS)
+			if err != nil {
+				return err
+			}
 		}
 
 		if msg.IsAnonymous() {
 			cmdio.Status("anonymous message")
 		} else {
-			status := verify(msg.Fingerprint, data, msg.Signature)
-			cmdio.Status(status)
+			cmdio.Status(verify(msg.Fingerprint, msg.Data, msg.Signature))
 		}
 
-		_, err = output.Write(data)
+		_, err = output.Write(msg.Data)
 		return err
 	},
 }
