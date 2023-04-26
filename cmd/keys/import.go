@@ -18,7 +18,7 @@ var ImportCMD = &cli.Command{
 	Description: "If the file is passed as argument it overrides the default input",
 	Action: func(c *cli.Context) (err error) {
 		input := cmdio.Input()
-		if !c.Args().Present() { // override stdin
+		if c.Args().Present() { // override stdin
 			input, err = cmdio.CustomInput(c.Args().First())
 			if err != nil {
 				return err
