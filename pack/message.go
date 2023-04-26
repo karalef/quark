@@ -18,10 +18,11 @@ var typeMessage = MsgType{
 var _ Packable = packedMessage{}
 
 type packedMessage struct {
-	Fingerprint quark.Fingerprint `msgpack:"fp,omitempty"`
-	Signature   []byte            `msgpack:"sig,omitempty"`
-	Key         []byte            `msgpack:"key,omitempty"`
-	Data        []byte            `msgpack:"data"`
+	Sender    quark.Fingerprint `msgpack:"sender,omitempty"`
+	Recipient quark.Fingerprint `msgpack:"recipient,omitempty"`
+	Signature []byte            `msgpack:"sig,omitempty"`
+	Key       []byte            `msgpack:"key,omitempty"`
+	Data      []byte            `msgpack:"data"`
 }
 
 func (packedMessage) Type() MsgType { return typeMessage }
@@ -29,10 +30,11 @@ func (packedMessage) Type() MsgType { return typeMessage }
 // Message packs a message into binary format.
 func Message(out io.Writer, msg quark.Message) error {
 	return Pack(out, packedMessage{
-		Fingerprint: msg.Fingerprint,
-		Signature:   msg.Signature,
-		Key:         msg.Key,
-		Data:        msg.Data,
+		Sender:    msg.Sender,
+		Recipient: msg.Recipient,
+		Signature: msg.Signature,
+		Key:       msg.Key,
+		Data:      msg.Data,
 	})
 }
 
@@ -42,9 +44,10 @@ func unpackMessage(in io.Reader) (any, error) {
 		return nil, err
 	}
 	return quark.Message{
-		Fingerprint: msg.Fingerprint,
-		Signature:   msg.Signature,
-		Key:         msg.Key,
-		Data:        msg.Data,
+		Sender:    msg.Sender,
+		Recipient: msg.Recipient,
+		Signature: msg.Signature,
+		Key:       msg.Key,
+		Data:      msg.Data,
 	}, nil
 }

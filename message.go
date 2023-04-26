@@ -7,9 +7,9 @@ var (
 	ErrEmpty = errors.New("empty data")
 )
 
-// EncryptPlain encrypts a plaintext message.
+// EncryptMessage encrypts a plaintext message.
 // If signWith is nil, the message will be anonymous.
-func EncryptPlain(plaintext []byte, to *Public, signWith *Private) (Message, error) {
+func EncryptMessage(plaintext []byte, to *Public, signWith *Private) (Message, error) {
 	if len(plaintext) == 0 {
 		return Message{}, ErrEmpty
 	}
@@ -20,8 +20,9 @@ func EncryptPlain(plaintext []byte, to *Public, signWith *Private) (Message, err
 	}
 
 	m := Message{
-		Key:  ck,
-		Data: ct,
+		Recipient: to.Fingerprint(),
+		Key:       ck,
+		Data:      ct,
 	}
 
 	if signWith == nil {
@@ -34,15 +35,20 @@ func EncryptPlain(plaintext []byte, to *Public, signWith *Private) (Message, err
 	}
 
 	m.Signature = signature
-	m.Fingerprint = signWith.Fingerprint()
+	m.Sender = signWith.Fingerprint()
 
 	return m, nil
 }
 
 // ClearSign signs a plaintext message.
+// If signWith is nil, the message will be raw.
 func ClearSign(plaintext []byte, signWith *Private) (Message, error) {
 	if len(plaintext) == 0 {
 		return Message{}, ErrEmpty
+	}
+
+	if signWith == nil {
+		return Message{Data: plaintext}, nil
 	}
 
 	signature, err := Sign(plaintext, signWith)
@@ -51,16 +57,58 @@ func ClearSign(plaintext []byte, signWith *Private) (Message, error) {
 	}
 
 	return Message{
-		Fingerprint: signWith.Fingerprint(),
-		Signature:   signature,
-		Data:        plaintext,
+		Sender:    signWith.Fingerprint(),
+		Signature: signature,
+		Data:      plaintext,
 	}, nil
+}
+
+// MessageType represents a message type.
+type MessageType byte
+
+// message flags and types
+const (
+	MessageFlagEncrypted MessageType = 1 << iota
+	MessageFlagSigned
+
+	// rawly encoded message that is not encrypted and not signed
+	MessageTypeRaw = 0x00
+	// anonymous message that is only encrypted and not signed
+	MessageTypeAnonymous = MessageFlagEncrypted
+	// clear-signed message that is only signed and not encrypted
+	MessageTypeClearSign = MessageFlagSigned
+	// message that is encrypted and signed
+	MessageTypeSignedEncrypted = MessageFlagEncrypted | MessageFlagSigned
+)
+
+// IsEncrypted returns true if the message is encrypted.
+func (t MessageType) IsEncrypted() bool { return t&MessageFlagEncrypted != 0 }
+
+// IsSigned returns true if the message is signed.
+func (t MessageType) IsSigned() bool { return t&MessageFlagSigned != 0 }
+
+func (t MessageType) String() string {
+	switch t {
+	case MessageTypeRaw:
+		return "Raw"
+	case MessageTypeAnonymous:
+		return "Anonymous"
+	case MessageTypeClearSign:
+		return "Clear-Signed"
+	case MessageTypeSignedEncrypted:
+		return "Signed and Encrypted"
+	default:
+		return "unknown"
+	}
 }
 
 // Message contains a message.
 type Message struct {
 	// sender`s public keyset fingerprint
-	Fingerprint Fingerprint
+	Sender Fingerprint
+
+	// recipient`s public keyset fingerprint
+	Recipient Fingerprint
 
 	// signature
 	Signature []byte
@@ -72,14 +120,13 @@ type Message struct {
 	Data []byte
 }
 
-// IsEncrypted returns true if the message is encrypted.
-func (m Message) IsEncrypted() bool { return len(m.Key) != 0 }
-
-// IsClearSign returns true if the message is signed and not encrypted.
-func (m Message) IsClearSign() bool { return !m.IsEncrypted() && m.IsSigned() }
-
-// IsAnonymous returns true if the message is not signed and has no fingerprint.
-func (m Message) IsAnonymous() bool { return !m.IsSigned() && m.Fingerprint == Fingerprint{} }
-
-// IsSigned returns true if the message is signed.
-func (m Message) IsSigned() bool { return len(m.Signature) != 0 }
+// Type returns the message type.
+func (m Message) Type() (typ MessageType) {
+	if len(m.Key) != 0 {
+		typ |= MessageFlagEncrypted
+	}
+	if len(m.Signature) != 0 {
+		typ |= MessageFlagSigned
+	}
+	return
+}

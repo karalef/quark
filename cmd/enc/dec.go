@@ -19,13 +19,6 @@ var DecryptCMD = &cli.Command{
 	Usage:       "decrypt and verify messages",
 	Description: "If the file is passed as argument it overrides the default input and output.\nBe careful when using file argument because the output file can be rewritten\n(output file will be with the same name but without quark extension).",
 	ArgsUsage:   "<input file>",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:    "key",
-			Usage:   "use given private keyset",
-			Aliases: []string{"k"},
-		},
-	},
 	Action: func(c *cli.Context) (err error) {
 		input := cmdio.Input()
 		output := cmdio.RawOutput()
@@ -51,8 +44,8 @@ var DecryptCMD = &cli.Command{
 			return err
 		}
 
-		if msg.IsEncrypted() {
-			privKS, err := keyring.FindPrivate(c.String("key"))
+		if msg.Type().IsEncrypted() {
+			privKS, err := keyring.FindPrivate(msg.Recipient.String())
 			if err != nil {
 				return err
 			}
@@ -62,10 +55,10 @@ var DecryptCMD = &cli.Command{
 			}
 		}
 
-		if msg.IsAnonymous() {
+		if !msg.Type().IsSigned() {
 			cmdio.Status("anonymous message")
 		} else {
-			cmdio.Status(verify(msg.Fingerprint, msg.Data, msg.Signature))
+			cmdio.Status(verify(msg.Sender, msg.Data, msg.Signature))
 		}
 
 		_, err = output.Write(msg.Data)

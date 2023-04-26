@@ -101,7 +101,7 @@ func encrypt(in io.Reader, out io.Writer, sign bool, signWith string, recipient 
 		return err
 	}
 
-	msg, err := quark.EncryptPlain(data, pubKS, privKS)
+	msg, err := quark.EncryptMessage(data, pubKS, privKS)
 	if err != nil {
 		return err
 	}
