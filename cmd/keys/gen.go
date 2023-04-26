@@ -22,9 +22,10 @@ var GenerateCMD = &cli.Command{
 	},
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:    "name",
-			Usage:   "owner name",
-			Aliases: []string{"n"},
+			Name:     "name",
+			Usage:    "owner name",
+			Aliases:  []string{"n"},
+			Required: true,
 		},
 		&cli.StringFlag{
 			Name:    "email",
