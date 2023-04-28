@@ -15,6 +15,9 @@ var ExportCMD = &cli.Command{
 	Aliases:   []string{"exp"},
 	ArgsUsage: "<keyset>",
 	Flags: []cli.Flag{
+		cmdio.FlagArmor,
+		cmdio.FlagOutput,
+		cmdio.FlagInput,
 		&cli.BoolFlag{
 			Name:    "secret",
 			Usage:   "export private keyset",
@@ -29,33 +32,30 @@ func export(ctx *cli.Context) (err error) {
 		return cli.ShowCommandHelp(ctx, "export")
 	}
 
-	var id string
 	query := ctx.Args().First()
 	if ctx.Bool("secret") {
-		id, err = expKeyset(keyring.FindPrivate, pack.Private, pack.BlockTypePrivate, query)
+		err = expKeyset(keyring.FindPrivate, pack.Private, pack.BlockTypePrivate, query)
 	} else {
-		id, err = expKeyset(keyring.Find, pack.Public, pack.BlockTypePublic, query)
+		err = expKeyset(keyring.Find, pack.Public, pack.BlockTypePublic, query)
 	}
 	if err != nil {
 		return err
 	}
 
-	cmdio.Status("exported", id)
-
 	return nil
 }
 
-func expKeyset[T keyring.Keyset](find func(string) (T, error), packer pack.Packer[T], blockType, query string) (string, error) {
+func expKeyset[T keyring.Keyset](find func(string) (T, error), packer pack.Packer[T], blockType, query string) error {
 	ks, err := find(query)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	output, err := cmdio.Output(blockType)
 	if err != nil {
-		return ks.ID().String(), err
+		return err
 	}
 	defer output.Close()
 
-	return ks.ID().String(), packer(output, ks)
+	return packer(output, ks)
 }

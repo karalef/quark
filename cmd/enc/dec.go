@@ -18,8 +18,13 @@ var DecryptCMD = &cli.Command{
 	Aliases:     []string{"dec"},
 	Category:    "encrypt/decrypt",
 	Usage:       "decrypt and verify messages",
-	Description: "If the file is passed as argument it overrides the default input and output.\nBe careful when using file argument because the output file can be rewritten\n(output file will be with the same name but without quark extension).",
+	Description: "If the file is passed as argument it overrides the default input and output (removing .quark extension from input file name).",
 	ArgsUsage:   "<input file>",
+	Flags: []cli.Flag{
+		cmdio.FlagArmor,
+		cmdio.FlagOutput,
+		cmdio.FlagInput,
+	},
 	Action: func(c *cli.Context) (err error) {
 		input := cmdio.Input()
 		output := cmdio.RawOutput()

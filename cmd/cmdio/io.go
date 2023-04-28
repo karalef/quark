@@ -8,17 +8,21 @@ import (
 	"github.com/karalef/quark/pack"
 )
 
+var armor bool
+
 // Input returns the standard input.
 func Input() *os.File { return os.Stdin }
 
-// SetInput overrides the standard input.
-func SetInput(path string) error {
-	i, err := CustomInput(path)
-	if err != nil {
-		return err
+// RawOutput returns the standard output.
+func RawOutput() *os.File { return os.Stdout }
+
+// Output returns the armored WriteCloser with the specified block type.
+// If armor is disabled, it returns stdout.
+func Output(blockType string) (io.WriteCloser, error) {
+	if !armor {
+		return os.Stdout, nil
 	}
-	os.Stdin = i
-	return nil
+	return pack.ArmoredEncoder(os.Stdout, blockType, nil)
 }
 
 // CustomInput opens the specified file or returns stdin if the path is empty.
@@ -31,31 +35,6 @@ func CustomInput(path string) (*os.File, error) {
 		return nil, err
 	}
 	return f, nil
-}
-
-// Armor enables ascii-armored output.
-var Armor bool
-
-// RawOutput returns the standard output.
-func RawOutput() *os.File { return os.Stdout }
-
-// Output returns the armored WriteCloser with the specified block type.
-// If armor is disabled, it returns stdout.
-func Output(blockType string) (io.WriteCloser, error) {
-	if !Armor {
-		return os.Stdout, nil
-	}
-	return pack.ArmoredEncoder(os.Stdout, blockType, nil)
-}
-
-// SetOutput overrides the standard output.
-func SetOutput(path string) error {
-	o, err := CustomRawOutput(path)
-	if err != nil {
-		return err
-	}
-	os.Stdout = o
-	return nil
 }
 
 // CustomRawOutput opens the specified file or returns stdout if the path is empty.
@@ -77,7 +56,7 @@ func CustomOutput(path string, blockType string) (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !Armor {
+	if !armor {
 		return f, nil
 	}
 	return pack.ArmoredEncoder(f, blockType, nil)

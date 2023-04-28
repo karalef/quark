@@ -19,12 +19,15 @@ var EncryptCMD = &cli.Command{
 	Aliases:     []string{"enc"},
 	Category:    "encrypt/decrypt",
 	Usage:       "encrypt and sign",
-	Description: "If the file is passed as argument it overrides the default input and output and encrypts the file instead of a message",
+	Description: "If the file is passed as argument it overrides the default input and output (adding .quark extension to input file name).",
 	ArgsUsage:   "<input file>",
 	Flags: []cli.Flag{
+		cmdio.FlagArmor,
+		cmdio.FlagOutput,
+		cmdio.FlagInput,
 		&cli.StringFlag{
 			Name:    "recipient",
-			Usage:   "encrypt for given keyset (if not provided, the message will be unecrypted)",
+			Usage:   "encrypt for given `KEYSET` (if not provided, the message will be unencrypted)",
 			Aliases: []string{"r"},
 		},
 		&cli.BoolFlag{
@@ -32,14 +35,26 @@ var EncryptCMD = &cli.Command{
 			Usage:   "do not sign",
 			Aliases: []string{"n"},
 		},
+		&cli.BoolFlag{
+			Name:    "clear-sign",
+			Usage:   "sign the message without encryption",
+			Aliases: []string{"c"},
+		},
 		&cli.StringFlag{
 			Name:        "key",
-			Usage:       "sign with given private keyset",
+			Usage:       "sign with given private `KEYSET`",
 			Aliases:     []string{"k"},
 			DefaultText: "default keyset",
 		},
 	},
 	Action: func(c *cli.Context) (err error) {
+		recipient := c.String("recipient")
+		noSign := c.Bool("no-sign")
+		key := c.String("key")
+		if recipient == "" && !c.Bool("clear-sign") {
+			return cli.Exit("omit the recipient is only allowed with the clear-sign flag", 1)
+		}
+
 		input := cmdio.Input()
 		var output io.WriteCloser
 
@@ -63,10 +78,6 @@ var EncryptCMD = &cli.Command{
 		if err != nil {
 			return err
 		}
-
-		recipient := c.String("recipient")
-		noSign := c.Bool("no-sign")
-		key := c.String("key")
 
 		return encrypt(output, data, recipient, !noSign, key)
 	},
