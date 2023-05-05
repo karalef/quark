@@ -50,9 +50,9 @@ var EncryptCMD = &cli.Command{
 				return err
 			}
 			name = filepath.Base(name) + messageExt
-			output, err = cmdio.CustomOutput(name, pack.BlockTypeMessage)
+			output, err = cmdio.CustomOutput(name, quark.PacketTagMessage.BlockType())
 		} else {
-			output, err = cmdio.Output(pack.BlockTypeMessage)
+			output, err = cmdio.Output(quark.PacketTagMessage.BlockType())
 		}
 		if err != nil {
 			return err
@@ -103,5 +103,5 @@ func encrypt(out io.Writer, data []byte, recipient string, sign bool, signWith s
 		return err
 	}
 
-	return pack.Message(out, msg)
+	return pack.Pack(out, &msg)
 }

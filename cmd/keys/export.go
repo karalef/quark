@@ -32,9 +32,9 @@ func export(ctx *cli.Context) (err error) {
 	var id string
 	query := ctx.Args().First()
 	if ctx.Bool("secret") {
-		id, err = expKeyset(keyring.FindPrivate, pack.Private, pack.BlockTypePrivate, query)
+		id, err = expKeyset(keyring.FindPrivate, query)
 	} else {
-		id, err = expKeyset(keyring.Find, pack.Public, pack.BlockTypePublic, query)
+		id, err = expKeyset(keyring.Find, query)
 	}
 	if err != nil {
 		return err
@@ -45,17 +45,17 @@ func export(ctx *cli.Context) (err error) {
 	return nil
 }
 
-func expKeyset[T keyring.Keyset](find func(string) (T, error), packer pack.Packer[T], blockType, query string) (string, error) {
+func expKeyset[T keyring.Keyset](find func(string) (T, error), query string) (string, error) {
 	ks, err := find(query)
 	if err != nil {
 		return "", err
 	}
 
-	output, err := cmdio.Output(blockType)
+	output, err := cmdio.Output(ks.PacketTag().BlockType())
 	if err != nil {
 		return ks.ID().String(), err
 	}
 	defer output.Close()
 
-	return ks.ID().String(), packer(output, ks)
+	return ks.ID().String(), pack.Pack(output, ks)
 }

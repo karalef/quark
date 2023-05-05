@@ -33,10 +33,10 @@ var ImportCMD = &cli.Command{
 
 		var pub *quark.Public
 		switch tag {
-		case pack.TagPublicKeyset:
+		case quark.PacketTagPublicKeyset:
 			pub = v.(*quark.Public)
 			err = keyring.ImportPublic(pub)
-		case pack.TagPrivateKeyset:
+		case quark.PacketTagPrivateKeyset:
 			priv := v.(*quark.Private)
 			pub = priv.Public()
 			err = keyring.ImportPrivate(priv)

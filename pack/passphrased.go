@@ -7,14 +7,13 @@ import (
 	"io"
 	"runtime"
 
-	"github.com/karalef/quark/internal"
 	"golang.org/x/crypto/argon2"
 )
 
 // passphrased consts
 const (
-	PassphrasedSaltSize = 32
-	PassphrasedIVSize   = aes.BlockSize
+	SaltSize = 32
+	IVSize   = aes.BlockSize
 )
 
 // ErrInvalidPassphrase is returned when the passphrase is empty.
@@ -34,40 +33,36 @@ var Argon2Default = Argon2Opts{
 	Threads: uint8(runtime.GOMAXPROCS(0)),
 }
 
-// PassphrasedOpts represents options for Passphrased.
-type PassphrasedOpts struct {
-	Rand   io.Reader // used to generate salt and IV
-	Salt   []byte    // if nil, will be generated using rand or crypto/rand
-	IV     []byte    // if nil, will be generated using rand or crypto/rand
-	Argon2 Argon2Opts
-}
-
-func newPasspharsed(passphrase string, salt, iv []byte, opts Argon2Opts) cipher.Stream {
+// NewPassphrased returns a new stream cipher with derived key.
+// Panics if the provided salt or iv sizes are not equal to SaltSize and IVSize or if the passphrase is empty.
+// If opts is not provided, Argon2Default is used.
+func NewPassphrased(passphrase string, salt, iv []byte, opts ...Argon2Opts) cipher.Stream {
 	if len(passphrase) == 0 {
-		panic("empty passphrase")
+		panic("invalid passphrase")
 	}
-	if len(salt) != PassphrasedSaltSize {
+	if len(salt) != SaltSize {
 		panic("invalid salt size")
 	}
-	if len(iv) != PassphrasedIVSize {
+	if len(iv) != IVSize {
 		panic("invalid iv size")
 	}
 
-	if opts == (Argon2Opts{}) {
-		opts = Argon2Default
+	o := Argon2Default
+	if len(opts) > 0 {
+		o = opts[0]
 	}
-	if opts.Time == 0 {
-		opts.Time = 1 // draft RFC recommended value
+	if o.Time == 0 {
+		o.Time = 1 // draft RFC recommended value
 	}
-	if opts.Memory == 0 {
-		opts.Memory = 64 * 1024 // draft RFC recommended value
+	if o.Memory == 0 {
+		o.Memory = 64 * 1024 // draft RFC recommended value
 	}
-	if opts.Threads == 0 {
-		opts.Threads = uint8(runtime.GOMAXPROCS(0))
+	if o.Threads == 0 {
+		o.Threads = uint8(runtime.GOMAXPROCS(0))
 	}
 
-	// derive aes256 key in one pass with 64MiB memory cost on 4 threads.
-	key := argon2.IDKey([]byte(passphrase), salt, opts.Time, opts.Memory, opts.Threads, 32)
+	// derive aes256 key
+	key := argon2.IDKey([]byte(passphrase), salt, o.Time, o.Memory, o.Threads, 32)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -77,67 +72,18 @@ func newPasspharsed(passphrase string, salt, iv []byte, opts Argon2Opts) cipher.
 	return cipher.NewCTR(block, iv)
 }
 
-// Passphrased returns a writer encrypted with provided passphrase.
-// It panics if the provided salt or iv sizes are not equal to PassphrasedSaltSize and PassphrasedIVSize.
-func Passphrased(w io.Writer, passphrase string, opts ...PassphrasedOpts) (io.Writer, error) {
-	if len(passphrase) == 0 {
-		return nil, ErrInvalidPassphrase
+// Encrypt wraps a NewPassphrased stream cipher with cipher.StreamWriter.
+func Encrypt(w io.Writer, passphrase string, iv, salt []byte, opts ...Argon2Opts) *cipher.StreamWriter {
+	return &cipher.StreamWriter{
+		S: NewPassphrased(passphrase, salt, iv, opts...),
+		W: w,
 	}
-
-	var o PassphrasedOpts
-	if len(opts) > 0 {
-		o = opts[0]
-	}
-
-	var err error
-
-	if o.Salt == nil {
-		o.Salt, err = internal.RandRead(o.Rand, PassphrasedSaltSize)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if o.IV == nil {
-		o.IV, err = internal.RandRead(o.Rand, PassphrasedIVSize)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	stream := newPasspharsed(passphrase, o.Salt, o.IV, o.Argon2)
-
-	// write header
-	err = internal.WriteFull(w, o.Salt)
-	if err != nil {
-		return nil, err
-	}
-	err = internal.WriteFull(w, o.IV)
-	if err != nil {
-		return nil, err
-	}
-
-	return &cipher.StreamWriter{S: stream, W: w}, nil
 }
 
-// PassphrasedDecrypter returns a reader decrypted with provided passphrase.
-func PassphrasedDecrypter(r io.Reader, passphrase string, opts ...Argon2Opts) (io.Reader, error) {
-	if len(passphrase) == 0 {
-		return nil, ErrInvalidPassphrase
-	}
-
-	// read header
-	saltIV := make([]byte, PassphrasedSaltSize+PassphrasedIVSize)
-	if _, err := io.ReadFull(r, saltIV); err != nil {
-		return nil, err
-	}
-
-	var o Argon2Opts
-	if len(opts) > 0 {
-		o = opts[0]
-	}
-
+// Decrypt wraps a NewPassphrased stream cipher with cipher.StreamReader.
+func Decrypt(r io.Reader, passphrase string, iv, salt []byte, opts ...Argon2Opts) *cipher.StreamReader {
 	return &cipher.StreamReader{
-		S: newPasspharsed(passphrase, saltIV[:PassphrasedSaltSize], saltIV[PassphrasedSaltSize:], o),
+		S: NewPassphrased(passphrase, salt, iv, opts...),
 		R: r,
-	}, nil
+	}
 }
