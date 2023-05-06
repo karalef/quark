@@ -45,7 +45,7 @@ func readKeyset[T Keyset](fs storage.FS, name string) (t T, err error) {
 	}
 	defer f.Close()
 
-	return pack.DecodeExact[T](f)
+	return pack.UnpackExact[T](f, pack.WithoutArmor())
 }
 
 func readPub(name string) (*quark.Public, error) {

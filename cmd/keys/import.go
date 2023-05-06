@@ -26,7 +26,7 @@ var ImportCMD = &cli.Command{
 			defer input.Close()
 		}
 
-		tag, v, err := pack.Decode(input)
+		tag, v, err := pack.Unpack(input)
 		if err != nil {
 			return err
 		}
