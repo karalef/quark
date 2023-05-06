@@ -26,11 +26,16 @@ func TestPacking(t *testing.T) {
 
 	buf := new(bytes.Buffer)
 
-	err := Pack(buf, tt, WithEncryption("test", nil))
+	err := Pack(buf, tt,
+		WithCompression(Flate, 0),
+		WithEncryption("test", nil),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tag, v, err := Unpack(buf, WithPassphrase(func() (string, error) { return "test", nil }))
+	tag, v, err := Unpack(buf,
+		WithPassphrase(func() (string, error) { return "test", nil }),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,17 +6,12 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// EncryptionParams contains packet encryption parameters.
-type EncryptionParams struct {
-	IV   [IVSize]byte   `msgpack:"iv"`
-	Salt [SaltSize]byte `msgpack:"salt"`
-}
-
 // Packet is a binary packet.
 type Packet struct {
 	Tag    Tag
 	Header struct {
-		Encryption *EncryptionParams `msgpack:"encryption,omitempty"`
+		Encryption  *Encryption `msgpack:"encryption,omitempty"`
+		Compression Compression `msgpack:"compression,omitempty"`
 	}
 	Object io.Reader
 }

@@ -1,6 +1,7 @@
 package pack
 
 import (
+	"errors"
 	"io"
 )
 
@@ -25,3 +26,21 @@ func (nc nopCloserReaderFrom) ReadFrom(r io.Reader) (n int64, err error) {
 }
 
 func (nopCloserReaderFrom) Close() error { return nil }
+
+// ChainCloser chains the wc to c.
+func ChainCloser(c io.Closer, wc io.WriteCloser) io.WriteCloser {
+	return chainedCloser{c, wc}
+}
+
+type chainedCloser struct {
+	c io.Closer
+	io.WriteCloser
+}
+
+func (c chainedCloser) Close() error {
+	err := c.WriteCloser.Close()
+	if err != nil {
+		return errors.Join(err, c.c.Close())
+	}
+	return c.c.Close()
+}

@@ -3,8 +3,8 @@ package pack
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"errors"
 	"io"
+	"runtime"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -13,22 +13,35 @@ import (
 const (
 	IVSize = aes.BlockSize
 
-	TimeRFC     = 1
-	MemoryRFC   = 64 * 1024
-	SaltSizeRFC = 16
+	TimeRFC     = 1         // draft RFC recommended number of rounds
+	MemoryRFC   = 64 * 1024 // draft RFC recommended memory cost
+	SaltSizeRFC = 16        // draft RFC recommended salt size for password hashing
 )
 
 // IV is an IV for a passphrased cipher.
 type IV [IVSize]byte
 
-// ErrInvalidPassphrase is returned when the passphrase is empty.
-var ErrInvalidPassphrase = errors.New("invalid passphrase")
+// Encryption contains encryption parameters.
+type Encryption struct {
+	IV       IV           `msgpack:"iv"`
+	Salt     []byte       `msgpack:"salt"`
+	Argon2ID Argon2Params `msgpack:"argon2"`
+}
 
 // Argon2Params contains parameters for argon2id.
 type Argon2Params struct {
-	Time    uint32 // argon2id number of rounds
-	Memory  uint32 // argon2id memory cost
-	Threads uint8  // argon2id parallelism degree
+	Time    uint32 `msgpack:"time"`    // argon2id number of rounds
+	Memory  uint32 `msgpack:"memory"`  // argon2id memory cost
+	Threads uint8  `msgpack:"threads"` // argon2id parallelism degree
+}
+
+// Argon2Defaults returns recommended parameters for argon2id.
+func Argon2Defaults() Argon2Params {
+	return Argon2Params{
+		Time:    TimeRFC,
+		Memory:  MemoryRFC,
+		Threads: uint8(runtime.GOMAXPROCS(0)),
+	}
 }
 
 // NewPassphrased returns a new stream cipher with derived key.
