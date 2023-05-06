@@ -14,7 +14,11 @@ const armorStart = "-----BEGIN "
 func DetermineArmor(in io.Reader) (bool, io.Reader, error) {
 	buf := make([]byte, len(armorStart))
 	n, err := io.ReadFull(in, buf)
-	return string(buf[:n]) == armorStart, io.MultiReader(bytes.NewReader(buf[:n]), in), err
+	if err == io.ErrUnexpectedEOF {
+		err = nil
+	}
+	in = io.MultiReader(bytes.NewReader(buf[:n]), in)
+	return string(buf[:n]) == armorStart, in, err
 }
 
 // ArmoredBlock represents an OpenPGP armored block.

@@ -29,10 +29,14 @@ func TestPacking(t *testing.T) {
 	err := Pack(buf, tt,
 		WithCompression(Flate, 0),
 		WithEncryption("test", nil),
+		WithArmor(map[string]string{
+			"test": "test",
+		}),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	tag, v, err := Unpack(buf,
 		WithPassphrase(func() (string, error) { return "test", nil }),
 	)
