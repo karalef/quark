@@ -5,85 +5,87 @@ import (
 	"crypto/cipher"
 	"errors"
 	"io"
-	"runtime"
 
 	"golang.org/x/crypto/argon2"
 )
 
 // passphrased consts
 const (
-	SaltSize = 32
-	IVSize   = aes.BlockSize
+	IVSize = aes.BlockSize
+
+	TimeRFC     = 1
+	MemoryRFC   = 64 * 1024
+	SaltSizeRFC = 16
 )
+
+// IV is an IV for a passphrased cipher.
+type IV [IVSize]byte
 
 // ErrInvalidPassphrase is returned when the passphrase is empty.
 var ErrInvalidPassphrase = errors.New("invalid passphrase")
 
-// Argon2Opts represents options for argon2id.
-type Argon2Opts struct {
-	Time    uint32 // argon2id passes, if 0, will be set to draft RFC recommended value
-	Memory  uint32 // argon2id memory, if 0, will be set to draft RFC recommended value
-	Threads uint8  // argon2id threads, if 0, will be set to runtime.GOMAXPROCS(0).
-}
-
-// Argon2Default represents default options for argon2id.
-var Argon2Default = Argon2Opts{
-	Time:    1,
-	Memory:  64 * 1024,
-	Threads: uint8(runtime.GOMAXPROCS(0)),
+// Argon2Params contains parameters for argon2id.
+type Argon2Params struct {
+	Time    uint32 // argon2id number of rounds
+	Memory  uint32 // argon2id memory cost
+	Threads uint8  // argon2id parallelism degree
 }
 
 // NewPassphrased returns a new stream cipher with derived key.
-// Panics if the provided salt or iv sizes are not equal to SaltSize and IVSize or if the passphrase is empty.
-// If opts is not provided, Argon2Default is used.
-func NewPassphrased(passphrase string, salt, iv []byte, opts ...Argon2Opts) cipher.Stream {
+// Panics if the passphrase is empty.
+func NewPassphrased(passphrase string, iv IV, salt []byte, params Argon2Params) cipher.Stream {
 	if len(passphrase) == 0 {
 		panic("invalid passphrase")
 	}
-	if len(salt) != SaltSize {
-		panic("invalid salt size")
-	}
-	if len(iv) != IVSize {
-		panic("invalid iv size")
-	}
-
-	o := Argon2Default
-	if len(opts) > 0 {
-		o = opts[0]
-	}
-	if o.Time == 0 {
-		o.Time = 1 // draft RFC recommended value
-	}
-	if o.Memory == 0 {
-		o.Memory = 64 * 1024 // draft RFC recommended value
-	}
-	if o.Threads == 0 {
-		o.Threads = uint8(runtime.GOMAXPROCS(0))
-	}
 
 	// derive aes256 key
-	key := argon2.IDKey([]byte(passphrase), salt, o.Time, o.Memory, o.Threads, 32)
+	key := argon2.IDKey([]byte(passphrase), salt, params.Time, params.Memory, params.Threads, 32)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		panic(err) // must never happen
 	}
 
-	return cipher.NewCTR(block, iv)
+	return cipher.NewCTR(block, iv[:])
 }
 
-// Encrypt wraps a NewPassphrased stream cipher with cipher.StreamWriter.
-func Encrypt(w io.Writer, passphrase string, iv, salt []byte, opts ...Argon2Opts) *cipher.StreamWriter {
+// StreamWriter is analogous to cipher.StreamWriter,
+// but it does not allocate buffer, changing source bytes instead.
+// Also it does not implement io.Closer.
+type StreamWriter struct {
+	S cipher.Stream
+	W io.Writer
+}
+
+func (w *StreamWriter) Write(d []byte) (n int, err error) {
+	w.S.XORKeyStream(d, d)
+	n, err = w.W.Write(d)
+	if n != len(d) && err == nil { // should never happen
+		err = io.ErrShortWrite
+	}
+	return
+}
+
+// Encrypt wraps a NewPassphrased stream cipher with StreamWriter.
+func Encrypt(w io.Writer, passphrase string, iv IV, salt []byte, params Argon2Params) *StreamWriter {
+	return &StreamWriter{
+		S: NewPassphrased(passphrase, iv, salt, params),
+		W: w,
+	}
+}
+
+// EncryptWriter wraps a NewPassphrased stream cipher with cipher.StreamWriter.
+func EncryptWriter(w io.Writer, passphrase string, iv IV, salt []byte, params Argon2Params) *cipher.StreamWriter {
 	return &cipher.StreamWriter{
-		S: NewPassphrased(passphrase, salt, iv, opts...),
+		S: NewPassphrased(passphrase, iv, salt, params),
 		W: w,
 	}
 }
 
 // Decrypt wraps a NewPassphrased stream cipher with cipher.StreamReader.
-func Decrypt(r io.Reader, passphrase string, iv, salt []byte, opts ...Argon2Opts) *cipher.StreamReader {
+func Decrypt(r io.Reader, passphrase string, iv IV, salt []byte, params Argon2Params) *cipher.StreamReader {
 	return &cipher.StreamReader{
-		S: NewPassphrased(passphrase, salt, iv, opts...),
+		S: NewPassphrased(passphrase, iv, salt, params),
 		R: r,
 	}
 }
