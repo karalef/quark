@@ -2,25 +2,20 @@ package pack
 
 import (
 	"errors"
-	"io"
+	"reflect"
 )
 
-// Tag is used to determine the binary block type.
+// Tag is used to determine the binary packet type.
 type Tag byte
 
-// available tags.
-const (
-	TagInvalid       Tag = 0x00
-	TagMessage       Tag = 0x01
-	TagPublicKeyset  Tag = 0x02
-	TagPrivateKeyset Tag = 0x03
-)
+// TagInvalid is used to indicate an invalid tag.
+const TagInvalid Tag = 0x00
 
 // ErrUnknownTag is returned when a tag is unknown.
 var ErrUnknownTag = errors.New("unknown tag")
 
 // Type returns the type of the tag.
-func (t Tag) Type() (MsgType, error) {
+func (t Tag) Type() (PacketType, error) {
 	typ, ok := tagToType[t]
 	if !ok {
 		return typ, ErrUnknownTag
@@ -33,33 +28,67 @@ func (t Tag) String() string {
 	if err != nil {
 		return "INVALID"
 	}
+	return typ.Name
+}
+
+// BlockType returns the block type of the tag.
+func (t Tag) BlockType() string {
+	typ, err := t.Type()
+	if err != nil {
+		return "INVALID"
+	}
 	return typ.BlockType
 }
 
-// Unpacker returns the unpacker for the tag.
-func (t Tag) Unpacker() (Unpacker, error) {
-	typ, err := t.Type()
-	if err != nil {
-		return nil, err
+var packableType = reflect.TypeOf((*Packable)(nil)).Elem()
+
+// RegisterPacketType registers a packet type.
+func RegisterPacketType(typ PacketType) {
+	if typ.Tag == TagInvalid {
+		panic("tag cannot be zero")
 	}
-	return typ.Unpacker, nil
+	if typ.Type == nil {
+		panic("type cannot be nil")
+	}
+	if !reflect.PointerTo(typ.Type).Implements(packableType) {
+		panic("type does not implement Packable")
+	}
+	if typ.Name == "" {
+		panic("name cannot be empty")
+	}
+	if typ.BlockType == "" {
+		panic("block type cannot be empty")
+	}
+
+	if _, ok := tagToType[typ.Tag]; ok {
+		panic("duplicate tag")
+	}
+
+	tagToType[typ.Tag] = typ
 }
 
-var tagToType = map[Tag]MsgType{
-	TagMessage:       typeMessage,
-	TagPublicKeyset:  typePublic,
-	TagPrivateKeyset: typePrivate,
+var tagToType = make(map[Tag]PacketType)
+
+// NewType creates a new packet type.
+func NewType(tag Tag, v Packable, name, blockType string) PacketType {
+	return PacketType{
+		Tag:       tag,
+		Type:      reflect.TypeOf(v).Elem(),
+		Name:      name,
+		BlockType: blockType,
+	}
 }
 
-// MsgType represents a binary message type.
-type MsgType struct {
-	Tag       Tag
+// PacketType represents a binary packet type.
+type PacketType struct {
+	Tag Tag
+	// Must be a settable for the msgpack.
+	// A pointer to this type must implement the Packable interface.
+	Type      reflect.Type
+	Name      string
 	BlockType string
-	Unpacker  Unpacker
 }
 
-// Packer represents a packer function.
-type Packer[T any] func(io.Writer, T) error
-
-// Unpacker represents an unpacker function.
-type Unpacker func(in io.Reader) (any, error)
+func (t PacketType) new() Packable {
+	return reflect.New(t.Type).Interface().(Packable)
+}

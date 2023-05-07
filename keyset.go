@@ -6,6 +6,7 @@ import (
 	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/kem"
+	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/sign"
 )
 
@@ -29,8 +30,8 @@ func Generate(id Identity, scheme Scheme) (*Private, error) {
 
 // Identity represents the keyset's identity.
 type Identity struct {
-	Name  string
-	Email string
+	Name  string `msgpack:"name,omitempty"`
+	Email string `msgpack:"email,omitempty"`
 }
 
 // NewPublic creates a new public keyset.
@@ -66,6 +67,10 @@ func NewPublicFromBytes(id Identity, scheme Scheme, signPub []byte, kemPub []byt
 	return NewPublic(id, k, s, scheme.Hash)
 }
 
+var _ pack.Packable = (*Public)(nil)
+var _ pack.CustomEncoder = (*Public)(nil)
+var _ pack.CustomDecoder = (*Public)(nil)
+
 // Public represents a public keyset.
 type Public struct {
 	identity Identity
@@ -74,6 +79,9 @@ type Public struct {
 	kem      kem.PublicKey
 	hash     hash.Scheme
 }
+
+// PacketTag implements pack.Packable interface.
+func (*Public) PacketTag() pack.Tag { return PacketTagPublicKeyset }
 
 // Identity returns the identity of the keyset.
 func (p *Public) Identity() Identity { return p.identity }
@@ -130,6 +138,10 @@ func NewPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (*Private,
 	}, nil
 }
 
+var _ pack.Packable = (*Private)(nil)
+var _ pack.CustomEncoder = (*Private)(nil)
+var _ pack.CustomDecoder = (*Private)(nil)
+
 // Private represents a private keyset.
 type Private struct {
 	pub      *Public
@@ -138,6 +150,9 @@ type Private struct {
 	sign     sign.PrivateKey
 	kem      kem.PrivateKey
 }
+
+// PacketTag implements pack.Packable interface.
+func (*Private) PacketTag() pack.Tag { return PacketTagPrivateKeyset }
 
 // Public returns the public keyset.
 func (p *Private) Public() *Public { return p.pub }
@@ -163,4 +178,98 @@ func (p *Private) Sign() sign.PrivateKey { return p.sign }
 // Seeds returns the seeds of the keyset.
 func (p *Private) Seeds() (signSeed, kemSeed []byte) {
 	return internal.Copy(p.signSeed), internal.Copy(p.kemSeed)
+}
+
+var errInvalidFingerprint = errors.New("invalid fingerprint")
+
+type keysetData struct {
+	Identity    `msgpack:"identity,inline"`
+	Scheme      string      `msgpack:"scheme"`
+	Fingerprint Fingerprint `msgpack:"fp"`
+}
+
+func packKeysetData(p *Public) keysetData {
+	return keysetData{
+		Fingerprint: p.fp,
+		Scheme:      p.Scheme().String(),
+		Identity:    p.Identity(),
+	}
+}
+
+type packablePublic struct {
+	keysetData `msgpack:",inline"`
+	SignPub    []byte `msgpack:"sign_pub"`
+	KEMPub     []byte `msgpack:"kem_pub"`
+}
+
+// EncodeMsgpack implements pack.CustomEncoder interface.
+func (p *Public) EncodeMsgpack(enc *pack.Encoder) error {
+	return enc.Encode(packablePublic{
+		keysetData: packKeysetData(p),
+		SignPub:    p.sign.Bytes(),
+		KEMPub:     p.kem.Bytes(),
+	})
+}
+
+// DecodeMsgpack implements pack.CustomDecoder interface.
+func (p *Public) DecodeMsgpack(dec *pack.Decoder) error {
+	pub := new(packablePublic)
+	err := dec.Decode(pub)
+	if err != nil {
+		return err
+	}
+	sch, err := ParseScheme(pub.Scheme)
+	if err != nil {
+		return err
+	}
+	p1, err := NewPublicFromBytes(pub.Identity, sch, pub.SignPub, pub.KEMPub)
+	if err != nil {
+		return err
+	}
+
+	if p1.fp != pub.Fingerprint {
+		return errInvalidFingerprint
+	}
+
+	*p = *p1
+	return nil
+}
+
+type packablePrivate struct {
+	keysetData `msgpack:",inline"`
+	SignSeed   []byte `msgpack:"sign_seed"`
+	KEMSeed    []byte `msgpack:"kem_seed"`
+}
+
+// EncodeMsgpack implements pack.CustomEncoder interface.
+func (p *Private) EncodeMsgpack(enc *pack.Encoder) error {
+	return enc.Encode(packablePrivate{
+		keysetData: packKeysetData(p.pub),
+		SignSeed:   p.signSeed,
+		KEMSeed:    p.kemSeed,
+	})
+}
+
+// DecodeMsgpack implements pack.CustomDecoder interface.
+func (p *Private) DecodeMsgpack(dec *pack.Decoder) error {
+	priv := new(packablePrivate)
+	err := dec.Decode(priv)
+	if err != nil {
+		return err
+	}
+	sch, err := ParseScheme(priv.Scheme)
+	if err != nil {
+		return err
+	}
+	p1, err := NewPrivate(priv.Identity, sch, priv.SignSeed, priv.KEMSeed)
+	if err != nil {
+		return err
+	}
+
+	if p1.pub.fp != priv.Fingerprint {
+		return errInvalidFingerprint
+	}
+
+	*p = *p1
+	return nil
 }

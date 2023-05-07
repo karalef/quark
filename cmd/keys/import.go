@@ -26,17 +26,17 @@ var ImportCMD = &cli.Command{
 			defer input.Close()
 		}
 
-		tag, v, err := pack.Decode(input)
+		tag, v, err := pack.Unpack(input)
 		if err != nil {
 			return err
 		}
 
 		var pub *quark.Public
 		switch tag {
-		case pack.TagPublicKeyset:
+		case quark.PacketTagPublicKeyset:
 			pub = v.(*quark.Public)
 			err = keyring.ImportPublic(pub)
-		case pack.TagPrivateKeyset:
+		case quark.PacketTagPrivateKeyset:
 			priv := v.(*quark.Private)
 			pub = priv.Public()
 			err = keyring.ImportPrivate(priv)

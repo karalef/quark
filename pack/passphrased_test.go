@@ -3,33 +3,37 @@ package pack
 import (
 	"bytes"
 	"io"
+	"runtime"
 	"testing"
+
+	"github.com/karalef/quark/internal"
 )
 
 func TestPassphrased(t *testing.T) {
 	const passphrase = "Test this password"
 	const testdata = "Test this unencrypted data"
 
-	buf := bytes.NewBuffer(make([]byte, 0, 2048))
+	iv := IV(internal.Rand(IVSize))
+	salt := internal.Rand(SaltSizeRFC)
 
-	w, err := Passphrased(buf, passphrase)
-	if err != nil {
-		t.Fatal(err)
+	params := Argon2Params{
+		Time:    TimeRFC,
+		Memory:  MemoryRFC,
+		Threads: uint8(runtime.GOMAXPROCS(0)),
 	}
+
+	buf := bytes.NewBuffer(make([]byte, 0, 512))
+
+	w := Encrypt(buf, passphrase, iv, salt, params)
 
 	io.WriteString(w, testdata)
 
-	r, err := PassphrasedDecrypter(buf, passphrase)
-	if err != nil {
-		t.Fatal(err)
-	}
+	r := Decrypt(buf, passphrase, iv, salt, params)
 
 	b, err := io.ReadAll(r)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	t.Log(string(b))
 
 	if string(b) != testdata {
 		t.Fatal("unexpected data")

@@ -1,6 +1,10 @@
 package quark
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/karalef/quark/pack"
+)
 
 // errors
 var (
@@ -102,26 +106,31 @@ func (t MessageType) String() string {
 	}
 }
 
+var _ pack.Packable = (*Message)(nil)
+
 // Message contains a message.
 type Message struct {
 	// sender`s public keyset fingerprint
-	Sender Fingerprint
+	Sender Fingerprint `msgpack:"sender"`
 
 	// recipient`s public keyset fingerprint
-	Recipient Fingerprint
+	Recipient Fingerprint `msgpack:"recipient"`
 
 	// signature
-	Signature []byte
+	Signature []byte `msgpack:"sig"`
 
 	// encapsulated shared secret
-	Key []byte
+	Key []byte `msgpack:"key"`
 
 	// data
-	Data []byte
+	Data []byte `msgpack:"data"`
 }
 
+// PacketTag implements pack.Packable interface.
+func (*Message) PacketTag() pack.Tag { return PacketTagMessage }
+
 // Type returns the message type.
-func (m Message) Type() (typ MessageType) {
+func (m *Message) Type() (typ MessageType) {
 	if len(m.Key) != 0 {
 		typ |= MessageFlagEncrypted
 	}

@@ -34,28 +34,22 @@ func export(ctx *cli.Context) (err error) {
 
 	query := ctx.Args().First()
 	if ctx.Bool("secret") {
-		err = expKeyset(keyring.FindPrivate, pack.Private, pack.BlockTypePrivate, query)
-	} else {
-		err = expKeyset(keyring.Find, pack.Public, pack.BlockTypePublic, query)
+		return expKeyset(keyring.FindPrivate, query)
 	}
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return expKeyset(keyring.Find, query)
 }
 
-func expKeyset[T keyring.Keyset](find func(string) (T, error), packer pack.Packer[T], blockType, query string) error {
+func expKeyset[T keyring.Keyset](find func(string) (T, error), query string) error {
 	ks, err := find(query)
 	if err != nil {
 		return err
 	}
 
-	output, err := cmdio.Output(blockType)
+	output, err := cmdio.Output(ks.PacketTag().BlockType())
 	if err != nil {
 		return err
 	}
 	defer output.Close()
 
-	return packer(output, ks)
+	return pack.Pack(output, ks)
 }

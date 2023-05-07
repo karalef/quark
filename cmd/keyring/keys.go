@@ -32,27 +32,28 @@ var ErrNotFound = errors.New("keyset not found")
 // Keyset represents a keyset.
 type Keyset interface {
 	*quark.Public | *quark.Private
+	pack.Packable
 	ID() quark.KeysetID
 	Fingerprint() quark.Fingerprint
 	Identity() quark.Identity
 }
 
-func readKeyset[T Keyset](fs storage.FS, name string, tag pack.Tag) (t T, err error) {
+func readKeyset[T Keyset](fs storage.FS, name string) (t T, err error) {
 	f, err := fs.Open(name)
 	if err != nil {
 		return
 	}
 	defer f.Close()
 
-	return pack.DecodeExact[T](f, tag)
+	return pack.UnpackExact[T](f, pack.WithoutArmor())
 }
 
 func readPub(name string) (*quark.Public, error) {
-	return readKeyset[*quark.Public](storage.Public(), name, pack.TagPublicKeyset)
+	return readKeyset[*quark.Public](storage.Public(), name)
 }
 
 func readPriv(name string) (*quark.Private, error) {
-	return readKeyset[*quark.Private](storage.Private(), name, pack.TagPrivateKeyset)
+	return readKeyset[*quark.Private](storage.Private(), name)
 }
 
 // ByID returns a keyset by its ID.

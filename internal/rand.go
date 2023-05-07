@@ -17,3 +17,13 @@ func RandRead(rand io.Reader, size int) ([]byte, error) {
 	}
 	return buf, nil
 }
+
+// Rand allocates a random byte slice of length size.
+// Panics if crypto/rand returns an error.
+func Rand(size int) []byte {
+	buf, err := RandRead(nil, size)
+	if err != nil {
+		panic(err)
+	}
+	return buf
+}

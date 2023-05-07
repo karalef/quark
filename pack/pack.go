@@ -1,54 +1,235 @@
 package pack
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
 
+	"github.com/karalef/quark/internal"
 	"github.com/vmihailenco/msgpack/v5"
-	"golang.org/x/crypto/openpgp/armor"
 )
 
-// Packable reprsents a packable object.
+// Packable represents a packable object.
 type Packable interface {
-	Type() MsgType
+	PacketTag() Tag
 }
 
-// Pack encodes an object into binary format.
-func Pack(out io.Writer, v Packable) error {
-	return msgpack.NewEncoder(out).Encode(struct {
-		Tag   Tag      `msgpack:"tag"`
-		Block Packable `msgpack:"block"`
-	}{
-		Tag:   v.Type().Tag,
-		Block: v,
-	})
+// Option represents packing option.
+type Option interface {
+	apply(*options)
 }
 
-// Unpack decodes an object from binary format.
-func Unpack(in io.Reader) (Tag, any, error) {
-	var block struct {
-		Tag   Tag                `msgpack:"tag"`
-		Block msgpack.RawMessage `msgpack:"block"`
+// WithArmor makes the output OpenPGP armored.
+func WithArmor(header map[string]string) Option {
+	return &armorOpt{
+		header: header,
 	}
-	err := msgpack.NewDecoder(in).Decode(&block)
+}
+
+// WithCompression compresses a packet.
+func WithCompression(alg Compression, lvl int) Option {
+	return &compressOpt{
+		alg: alg,
+		lvl: lvl,
+	}
+}
+
+// WithEncryption encrypts a packet.
+// If params is nil, random values are used.
+func WithEncryption(passphrase string, params *Encryption) Option {
+	if params == nil {
+		params = new(Encryption)
+		params.IV = [IVSize]byte(internal.Rand(IVSize))
+		params.Salt = internal.Rand(SaltSizeRFC)
+		params.Argon2ID = Argon2Defaults()
+	}
+	return &encryptOpt{
+		passphrase: passphrase,
+		params:     *params,
+	}
+}
+
+type armorOpt struct {
+	header map[string]string
+}
+
+func (o *armorOpt) apply(opts *options) { opts.armor = o }
+
+type compressOpt struct {
+	alg Compression
+	lvl int
+}
+
+func (o *compressOpt) apply(opts *options) { opts.compress = o }
+
+type encryptOpt struct {
+	passphrase string
+	params     Encryption
+}
+
+func (o *encryptOpt) writer(w io.Writer) io.WriteCloser {
+	return NopCloser(Encrypt(w, o.passphrase, o.params.IV, o.params.Salt, o.params.Argon2ID))
+}
+
+func (o *encryptOpt) apply(opts *options) { opts.enc = o }
+
+type options struct {
+	armor    *armorOpt
+	compress *compressOpt
+
+	enc *encryptOpt
+}
+
+// Pack creates a packet and encodes it into binary format.
+func Pack(out io.Writer, v Packable, opts ...Option) error {
+	var o options
+	for _, opt := range opts {
+		opt.apply(&o)
+	}
+
+	output := NopCloser(out)
+
+	if o.armor != nil {
+		var err error
+		output, err = ArmoredEncoder(output, v.PacketTag().BlockType(), o.armor.header)
+		if err != nil {
+			return err
+		}
+	}
+
+	object, pipeW := io.Pipe()
+	p := &Packet{
+		Tag:    v.PacketTag(),
+		Object: object,
+	}
+
+	writer := io.WriteCloser(pipeW)
+
+	if o.enc != nil {
+		p.Header.Encryption = &o.enc.params
+		writer = ChainCloser(writer, o.enc.writer(writer))
+	}
+
+	if o.compress != nil {
+		p.Header.Compression = o.compress.alg
+		w, err := Compress(writer, o.compress.alg, o.compress.lvl)
+		if err != nil {
+			return err
+		}
+		writer = ChainCloser(writer, w)
+	}
+
+	go func() {
+		err := EncodeBinary(writer, v)
+		if err == nil {
+			err = writer.Close()
+		}
+		pipeW.CloseWithError(err)
+	}()
+
+	err := EncodeBinary(output, p)
+	if err != nil {
+		return err
+	}
+
+	return output.Close()
+}
+
+// UnpackOption represents unpacking option.
+type UnpackOption interface {
+	apply(*unpackOptions)
+}
+
+// WithoutArmor skips OpenPGP armor determination.
+func WithoutArmor() UnpackOption {
+	return withoutArmor{}
+}
+
+// WithPassphrase decrypts a packet if it is encrypted.
+// passphrase func called only if the packet is encrypted.
+// Panics if passphrase is nil.
+func WithPassphrase(passphrase func() (string, error)) UnpackOption {
+	if passphrase == nil {
+		panic("nil passphrase")
+	}
+	return passphraseOpt(passphrase)
+}
+
+type withoutArmor struct{}
+
+func (withoutArmor) apply(opts *unpackOptions) { opts.noArmor = true }
+
+type passphraseOpt func() (string, error)
+
+var errNoPassphrase = errors.New("pack: object is encrypted but no passphrase is provided")
+
+func (o passphraseOpt) reader(r io.Reader, enc *Encryption) (io.Reader, error) {
+	if o == nil {
+		return nil, errNoPassphrase
+	}
+	pass, err := o()
+	if err != nil {
+		return nil, errors.Join(errNoPassphrase, err)
+	}
+	return Decrypt(r, pass, enc.IV, enc.Salt, enc.Argon2ID), nil
+}
+
+func (o passphraseOpt) apply(opts *unpackOptions) { opts.passphrase = o }
+
+type unpackOptions struct {
+	passphrase passphraseOpt
+	noArmor    bool
+}
+
+// Unpack unpacks an object from binary format.
+func Unpack(in io.Reader, opts ...UnpackOption) (Tag, Packable, error) {
+	var o unpackOptions
+	for _, opt := range opts {
+		opt.apply(&o)
+	}
+
+	if !o.noArmor {
+		armored, r, err := DetermineArmor(in)
+		if err != nil {
+			return TagInvalid, nil, err
+		}
+		in = r
+		if armored {
+			block, err := DecodeArmored(r)
+			if err != nil {
+				return TagInvalid, nil, err
+			}
+			in = block.Body
+		}
+	}
+
+	p, err := DecodeBinaryNew[Packet](in)
 	if err != nil {
 		return TagInvalid, nil, err
 	}
 
-	unp, err := block.Tag.Unpacker()
+	typ, err := p.Tag.Type()
 	if err != nil {
-		return block.Tag, nil, err
+		return p.Tag, nil, err
+	}
+	reader := p.Object
+
+	if enc := p.Header.Encryption; enc != nil {
+		reader, err = o.passphrase.reader(reader, enc)
+		if err != nil {
+			return p.Tag, nil, err
+		}
 	}
 
-	v, err := unp(bytes.NewReader(block.Block))
-	return block.Tag, v, err
-}
+	if comp := p.Header.Compression; comp != NoCompression {
+		reader, err = Decompress(reader, comp)
+		if err != nil {
+			return p.Tag, nil, err
+		}
+	}
 
-func unpack[T any](in io.Reader) (v *T, err error) {
-	v = new(T)
-	return v, msgpack.NewDecoder(in).Decode(v)
+	v := typ.new()
+	return p.Tag, v, DecodeBinary(reader, v)
 }
 
 // ErrMismatchTag is returned when the message tag mismatches the expected tag.
@@ -60,93 +241,60 @@ func (e ErrMismatchTag) Error() string {
 	return fmt.Sprintf("message tag mismatches the expected %s (got %s)", e.expected.String(), e.got.String())
 }
 
-// DecodeExact decodes an object from binary format with specified tag and type.
-// Returns ErrMismatchTag if the message tag mismatches the expected tag.
-// It panics if the type parameter mismatches the type of unpacked object.
-func DecodeExact[T any](in io.Reader, tag Tag) (v T, err error) {
-	t, val, err := Decode(in)
+// UnpackExact decodes an object from binary format with specified type.
+func UnpackExact[T Packable](in io.Reader, opts ...UnpackOption) (val T, err error) {
+	tag, v, err := Unpack(in, opts...)
 	if err != nil {
 		return
 	}
-	if t != tag {
-		return v, ErrMismatchTag{expected: tag, got: t}
+	if tag != val.PacketTag() {
+		return val, ErrMismatchTag{expected: val.PacketTag(), got: tag}
 	}
-
-	v, ok := val.(T)
-	if !ok {
-		panic("type parameter mismatches the type of unpacked object")
-	}
-	return
+	return v.(T), nil
 }
 
-// ErrMismatchBlockType is returned when the message tag mismatches the armor block type.
-var ErrMismatchBlockType = errors.New("message tag mssmatches the block type")
-
-// Decode decodes an object from binary format.
-// It can automaticaly determine armor encoding.
-// It returns ErrMismatchBlockType if the block type mismatches the tag.
-func Decode(in io.Reader) (Tag, any, error) {
-	armor, in, err := DetermineArmor(in)
-	if err != nil {
-		return TagInvalid, nil, err
+// Packet is a binary packet.
+type Packet struct {
+	Tag    Tag
+	Header struct {
+		Encryption  *Encryption `msgpack:"encryption,omitempty"`
+		Compression Compression `msgpack:"compression,omitempty"`
 	}
-
-	if !armor {
-		return Unpack(in)
-	}
-
-	block, err := DecodeArmored(in)
-	if err != nil {
-		return TagInvalid, nil, err
-	}
-
-	tag, v, err := Unpack(block.Body)
-	if err != nil {
-		return tag, v, err
-	}
-
-	if tag.String() != block.Type {
-		return tag, v, ErrMismatchBlockType
-	}
-
-	return tag, v, nil
+	Object io.Reader
 }
 
-const armorStart = "-----BEGIN "
-
-// DetermineArmor determines if an input is an OpenPGP armored block.
-// It returns multireader with peeked data.
-func DetermineArmor(in io.Reader) (bool, io.Reader, error) {
-	buf := make([]byte, len(armorStart))
-	n, err := io.ReadFull(in, buf)
-	return string(buf) == armorStart, io.MultiReader(bytes.NewReader(buf[:n]), in), err
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (p *Packet) EncodeMsgpack(enc *msgpack.Encoder) error {
+	err := enc.EncodeUint8(uint8(p.Tag))
+	if err != nil {
+		return err
+	}
+	enc.SetOmitEmpty(true)
+	err = enc.Encode(p.Header)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(enc.Writer(), p.Object)
+	return err
 }
 
-// Armored encodes an object into binary format with an OpenPGP armor.
-func Armored(out io.Writer, v Packable, h map[string]string) error {
-	wc, err := ArmoredEncoder(out, v.Type().BlockType, h)
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (p *Packet) DecodeMsgpack(dec *msgpack.Decoder) error {
+	tag, err := dec.DecodeUint8()
+	if err != nil {
+		return err
+	}
+	p.Tag = Tag(tag)
+	err = dec.Decode(&p.Header)
 	if err != nil {
 		return err
 	}
 
-	err = Pack(wc, v)
-	if err != nil {
-		wc.Close()
-		return err
-	}
-
-	return wc.Close()
+	p.Object = dec.Buffered()
+	return err
 }
 
-// ArmoredBlock represents an OpenPGP armored block.
-type ArmoredBlock = armor.Block
-
-// ArmoredEncoder returns an OpenPGP armored encoder.
-func ArmoredEncoder(out io.Writer, blockType string, headers map[string]string) (io.WriteCloser, error) {
-	return armor.Encode(out, blockType, headers)
-}
-
-// DecodeArmored decodes an OpenPGP armored block.
-func DecodeArmored(in io.Reader) (*ArmoredBlock, error) {
-	return armor.Decode(in)
-}
+var (
+	_ msgpack.CustomEncoder = (*Packet)(nil)
+	_ msgpack.CustomDecoder = (*Packet)(nil)
+)

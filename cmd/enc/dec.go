@@ -45,7 +45,7 @@ var DecryptCMD = &cli.Command{
 			defer output.Close()
 		}
 
-		msg, err := pack.DecodeExact[quark.Message](input, pack.TagMessage)
+		msg, err := pack.UnpackExact[*quark.Message](input)
 		if err != nil {
 			return err
 		}
