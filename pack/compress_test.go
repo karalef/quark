@@ -15,7 +15,7 @@ func TestCompress(t *testing.T) {
 	d, _ := internal.RandRead(rnd, 512)
 
 	buf := new(bytes.Buffer)
-	wc, err := Compress(buf, Flate, BestSpeed)
+	wc, err := Compress(buf, Lz4, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestCompress(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := Decompress(buf, Flate)
+	r, err := Decompress(buf, Lz4, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

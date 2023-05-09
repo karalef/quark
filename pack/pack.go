@@ -27,10 +27,15 @@ func WithArmor(header map[string]string) Option {
 }
 
 // WithCompression compresses a packet.
-func WithCompression(alg Compression, lvl int) Option {
+func WithCompression(alg Compression, lvl int, opts ...*CompressionOpts) Option {
+	var o *CompressionOpts
+	if len(opts) > 0 {
+		o = opts[0]
+	}
 	return &compressOpt{
 		alg: alg,
 		lvl: lvl,
+		opt: o,
 	}
 }
 
@@ -58,6 +63,7 @@ func (o *armorOpt) apply(opts *options) { opts.armor = o }
 type compressOpt struct {
 	alg Compression
 	lvl int
+	opt *CompressionOpts
 }
 
 func (o *compressOpt) apply(opts *options) { opts.compress = o }
@@ -112,7 +118,7 @@ func Pack(out io.Writer, v Packable, opts ...Option) error {
 
 	if o.compress != nil {
 		p.Header.Compression = o.compress.alg
-		w, err := Compress(writer, o.compress.alg, o.compress.lvl)
+		w, err := Compress(writer, o.compress.alg, o.compress.lvl, o.compress.opt)
 		if err != nil {
 			return err
 		}
@@ -155,6 +161,10 @@ func WithPassphrase(passphrase func() (string, error)) UnpackOption {
 	return passphraseOpt(passphrase)
 }
 
+func WithDecompressionOpts(opts *CompressionOpts) UnpackOption {
+	return decompressOpt{opts: opts}
+}
+
 type withoutArmor struct{}
 
 func (withoutArmor) apply(opts *unpackOptions) { opts.noArmor = true }
@@ -176,9 +186,16 @@ func (o passphraseOpt) reader(r io.Reader, enc *Encryption) (io.Reader, error) {
 
 func (o passphraseOpt) apply(opts *unpackOptions) { opts.passphrase = o }
 
+type decompressOpt struct {
+	opts *CompressionOpts
+}
+
+func (o decompressOpt) apply(opts *unpackOptions) { opts.decompress = o.opts }
+
 type unpackOptions struct {
 	passphrase passphraseOpt
 	noArmor    bool
+	decompress *CompressionOpts
 }
 
 // Unpack unpacks an object from binary format.
@@ -222,7 +239,7 @@ func Unpack(in io.Reader, opts ...UnpackOption) (Tag, Packable, error) {
 	}
 
 	if comp := p.Header.Compression; comp != NoCompression {
-		reader, err = Decompress(reader, comp)
+		reader, err = Decompress(reader, comp, o.decompress)
 		if err != nil {
 			return p.Tag, nil, err
 		}

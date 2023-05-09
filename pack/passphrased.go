@@ -62,33 +62,8 @@ func NewPassphrased(passphrase string, iv IV, salt []byte, params Argon2Params) 
 	return cipher.NewCTR(block, iv[:])
 }
 
-// StreamWriter is analogous to cipher.StreamWriter,
-// but it does not allocate buffer, changing source bytes instead.
-// Also it does not implement io.Closer.
-type StreamWriter struct {
-	S cipher.Stream
-	W io.Writer
-}
-
-func (w *StreamWriter) Write(d []byte) (n int, err error) {
-	w.S.XORKeyStream(d, d)
-	n, err = w.W.Write(d)
-	if n != len(d) && err == nil { // should never happen
-		err = io.ErrShortWrite
-	}
-	return
-}
-
-// Encrypt wraps a NewPassphrased stream cipher with StreamWriter.
-func Encrypt(w io.Writer, passphrase string, iv IV, salt []byte, params Argon2Params) *StreamWriter {
-	return &StreamWriter{
-		S: NewPassphrased(passphrase, iv, salt, params),
-		W: w,
-	}
-}
-
-// EncryptWriter wraps a NewPassphrased stream cipher with cipher.StreamWriter.
-func EncryptWriter(w io.Writer, passphrase string, iv IV, salt []byte, params Argon2Params) *cipher.StreamWriter {
+// Encrypt wraps a NewPassphrased stream cipher with cipher.StreamWriter.
+func Encrypt(w io.Writer, passphrase string, iv IV, salt []byte, params Argon2Params) *cipher.StreamWriter {
 	return &cipher.StreamWriter{
 		S: NewPassphrased(passphrase, iv, salt, params),
 		W: w,

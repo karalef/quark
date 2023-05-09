@@ -27,7 +27,7 @@ func TestPacking(t *testing.T) {
 	buf := new(bytes.Buffer)
 
 	err := Pack(buf, tt,
-		WithCompression(Flate, 0),
+		WithCompression(Zstd, 0),
 		WithEncryption("test", nil),
 		WithArmor(map[string]string{
 			"test": "test",
@@ -36,6 +36,8 @@ func TestPacking(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	println(buf.Len())
 
 	tag, v, err := Unpack(buf,
 		WithPassphrase(func() (string, error) { return "test", nil }),

@@ -5,7 +5,9 @@ go 1.20
 require (
 	github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414
 	github.com/cloudflare/circl v1.3.2
+	github.com/pierrec/lz4/v4 v4.1.17
 	github.com/urfave/cli/v2 v2.25.0
+	github.com/valyala/gozstd v1.19.1
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	golang.org/x/crypto v0.7.0
 )
