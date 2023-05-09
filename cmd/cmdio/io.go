@@ -2,64 +2,118 @@ package cmdio
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/karalef/quark/pack"
 )
 
-var armor bool
+var (
+	armor          bool
+	compression    pack.Compression
+	compressionLvl int
+	passphrase     string
+)
 
-// Input returns the standard input.
-func Input() *os.File { return os.Stdin }
+// Input represents a cmd input.
+type Input interface {
+	Raw() *os.File
+	Close() error
 
-// RawOutput returns the standard output.
-func RawOutput() *os.File { return os.Stdout }
-
-// Output returns the armored WriteCloser with the specified block type.
-// If armor is disabled, it returns stdout.
-func Output(blockType string) (io.WriteCloser, error) {
-	if !armor {
-		return os.Stdout, nil
-	}
-	return pack.ArmoredEncoder(os.Stdout, blockType, nil)
+	// Read reads the value from input.
+	Read() (pack.Tag, pack.Packable, error)
 }
 
-// CustomInput opens the specified file or returns stdin if the path is empty.
-func CustomInput(path string) (*os.File, error) {
+// Output represents a cmd output.
+type Output interface {
+	Raw() *os.File
+	Close() error
+
+	// Write writes the specified value to the output.
+	Write(pack.Packable) error
+}
+
+type file struct {
+	*os.File
+}
+
+func (f file) Raw() *os.File { return f.File }
+
+func (f file) Close() error { return f.File.Close() }
+
+func (f file) Read() (pack.Tag, pack.Packable, error) {
+	return pack.Unpack(f.File, pack.WithPassphrase(PassphraseFunc("passphrase")))
+}
+
+func (f file) Write(v pack.Packable) error {
+	var opts []pack.Option
+	if armor {
+		opts = append(opts, pack.WithArmor(nil))
+	}
+	if compression != pack.NoCompression {
+		opts = append(opts, pack.WithCompression(compression, compressionLvl))
+	}
+	if passphrase != "" {
+		opts = append(opts, pack.WithEncryption(passphrase, nil))
+	}
+
+	return pack.Pack(f.File, v, opts...)
+}
+
+// WithPassphrase requests the passphrase and creates packing option.
+func WithPassphrase(prompt string) error {
+	p, err := RequestPassphrase(prompt)
+	if err != nil {
+		return err
+	}
+	passphrase = p
+	return nil
+}
+
+// GetInput returns the standard input.
+func GetInput() Input { return file{os.Stdin} }
+
+// GetOutput returns the standard output.
+func GetOutput() Output { return file{os.Stdout} }
+
+// CustomInput opens the specified file and returns it as Input.
+// If the path is empty, it returns the standard input.
+func CustomInput(path string) (Input, error) {
 	if path == "" {
-		return os.Stdin, nil
+		return GetInput(), nil
 	}
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	return f, nil
+	return file{f}, nil
 }
 
-// CustomRawOutput opens the specified file or returns stdout if the path is empty.
-func CustomRawOutput(path string) (*os.File, error) {
+// CustomOutput opens the specified file and returns it as Output.
+// If the path is empty, it returns the standard output.
+func CustomOutput(path string) (Output, error) {
 	if path == "" {
-		return os.Stdout, nil
+		return GetOutput(), nil
 	}
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return nil, err
 	}
-	return f, nil
+	return file{f}, nil
 }
 
-// CustomOutput opens the specified file with armor encoding or returns armored stdout if the path is empty.
-// If armor is disabled, it returns file as is.
-func CustomOutput(path string, blockType string) (io.WriteCloser, error) {
-	f, err := CustomRawOutput(path)
-	if err != nil {
-		return nil, err
-	}
-	if !armor {
-		return f, nil
-	}
-	return pack.ArmoredEncoder(f, blockType, nil)
+// ReadExact reads the value with specified type from the provided input.
+func ReadExact[T pack.Packable](in Input) (T, error) {
+	return pack.UnpackExact[T](in.Raw(), pack.WithPassphrase(PassphraseFunc("passphrase")))
+}
+
+// Write is an alias of GetInput().Write.
+func Write(v pack.Packable) error {
+	return GetOutput().Write(v)
+}
+
+// Read is an alias of GetInput().Read.
+func Read() (pack.Tag, pack.Packable, error) {
+	return GetInput().Read()
 }
 
 // Status prints a status message.

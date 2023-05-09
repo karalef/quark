@@ -12,24 +12,29 @@ import (
 const defaultKeysetFile = "default"
 
 // SetDefault sets the default keyset.
-// If id is empty string, it removes the link.
-func SetDefault(id string) error {
-	if id == "" {
-		return removeDefault()
+// If query is empty string, it removes the link.
+func SetDefault(query string) (string, error) {
+	if query == "" {
+		return "", removeDefault()
 	}
-	privs := storage.Private()
-	name := PrivateFileName(id)
-	_, err := privs.Stat(name)
+	pub, err := Find(query)
 	if err != nil {
-		return err
+		return "", err
+	}
+
+	if ok, err := IsPrivateExists(pub); err != nil {
+		return "", err
+	} else if !ok {
+		return "", errors.New("private keyset does not exist")
 	}
 
 	err = removeDefault()
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return privs.Symlink(name, defaultKeysetFile)
+	id := pub.ID().String()
+	return id, storage.Private().Symlink(PrivateFileName(id), defaultKeysetFile)
 }
 
 func removeDefault() error {
@@ -40,17 +45,25 @@ func removeDefault() error {
 	return err
 }
 
-// IsDefault returns true if the specified keyset is default.
-func IsDefault(id string) (bool, error) {
+func defaultID() (string, error) {
 	path, err := storage.Private().Readlink(defaultKeysetFile)
 	if err != nil {
+		return "", err
+	}
+	path = filepath.Base(path)
+	return path[:len(path)-len(filepath.Ext(path))], nil
+}
+
+// IsDefault returns true if the specified keyset is default.
+func IsDefault(id string) (bool, error) {
+	defID, err := defaultID()
+	if err != nil {
 		if os.IsNotExist(err) {
-			return false, nil
+			err = nil
 		}
 		return false, err
 	}
-	path = filepath.Base(path)
-	return path[:len(path)-len(filepath.Ext(path))] == id, nil
+	return defID == id, nil
 }
 
 // ErrNoDefaultKeyset is returned if no default keyset has been set.
@@ -64,4 +77,17 @@ func Default() (*quark.Private, error) {
 		err = ErrNoDefaultKeyset
 	}
 	return priv, err
+}
+
+// DefaultPublic returns the public part of default keyset.
+// If no default keyset has been set it returns ErrNoDefaultKeyset.
+func DefaultPublic() (*quark.Public, error) {
+	defID, err := defaultID()
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = ErrNoDefaultKeyset
+		}
+		return nil, err
+	}
+	return ByID(defID)
 }

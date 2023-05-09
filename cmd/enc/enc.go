@@ -7,7 +7,6 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
-	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
 
@@ -20,11 +19,8 @@ var EncryptCMD = &cli.Command{
 	Category:    "encrypt/decrypt",
 	Usage:       "encrypt and sign",
 	Description: "If the file is passed as argument it overrides the default input and output (adding .quark extension to input file name).",
-	ArgsUsage:   "<input file>",
-	Flags: []cli.Flag{
-		cmdio.FlagArmor,
-		cmdio.FlagOutput,
-		cmdio.FlagInput,
+	ArgsUsage:   "[input file] [output file]",
+	Flags: append(cmdio.IOFlags(),
 		&cli.StringFlag{
 			Name:    "recipient",
 			Usage:   "encrypt for given `KEYSET` (if not provided, the message will be unencrypted)",
@@ -46,35 +42,33 @@ var EncryptCMD = &cli.Command{
 			Aliases:     []string{"k"},
 			DefaultText: "default keyset",
 		},
-	},
+		&cli.BoolFlag{
+			Name:    "symmetric",
+			Usage:   "use symmetric encryption",
+			Aliases: []string{"s"},
+		},
+	),
 	Action: func(c *cli.Context) (err error) {
 		recipient := c.String("recipient")
 		noSign := c.Bool("no-sign")
 		key := c.String("key")
+		symmetric := c.Bool("symmetric")
 		if recipient == "" && !c.Bool("clear-sign") {
 			return cli.Exit("omit the recipient is only allowed with the clear-sign flag", 1)
 		}
 
-		input := cmdio.Input()
-		var output io.WriteCloser
-
-		if c.Args().Present() { // override stdin and stdout
-			name := c.Args().First()
-			input, err = cmdio.CustomInput(name)
+		if symmetric {
+			err = cmdio.WithPassphrase("message encryption passphrase")
 			if err != nil {
 				return err
 			}
-			name = filepath.Base(name) + messageExt
-			output, err = cmdio.CustomOutput(name, quark.PacketTagMessage.BlockType())
-		} else {
-			output, err = cmdio.Output(quark.PacketTagMessage.BlockType())
 		}
-		if err != nil {
-			return err
-		}
-		defer output.Close()
 
-		data, err := io.ReadAll(input)
+		input, output, err := cmdio.CustomIO(c.Args().First(), c.Args().Get(1), func(in string) string {
+			return filepath.Base(in) + messageExt
+		})
+
+		data, err := io.ReadAll(input.Raw())
 		if err != nil {
 			return err
 		}
@@ -90,7 +84,7 @@ func findPrivate(query string) (*quark.Private, error) {
 	return keyring.FindPrivate(query)
 }
 
-func encrypt(out io.Writer, data []byte, recipient string, sign bool, signWith string) (err error) {
+func encrypt(out cmdio.Output, data []byte, recipient string, sign bool, signWith string) (err error) {
 	var privKS *quark.Private
 	if sign {
 		privKS, err = findPrivate(signWith)
@@ -114,5 +108,5 @@ func encrypt(out io.Writer, data []byte, recipient string, sign bool, signWith s
 		return err
 	}
 
-	return pack.Pack(out, &msg)
+	return out.Write(&msg)
 }

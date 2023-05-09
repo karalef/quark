@@ -2,7 +2,6 @@ package keyring
 
 import (
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/cmd/storage"
 )
 
 // KeysetEntry contains general keyset info.
@@ -15,25 +14,16 @@ type KeysetEntry struct {
 
 // List lists all keysets.
 func List(secrets bool) ([]KeysetEntry, error) {
-	fs := storage.Public()
-	if secrets {
-		fs = storage.Private()
-	}
-	dir, err := loadDir(fs)
+	entries, err := listEntries(secrets)
 	if err != nil {
 		return nil, err
 	}
-	list := make([]KeysetEntry, 0, len(dir))
-	for _, entry := range dir {
-		var pub *quark.Public
-		if secrets {
-			var priv *quark.Private
-			priv, err = readPriv(entry)
-			pub = priv.Public()
-		} else {
-			pub, err = readPub(entry)
+	list := make([]KeysetEntry, 0, len(entries))
+	for _, entry := range entries {
+		pub, err := readPub(entry)
+		if err != nil {
+			return nil, err
 		}
-
 		list = append(list, KeysetEntry{
 			ID:       pub.ID().String(),
 			FP:       pub.Fingerprint(),
@@ -42,4 +32,18 @@ func List(secrets bool) ([]KeysetEntry, error) {
 		})
 	}
 	return list, err
+}
+
+// listEntries returns public keyset file names.
+func listEntries(secrets bool) ([]string, error) {
+	dir, err := loadDir(secrets)
+	if err != nil {
+		return nil, err
+	}
+	if secrets {
+		for i, entry := range dir {
+			dir[i] = PublicFileName(entry[:len(entry)-len(PrivateFileExt)])
+		}
+	}
+	return dir, nil
 }

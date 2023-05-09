@@ -74,6 +74,15 @@ func ByIDPrivate(id string) (*quark.Private, error) {
 	return priv, err
 }
 
+// IsPrivateExists checks if a private keyset exists.
+func IsPrivateExists(pub *quark.Public) (bool, error) {
+	_, err := storage.Private().Stat(PrivateFileName(pub.ID().String()))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 func validateFileName(name string, ext string) bool {
 	if !strings.HasSuffix(name, ext) {
 		return false
@@ -82,9 +91,11 @@ func validateFileName(name string, ext string) bool {
 	return ok
 }
 
-func loadDir(fs storage.FS) ([]string, error) {
+func loadDir(private bool) ([]string, error) {
+	fs := storage.Public()
 	ext := PublicFileExt
-	if fs == storage.Private() {
+	if private {
+		fs = storage.Private()
 		ext = PrivateFileExt
 	}
 	dir, err := fs.ReadDir(".")
@@ -106,21 +117,23 @@ func loadDir(fs storage.FS) ([]string, error) {
 	return list, nil
 }
 
-func match[T Keyset](ks T, query string) bool {
+func match(ks *quark.Public, query string) bool {
 	ident := ks.Identity()
 	return ks.ID().String() == query || ident.Name == query || ident.Email == query
 }
 
-func find[T Keyset](fs storage.FS, reader func(string) (T, error), query string) (T, error) {
+// Find finds public keyset by id, owner name or email.
+// It return ErrNotFound if the keyset is not found.
+func Find(query string) (*quark.Public, error) {
 	if query == "" {
 		return nil, ErrNotFound
 	}
-	entries, err := loadDir(fs)
+	entries, err := loadDir(false)
 	if err != nil {
 		return nil, err
 	}
 	for _, entry := range entries {
-		ks, err := reader(entry)
+		ks, err := readPub(entry)
 		if err != nil {
 			return nil, err
 		}
@@ -131,14 +144,12 @@ func find[T Keyset](fs storage.FS, reader func(string) (T, error), query string)
 	return nil, ErrNotFound
 }
 
-// Find finds public keyset by id, owner name or email.
-// It return ErrNotFound if the keyset is not found.
-func Find(query string) (*quark.Public, error) {
-	return find(storage.Public(), readPub, query)
-}
-
 // FindPrivate finds private keyset by id, owner name or email.
 // It return ErrNotFound if the keyset is not found.
 func FindPrivate(query string) (*quark.Private, error) {
-	return find(storage.Private(), readPriv, query)
+	pub, err := Find(query)
+	if err != nil {
+		return nil, err
+	}
+	return readPriv(PrivateFileName(pub.ID().String()))
 }

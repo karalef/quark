@@ -8,7 +8,6 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
-	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
 
@@ -19,43 +18,20 @@ var DecryptCMD = &cli.Command{
 	Category:    "encrypt/decrypt",
 	Usage:       "decrypt and verify messages",
 	Description: "If the file is passed as argument it overrides the default input and output (removing .quark extension from input file name).",
-	ArgsUsage:   "<input file>",
-	Flags: []cli.Flag{
-		cmdio.FlagArmor,
-		cmdio.FlagOutput,
-		cmdio.FlagInput,
-	},
+	ArgsUsage:   "[input file] [output file]",
+	Flags:       cmdio.IOFlags(),
 	Action: func(c *cli.Context) (err error) {
-		input := cmdio.Input()
-		output := cmdio.RawOutput()
+		input, output, err := cmdio.CustomIO(c.Args().First(), c.Args().Get(1), func(in string) string {
+			return strings.TrimSuffix(filepath.Base(in), messageExt)
+		})
 
-		if c.Args().Present() { // override stdin and stdout
-			name := c.Args().First()
-			input, err = cmdio.CustomInput(name)
-			if err != nil {
-				return err
-			}
-			defer input.Close()
-
-			name = strings.TrimSuffix(filepath.Base(name), messageExt)
-			output, err = cmdio.CustomRawOutput(name)
-			if err != nil {
-				return err
-			}
-			defer output.Close()
-		}
-
-		msg, err := pack.UnpackExact[*quark.Message](input)
+		msg, err := cmdio.ReadExact[*quark.Message](input)
 		if err != nil {
 			return err
 		}
 
 		if msg.Type().IsEncrypted() {
-			privKS, err := keyring.FindPrivate(msg.Recipient.ID().String())
-			if err != nil {
-				return err
-			}
-			msg.Data, err = quark.Decrypt(msg.Data, msg.Key, privKS)
+			err = decrypt(msg)
 			if err != nil {
 				return err
 			}
@@ -67,9 +43,18 @@ var DecryptCMD = &cli.Command{
 			cmdio.Status(verify(msg.Sender, msg.Data, msg.Signature))
 		}
 
-		_, err = output.Write(msg.Data)
+		_, err = output.Raw().Write(msg.Data)
 		return err
 	},
+}
+
+func decrypt(msg *quark.Message) error {
+	privKS, err := keyring.FindPrivate(msg.Recipient.ID().String())
+	if err != nil {
+		return err
+	}
+	msg.Data, err = quark.Decrypt(msg.Data, msg.Key, privKS)
+	return err
 }
 
 func verify(fp quark.Fingerprint, data []byte, sig []byte) string {

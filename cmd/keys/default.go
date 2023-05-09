@@ -19,15 +19,15 @@ var DefaultCMD = &cli.Command{
 }
 
 func defaultKeyset(ctx *cli.Context) error {
-	priv, err := keyring.Default()
+	def, err := keyring.DefaultPublic()
 	if err != nil {
 		return err
 	}
 	printKeyset(keyring.KeysetEntry{
-		ID:       priv.ID().String(),
-		FP:       priv.Fingerprint(),
-		Identity: priv.Identity(),
-		Scheme:   priv.Scheme(),
+		ID:       def.ID().String(),
+		FP:       def.Fingerprint(),
+		Identity: def.Identity(),
+		Scheme:   def.Scheme(),
 	})
 	return nil
 }
@@ -42,21 +42,17 @@ var setDefaultCMD = &cli.Command{
 
 func setDefault(ctx *cli.Context) error {
 	if !ctx.Args().Present() {
-		err := keyring.SetDefault("")
+		_, err := keyring.SetDefault("")
 		if err != nil {
 			return err
 		}
 		cmdio.Status("default keyset unset")
 		return nil
 	}
-	priv, err := keyring.FindPrivate(ctx.Args().First())
+	id, err := keyring.SetDefault(ctx.Args().First())
 	if err != nil {
 		return err
 	}
-	err = keyring.SetDefault(priv.ID().String())
-	if err != nil {
-		return err
-	}
-	cmdio.Status("default keyset set:", priv.ID().String())
+	cmdio.Status("default keyset set:", id)
 	return nil
 }

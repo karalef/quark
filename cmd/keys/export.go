@@ -3,7 +3,6 @@ package keys
 import (
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
-	"github.com/karalef/quark/pack"
 	"github.com/urfave/cli/v2"
 )
 
@@ -13,17 +12,14 @@ var ExportCMD = &cli.Command{
 	Usage:     "export a public keyset to a file",
 	Category:  "key management",
 	Aliases:   []string{"exp"},
-	ArgsUsage: "<keyset>",
-	Flags: []cli.Flag{
-		cmdio.FlagArmor,
-		cmdio.FlagOutput,
-		cmdio.FlagInput,
+	ArgsUsage: "<keyset> [output file]",
+	Flags: append(cmdio.OutputFlags(),
 		&cli.BoolFlag{
 			Name:    "secret",
 			Usage:   "export private keyset",
 			Aliases: []string{"s"},
 		},
-	},
+	),
 	Action: export,
 }
 
@@ -32,24 +28,35 @@ func export(ctx *cli.Context) (err error) {
 		return cli.ShowCommandHelp(ctx, "export")
 	}
 
+	output := cmdio.GetOutput()
+	if out := ctx.Args().Get(1); out != "" {
+		output, err = cmdio.CustomOutput(out)
+		if err != nil {
+			return
+		}
+	}
+
 	query := ctx.Args().First()
 	if ctx.Bool("secret") {
-		return expKeyset(keyring.FindPrivate, query)
+		return expSecret(output, query)
 	}
-	return expKeyset(keyring.Find, query)
+
+	ks, err := keyring.Find(query)
+	if err != nil {
+		return err
+	}
+	return output.Write(ks)
 }
 
-func expKeyset[T keyring.Keyset](find func(string) (T, error), query string) error {
-	ks, err := find(query)
+func expSecret(output cmdio.Output, query string) error {
+	ks, err := keyring.FindPrivate(query)
 	if err != nil {
 		return err
 	}
-
-	output, err := cmdio.Output(ks.PacketTag().BlockType())
+	cmdio.Status("private key backup requires a passphrase")
+	err = cmdio.WithPassphrase("keyset backup passphrase")
 	if err != nil {
 		return err
 	}
-	defer output.Close()
-
-	return pack.Pack(output, ks)
+	return output.Write(ks)
 }
