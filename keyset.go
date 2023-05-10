@@ -87,7 +87,7 @@ func (*Public) PacketTag() pack.Tag { return PacketTagPublicKeyset }
 func (p *Public) Identity() Identity { return p.identity }
 
 // ID returns the ID of the keyset.
-func (p *Public) ID() KeysetID { return p.fp.ID() }
+func (p *Public) ID() ID { return p.fp.ID() }
 
 // Fingerprint returns the fingerprint of the keyset.
 func (p *Public) Fingerprint() Fingerprint { return p.fp }
@@ -161,7 +161,7 @@ func (p *Private) Public() *Public { return p.pub }
 func (p *Private) Identity() Identity { return p.pub.Identity() }
 
 // ID returns the ID of the keyset.
-func (p *Private) ID() KeysetID { return p.pub.ID() }
+func (p *Private) ID() ID { return p.pub.ID() }
 
 // Fingerprint returns the fingerprint of the keyset.
 func (p *Private) Fingerprint() Fingerprint { return p.pub.Fingerprint() }

@@ -33,7 +33,7 @@ var ErrNotFound = errors.New("keyset not found")
 type Keyset interface {
 	*quark.Public | *quark.Private
 	pack.Packable
-	ID() quark.KeysetID
+	ID() quark.ID
 	Fingerprint() quark.Fingerprint
 	Identity() quark.Identity
 }

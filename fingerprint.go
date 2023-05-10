@@ -10,7 +10,7 @@ import (
 
 // IDFromString creates keyset ID from string.
 // It returns false if the string is not a valid keyset ID.
-func IDFromString(strID string) (id KeysetID, ok bool) {
+func IDFromString(strID string) (id ID, ok bool) {
 	if len(strID) != idStringSize {
 		return
 	}
@@ -20,11 +20,11 @@ func IDFromString(strID string) (id KeysetID, ok bool) {
 
 const idStringSize = 8 * 2 // hexed id
 
-// KeysetID represents keyset ID.
-type KeysetID [8]byte
+// ID represents keyset ID.
+type ID [8]byte
 
-func (k KeysetID) String() string {
-	return hex.EncodeToString(k[:])
+func (id ID) String() string {
+	return hex.EncodeToString(id[:])
 }
 
 func calculateFingerprint(sign sign.PublicKey, kem kem.PublicKey) Fingerprint {
@@ -38,8 +38,8 @@ func calculateFingerprint(sign sign.PublicKey, kem kem.PublicKey) Fingerprint {
 type Fingerprint [md5.Size]byte
 
 // ID calculates keyset ID from fingerprint.
-func (f Fingerprint) ID() KeysetID {
-	return KeysetID(f[:8])
+func (f Fingerprint) ID() ID {
+	return ID(f[:8])
 }
 
 func (f Fingerprint) String() string {
