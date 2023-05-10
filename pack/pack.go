@@ -88,6 +88,11 @@ type options struct {
 
 // Pack creates a packet and encodes it into binary format.
 func Pack(out io.Writer, v Packable, opts ...Option) error {
+	tag := v.PacketTag()
+	if _, err := tag.Type(); err != nil {
+		return err
+	}
+
 	var o options
 	for _, opt := range opts {
 		opt.apply(&o)
@@ -97,7 +102,7 @@ func Pack(out io.Writer, v Packable, opts ...Option) error {
 
 	if o.armor != nil {
 		var err error
-		output, err = ArmoredEncoder(output, v.PacketTag().BlockType(), o.armor.header)
+		output, err = ArmoredEncoder(output, tag.BlockType(), o.armor.header)
 		if err != nil {
 			return err
 		}
@@ -105,7 +110,7 @@ func Pack(out io.Writer, v Packable, opts ...Option) error {
 
 	object, pipeW := io.Pipe()
 	p := &Packet{
-		Tag:    v.PacketTag(),
+		Tag:    tag,
 		Object: object,
 	}
 
