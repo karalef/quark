@@ -2,18 +2,33 @@ package sign
 
 import (
 	circlsign "github.com/cloudflare/circl/sign"
-	"github.com/cloudflare/circl/sign/eddilithium2"
-	"github.com/cloudflare/circl/sign/eddilithium3"
+	"github.com/cloudflare/circl/sign/dilithium"
 )
 
 var (
-	dilithium2ed25519Scheme = dilithiumScheme{
-		Algorithm: Dilithium2ED25519,
-		Scheme:    eddilithium2.Scheme(),
+	dilithium2 = dilithiumScheme{
+		Algorithm: Dilithium2,
+		Mode:      dilithium.Mode2,
 	}
-	dilithium3ed448Scheme = dilithiumScheme{
-		Algorithm: Dilithium3ED448,
-		Scheme:    eddilithium3.Scheme(),
+	dilithium2aes = dilithiumScheme{
+		Algorithm: Dilithium2AES,
+		Mode:      dilithium.Mode2AES,
+	}
+	dilithium3 = dilithiumScheme{
+		Algorithm: Dilithium3,
+		Mode:      dilithium.Mode3,
+	}
+	dilithium3aes = dilithiumScheme{
+		Algorithm: Dilithium3AES,
+		Mode:      dilithium.Mode3AES,
+	}
+	dilithium5 = dilithiumScheme{
+		Algorithm: Dilithium5,
+		Mode:      dilithium.Mode5,
+	}
+	dilithium5aes = dilithiumScheme{
+		Algorithm: Dilithium5AES,
+		Mode:      dilithium.Mode5AES,
 	}
 )
 
@@ -21,71 +36,58 @@ var _ Scheme = dilithiumScheme{}
 
 type dilithiumScheme struct {
 	Algorithm
-	circlsign.Scheme
+	dilithium.Mode
 }
 
 func (s dilithiumScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
-	pub, priv := s.Scheme.DeriveKey(seed)
-	return &dilithiumPrivKey{s, priv}, &dilithiumPubKey{s, pub}
+	pub, priv := s.Mode.NewKeyFromSeed(seed)
+	return &dilithiumPriv{s, priv}, &dilithiumPub{s, pub}
 }
 
 func (s dilithiumScheme) UnpackPublic(key []byte) (PublicKey, error) {
-	pub, err := s.UnmarshalBinaryPublicKey(key)
-	if err != nil {
-		return nil, err
+	if len(key) != s.PublicKeySize() {
+		return nil, circlsign.ErrPubKeySize
 	}
-	return &dilithiumPubKey{
-		scheme:    s,
-		PublicKey: pub,
-	}, nil
+	return &dilithiumPub{s, s.Mode.PublicKeyFromBytes(key)}, nil
 }
 
 func (s dilithiumScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
-	priv, err := s.UnmarshalBinaryPrivateKey(key)
-	if err != nil {
-		return nil, err
+	if len(key) != s.PrivateKeySize() {
+		return nil, circlsign.ErrPrivKeySize
 	}
-	return &dilithiumPrivKey{
-		scheme:     s,
-		PrivateKey: priv,
-	}, nil
+	return &dilithiumPriv{s, s.Mode.PrivateKeyFromBytes(key)}, nil
 }
 
-var _ PrivateKey = &dilithiumPrivKey{}
+var _ PrivateKey = (*dilithiumPriv)(nil)
 
-type dilithiumPrivKey struct {
-	scheme dilithiumScheme
-	circlsign.PrivateKey
+type dilithiumPriv struct {
+	s dilithiumScheme
+	dilithium.PrivateKey
 }
 
-func (priv *dilithiumPrivKey) Scheme() Scheme          { return priv.scheme }
-func (priv *dilithiumPrivKey) Equal(p PrivateKey) bool { return priv.PrivateKey.Equal(p) }
-func (priv *dilithiumPrivKey) Bytes() []byte {
-	b, _ := priv.PrivateKey.MarshalBinary()
-	return b
+func (priv *dilithiumPriv) Scheme() Scheme { return priv.s }
+
+func (priv *dilithiumPriv) Equal(p PrivateKey) bool {
+	return string(priv.Bytes()) == string(p.Bytes())
 }
 
-func (priv *dilithiumPrivKey) Sign(msg []byte) ([]byte, error) {
-	return priv.scheme.Scheme.Sign(priv.PrivateKey, msg, nil), nil
+func (priv *dilithiumPriv) Sign(msg []byte) ([]byte, error) {
+	return priv.s.Mode.Sign(priv.PrivateKey, msg), nil
 }
 
-var _ PublicKey = &dilithiumPubKey{}
+var _ PublicKey = (*dilithiumPub)(nil)
 
-type dilithiumPubKey struct {
-	scheme dilithiumScheme
-	circlsign.PublicKey
+type dilithiumPub struct {
+	s dilithiumScheme
+	dilithium.PublicKey
 }
 
-func (pub *dilithiumPubKey) Scheme() Scheme         { return pub.scheme }
-func (pub *dilithiumPubKey) Equal(p PublicKey) bool { return pub.PublicKey.Equal(p) }
-func (pub *dilithiumPubKey) Bytes() []byte {
-	b, _ := pub.MarshalBinary()
-	return b
+func (pub *dilithiumPub) Scheme() Scheme { return pub.s }
+
+func (pub *dilithiumPub) Equal(p PublicKey) bool {
+	return string(pub.Bytes()) == string(p.Bytes())
 }
 
-func (pub *dilithiumPubKey) Verify(msg, signature []byte) (bool, error) {
-	if len(signature) != pub.scheme.SignatureSize() {
-		return false, ErrInvalidSignature
-	}
-	return pub.scheme.Verify(pub.PublicKey, msg, signature, nil), nil
+func (pub *dilithiumPub) Verify(msg []byte, signature []byte) (bool, error) {
+	return pub.s.Mode.Verify(pub.PublicKey, msg, signature), nil
 }

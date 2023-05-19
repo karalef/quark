@@ -18,6 +18,13 @@ const (
 	// Dilithium3ED448 hybrids Dilithium mode3 with ed448
 	Dilithium3ED448 Algorithm = "DILITHIUM3_ED448"
 
+	Dilithium2    Algorithm = "DILITHIUM2"
+	Dilithium2AES Algorithm = "DILITHIUM2_AES"
+	Dilithium3    Algorithm = "DILITHIUM3"
+	Dilithium3AES Algorithm = "DILITHIUM3_AES"
+	Dilithium5    Algorithm = "DILITHIUM5"
+	Dilithium5AES Algorithm = "DILITHIUM5_AES"
+
 	Falcon1024 Algorithm = "FALCON1024"
 	//Rainbow
 )
@@ -34,6 +41,12 @@ func ListAll() []Scheme {
 var schemes = map[Algorithm]Scheme{
 	Dilithium2ED25519: dilithium2ed25519Scheme,
 	Dilithium3ED448:   dilithium3ed448Scheme,
+	Dilithium2:        dilithium2,
+	Dilithium2AES:     dilithium2aes,
+	Dilithium3:        dilithium3,
+	Dilithium3AES:     dilithium3aes,
+	Dilithium5:        dilithium5,
+	Dilithium5AES:     dilithium5aes,
 	Falcon1024:        falcon1024Scheme,
 }
 
