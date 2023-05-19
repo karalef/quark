@@ -1,6 +1,8 @@
 package keys
 
 import (
+	"sort"
+
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
@@ -21,10 +23,9 @@ var GenerateCMD = &cli.Command{
 	},
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "name",
-			Usage:    "owner name",
-			Aliases:  []string{"n"},
-			Required: true,
+			Name:    "name",
+			Usage:   "owner name",
+			Aliases: []string{"n"},
 		},
 		&cli.StringFlag{
 			Name:    "email",
@@ -83,12 +84,20 @@ func printSchemes(*cli.Context) error {
 	cmdio.Status("All available algorithms")
 
 	cmdio.Status("\nKEM:")
-	for _, k := range kem.ListAll() {
+	kems := kem.ListAll()
+	sort.Slice(kems, func(i, j int) bool {
+		return kems[i].Alg() < kems[j].Alg()
+	})
+	for _, k := range kems {
 		cmdio.Status(k.Alg())
 	}
 
 	cmdio.Status("\nSIGNATURES:")
-	for _, s := range sign.ListAll() {
+	signs := sign.ListAll()
+	sort.Slice(signs, func(i, j int) bool {
+		return signs[i].Alg() < signs[j].Alg()
+	})
+	for _, s := range signs {
 		cmdio.Status(s.Alg())
 	}
 
