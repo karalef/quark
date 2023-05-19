@@ -3,7 +3,6 @@ package quark
 import (
 	"errors"
 
-	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/pack"
@@ -36,8 +35,8 @@ type Identity struct {
 
 // NewPublic creates a new public keyset.
 // It returns ErrInvalidScheme if public keys or hash scheme is nil.
-func NewPublic(id Identity, k kem.PublicKey, s sign.PublicKey, h hash.Scheme) (*Public, error) {
-	if k == nil || s == nil || h == nil {
+func NewPublic(id Identity, k kem.PublicKey, s sign.PublicKey) (*Public, error) {
+	if k == nil || s == nil {
 		return nil, ErrInvalidScheme
 	}
 	return &Public{
@@ -45,7 +44,6 @@ func NewPublic(id Identity, k kem.PublicKey, s sign.PublicKey, h hash.Scheme) (*
 		fp:       calculateFingerprint(s, k),
 		sign:     s,
 		kem:      k,
-		hash:     h,
 	}, nil
 }
 
@@ -64,7 +62,7 @@ func NewPublicFromBytes(id Identity, scheme Scheme, signPub []byte, kemPub []byt
 		return nil, err
 	}
 
-	return NewPublic(id, k, s, scheme.Hash)
+	return NewPublic(id, k, s)
 }
 
 var _ pack.Packable = (*Public)(nil)
@@ -77,7 +75,6 @@ type Public struct {
 	fp       Fingerprint
 	sign     sign.PublicKey
 	kem      kem.PublicKey
-	hash     hash.Scheme
 }
 
 // PacketTag implements pack.Packable interface.
@@ -97,7 +94,6 @@ func (p *Public) Scheme() Scheme {
 	return Scheme{
 		KEM:  p.kem.Scheme(),
 		Sign: p.sign.Scheme(),
-		Hash: p.hash,
 	}
 }
 
@@ -124,7 +120,7 @@ func NewPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (*Private,
 	signPriv, signPub := scheme.Sign.DeriveKey(signSeed)
 	kemPriv, kemPub := scheme.KEM.DeriveKey(kemSeed)
 
-	pub, err := NewPublic(id, kemPub, signPub, scheme.Hash)
+	pub, err := NewPublic(id, kemPub, signPub)
 	if err != nil {
 		return nil, err
 	}

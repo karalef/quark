@@ -4,19 +4,16 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/sign"
 )
 
 const (
 	schemeDelim = "::"
-
-	// kem, sign, hash
-	schemeParts = 3
+	schemeParts = 2
 )
 
-// ParseScheme parses string with format "KEM::SIGN::HASH".
+// ParseScheme parses string with format "KEM::SIGN".
 func ParseScheme(s string) (Scheme, error) {
 	parts := strings.Split(strings.ToUpper(s), schemeDelim)
 	if len(parts) != schemeParts {
@@ -25,7 +22,6 @@ func ParseScheme(s string) (Scheme, error) {
 	sch := Scheme{
 		KEM:  kem.Algorithm(parts[0]).Scheme(),
 		Sign: sign.Algorithm(parts[1]).Scheme(),
-		Hash: hash.Algorithm(parts[2]).Scheme(),
 	}
 	if !sch.IsValid() {
 		return Scheme{}, ErrInvalidScheme
@@ -42,16 +38,14 @@ var (
 type Scheme struct {
 	KEM  kem.Scheme
 	Sign sign.Scheme
-	Hash hash.Scheme
 }
 
 func (s Scheme) String() string {
 	return strings.ToUpper(s.KEM.Alg().String() + schemeDelim +
-		s.Sign.Alg().String() + schemeDelim +
-		s.Hash.Alg().String())
+		s.Sign.Alg().String())
 }
 
 // IsValid returns true if scheme is valid.
 func (s Scheme) IsValid() bool {
-	return s.KEM != nil && s.Sign != nil && s.Hash != nil
+	return s.KEM != nil && s.Sign != nil
 }

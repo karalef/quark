@@ -33,7 +33,7 @@ func EncryptMessage(plaintext []byte, to *Public, signWith *Private) (Message, e
 		return m, nil
 	}
 
-	signature, err := Sign(plaintext, signWith)
+	signature, err := signWith.Sign().Sign(plaintext)
 	if err != nil {
 		return Message{}, err
 	}
@@ -55,7 +55,7 @@ func SignMessage(plaintext []byte, signWith *Private) (Message, error) {
 		return Message{Data: plaintext}, nil
 	}
 
-	signature, err := Sign(plaintext, signWith)
+	signature, err := signWith.Sign().Sign(plaintext)
 	if err != nil {
 		return Message{}, err
 	}

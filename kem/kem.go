@@ -78,13 +78,13 @@ func Generate(s Scheme, rand io.Reader) (PrivateKey, PublicKey, error) {
 // creates a new Cipher with generated key.
 //
 // If rand is nil, crypto/rand is used.
-func Encapsulate(pk PublicKey, rand io.Reader) (ecnryptedSecret []byte, ciph cipher.Cipher, err error) {
+func Encapsulate(pk PublicKey, rand io.Reader) ([]byte, cipher.Cipher, error) {
 	seed, err := internal.RandRead(rand, pk.Scheme().EncapsulationSeedSize())
 	if err != nil {
 		return nil, nil, err
 	}
 	ct, ss := pk.Encapsulate(seed)
-	ciph, err = pk.Scheme().Cipher().Unpack(ss)
+	ciph, err := pk.Scheme().Cipher().Unpack(ss)
 	return ct, ciph, err
 }
 

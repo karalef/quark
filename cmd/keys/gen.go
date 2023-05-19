@@ -4,7 +4,6 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
-	"github.com/karalef/quark/hash"
 	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/sign"
 	"github.com/urfave/cli/v2"
@@ -71,7 +70,6 @@ func generate(ctx *cli.Context) error {
 var defaultScheme = quark.Scheme{
 	KEM:  kem.Kyber768XChaCha20Poly1305.Scheme(),
 	Sign: sign.Dilithium3ED448.Scheme(),
-	Hash: hash.SHA256.Scheme(),
 }
 
 var listCMD = &cli.Command{
@@ -92,11 +90,6 @@ func printSchemes(*cli.Context) error {
 	cmdio.Status("\nSIGNATURES:")
 	for _, s := range sign.ListAll() {
 		cmdio.Status(s.Alg())
-	}
-
-	cmdio.Status("\nHASHES:")
-	for _, h := range hash.ListAll() {
-		cmdio.Status(h.Alg())
 	}
 
 	return nil
