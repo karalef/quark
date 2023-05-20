@@ -111,7 +111,7 @@ func Pack(out io.Writer, v Packable, opts ...Option) error {
 	object, pipeW := io.Pipe()
 	p := &Packet{
 		Tag:    tag,
-		Object: object,
+		Object: Object{Reader: object},
 	}
 
 	writer := io.WriteCloser(pipeW)
@@ -166,6 +166,7 @@ func WithPassphrase(passphrase func() (string, error)) UnpackOption {
 	return passphraseOpt(passphrase)
 }
 
+// WithDecompressionOpts decompresses a packet using provided options.
 func WithDecompressionOpts(opts *CompressionOpts) UnpackOption {
 	return decompressOpt{opts: opts}
 }
@@ -234,7 +235,7 @@ func Unpack(in io.Reader, opts ...UnpackOption) (Tag, Packable, error) {
 	if err != nil {
 		return p.Tag, nil, err
 	}
-	reader := p.Object
+	reader := p.Object.Reader
 
 	if enc := p.Header.Encryption; enc != nil {
 		reader, err = o.passphrase.reader(reader, enc)
@@ -275,48 +276,35 @@ func UnpackExact[T Packable](in io.Reader, opts ...UnpackOption) (val T, err err
 	return v.(T), nil
 }
 
+var _ msgpack.CustomEncoder = (*Object)(nil)
+var _ msgpack.CustomDecoder = (*Object)(nil)
+
+// Object represents an object as io.Reader.
+// It must be the last field in the message.
+type Object struct {
+	Reader io.Reader
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (o *Object) EncodeMsgpack(enc *msgpack.Encoder) error {
+	_, err := io.Copy(enc.Writer(), o.Reader)
+	return err
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (o *Object) DecodeMsgpack(dec *msgpack.Decoder) error {
+	o.Reader = dec.Buffered()
+	return nil
+}
+
 // Packet is a binary packet.
 type Packet struct {
+	_msgpack struct{} `msgpack:",as_array"`
+
 	Tag    Tag
 	Header struct {
 		Encryption  *Encryption `msgpack:"encryption,omitempty"`
 		Compression Compression `msgpack:"compression,omitempty"`
 	}
-	Object io.Reader
+	Object Object
 }
-
-// EncodeMsgpack implements msgpack.CustomEncoder.
-func (p *Packet) EncodeMsgpack(enc *msgpack.Encoder) error {
-	err := enc.EncodeUint8(uint8(p.Tag))
-	if err != nil {
-		return err
-	}
-	enc.SetOmitEmpty(true)
-	err = enc.Encode(p.Header)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(enc.Writer(), p.Object)
-	return err
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder.
-func (p *Packet) DecodeMsgpack(dec *msgpack.Decoder) error {
-	tag, err := dec.DecodeUint8()
-	if err != nil {
-		return err
-	}
-	p.Tag = Tag(tag)
-	err = dec.Decode(&p.Header)
-	if err != nil {
-		return err
-	}
-
-	p.Object = dec.Buffered()
-	return err
-}
-
-var (
-	_ msgpack.CustomEncoder = (*Packet)(nil)
-	_ msgpack.CustomDecoder = (*Packet)(nil)
-)
