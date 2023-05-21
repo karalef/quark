@@ -25,14 +25,14 @@ var (
 
 	packetTypePublicKeyset = pack.NewType(
 		PacketTagPublicKeyset,
-		(*Public)(nil),
+		(*public)(nil),
 		"public keyset",
 		"QUARK PUBLIC KEYSET",
 	)
 
 	packetTypePrivateKeyset = pack.NewType(
 		PacketTagPrivateKeyset,
-		(*Private)(nil),
+		(*private)(nil),
 		"private keyset",
 		"QUARK PRIVATE KEYSET",
 	)

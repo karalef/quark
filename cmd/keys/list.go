@@ -26,6 +26,7 @@ var ListCMD = &cli.Command{
 		}
 		for i := range pubs {
 			printKeyset(pubs[i])
+			cmdio.Status()
 		}
 		return nil
 	},
@@ -33,5 +34,5 @@ var ListCMD = &cli.Command{
 
 func printKeyset(k keyring.KeysetEntry) {
 	id := k.Identity
-	cmdio.Statusf("%s\t%s <%s>\n\t%s\t%s\n", k.ID, id.Name, id.Email, k.Scheme.String(), k.FP.String())
+	cmdio.Statusf("%s\t%s <%s> (%s)\n%s\n%s\n", k.ID, id.Name, id.Email, id.Comment, k.Scheme.String(), k.FP.String())
 }

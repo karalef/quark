@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/karalef/quark/internal"
 	"github.com/vmihailenco/msgpack/v5"
@@ -255,25 +256,30 @@ func Unpack(in io.Reader, opts ...UnpackOption) (Tag, Packable, error) {
 	return p.Tag, v, DecodeBinary(reader, v)
 }
 
-// ErrMismatchTag is returned when the message tag mismatches the expected tag.
-type ErrMismatchTag struct {
-	expected, got Tag
+// ErrMismatchType is returned when the object type mismatches the expected one.
+type ErrMismatchType struct {
+	expected Packable
+	got      Tag
 }
 
-func (e ErrMismatchTag) Error() string {
-	return fmt.Sprintf("message tag mismatches the expected %s (got %s)", e.expected.String(), e.got.String())
+func (e ErrMismatchType) Error() string {
+	if reflect.TypeOf(e.expected) == nil { // type parameter is interface
+		return fmt.Sprintf("object type (%s) does not implement the specified interface", e.got.String())
+	}
+	return fmt.Sprintf("object type mismatches the expected %s (got %s)", e.expected.PacketTag().String(), e.got.String())
 }
 
-// UnpackExact decodes an object from binary format with specified type.
+// UnpackExact decodes an object from binary format and casts it to specified type.
 func UnpackExact[T Packable](in io.Reader, opts ...UnpackOption) (val T, err error) {
 	tag, v, err := Unpack(in, opts...)
 	if err != nil {
 		return
 	}
-	if tag != val.PacketTag() {
-		return val, ErrMismatchTag{expected: val.PacketTag(), got: tag}
+	val, ok := v.(T)
+	if !ok {
+		return val, ErrMismatchType{expected: val, got: tag}
 	}
-	return v.(T), nil
+	return
 }
 
 var _ msgpack.CustomEncoder = (*Object)(nil)

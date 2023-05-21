@@ -10,36 +10,95 @@ import (
 )
 
 // Generate generates a new keyset from scheme using crypto/rand.
-func Generate(id Identity, scheme Scheme) (*Private, error) {
+func Generate(id Identity, scheme Scheme) (Private, error) {
 	if !scheme.IsValid() {
 		return nil, ErrInvalidScheme
 	}
 
-	signSeed, err := internal.RandRead(nil, scheme.Sign.SeedSize())
-	if err != nil {
-		return nil, err
-	}
-	kemSeed, err := internal.RandRead(nil, scheme.KEM.SeedSize())
-	if err != nil {
-		return nil, err
-	}
+	signSeed := internal.Rand(scheme.Sign.SeedSize())
+	kemSeed := internal.Rand(scheme.KEM.SeedSize())
 
 	return NewPrivate(id, scheme, signSeed, kemSeed)
 }
 
+// ChangeIdentity changes the identity of the keyset.
+func ChangeIdentity(ks Keyset, id Identity) error {
+	if !id.IsValid() {
+		return ErrInvalidIdentity
+	}
+	ks.pub().identity = id
+	return nil
+}
+
 // Identity represents the keyset's identity.
 type Identity struct {
-	Name  string `msgpack:"name,omitempty"`
-	Email string `msgpack:"email,omitempty"`
+	Name    string `msgpack:"name"`
+	Email   string `msgpack:"email,omitempty"`
+	Comment string `msgpack:"comment,omitempty"`
+}
+
+// IsValid returns true if the identity is valid.
+func (i Identity) IsValid() bool {
+	return i.Name != ""
+}
+
+// ErrInvalidIdentity is returned if the identity is invalid.
+var ErrInvalidIdentity = errors.New("invalid identity")
+
+// Keyset represents a keyset.
+type Keyset interface {
+	pack.Packable
+
+	// Identity returns the identity of the keyset.
+	Identity() Identity
+
+	// ID returns the ID of the keyset.
+	ID() ID
+
+	// Fingerprint returns the fingerprint of the keyset.
+	Fingerprint() Fingerprint
+
+	// Scheme returns the scheme of the keyset.
+	Scheme() Scheme
+
+	pub() *public
+}
+
+// Public represents a public keyset.
+type Public interface {
+	Keyset
+
+	// KEM returns the KEM public key.
+	KEM() kem.PublicKey
+
+	// Sign returns the signature public key.
+	Sign() sign.PublicKey
+}
+
+// Private represents a private keyset.
+type Private interface {
+	Keyset
+
+	// Public returns the public keyset.
+	Public() Public
+
+	// KEM returns the KEM public key.
+	KEM() kem.PrivateKey
+
+	// Sign returns the signature public key.
+	Sign() sign.PrivateKey
 }
 
 // NewPublic creates a new public keyset.
 // It returns ErrInvalidScheme if public keys or hash scheme is nil.
-func NewPublic(id Identity, k kem.PublicKey, s sign.PublicKey) (*Public, error) {
+func NewPublic(id Identity, s sign.PublicKey, k kem.PublicKey) (Public, error) {
 	if k == nil || s == nil {
 		return nil, ErrInvalidScheme
 	}
-	return &Public{
+	if id.IsValid() {
+		return nil, ErrInvalidIdentity
+	}
+	return &public{
 		identity: id,
 		fp:       calculateFingerprint(s, k),
 		sign:     s,
@@ -48,7 +107,7 @@ func NewPublic(id Identity, k kem.PublicKey, s sign.PublicKey) (*Public, error) 
 }
 
 // NewPublicFromBytes creates a new public keyset parsing the scheme, signature public key and KEM public key.
-func NewPublicFromBytes(id Identity, scheme Scheme, signPub []byte, kemPub []byte) (*Public, error) {
+func NewPublicFromBytes(id Identity, scheme Scheme, signPub []byte, kemPub []byte) (Public, error) {
 	if !scheme.IsValid() {
 		return nil, ErrInvalidScheme
 	}
@@ -62,35 +121,36 @@ func NewPublicFromBytes(id Identity, scheme Scheme, signPub []byte, kemPub []byt
 		return nil, err
 	}
 
-	return NewPublic(id, k, s)
+	return NewPublic(id, s, k)
 }
 
-var _ pack.Packable = (*Public)(nil)
-var _ pack.CustomEncoder = (*Public)(nil)
-var _ pack.CustomDecoder = (*Public)(nil)
+var _ Public = (*public)(nil)
+var _ pack.CustomEncoder = (*public)(nil)
+var _ pack.CustomDecoder = (*public)(nil)
 
-// Public represents a public keyset.
-type Public struct {
+type public struct {
 	identity Identity
 	fp       Fingerprint
 	sign     sign.PublicKey
 	kem      kem.PublicKey
 }
 
+func (p *public) pub() *public { return p }
+
 // PacketTag implements pack.Packable interface.
-func (*Public) PacketTag() pack.Tag { return PacketTagPublicKeyset }
+func (*public) PacketTag() pack.Tag { return PacketTagPublicKeyset }
 
 // Identity returns the identity of the keyset.
-func (p *Public) Identity() Identity { return p.identity }
+func (p *public) Identity() Identity { return p.identity }
 
 // ID returns the ID of the keyset.
-func (p *Public) ID() ID { return p.fp.ID() }
+func (p *public) ID() ID { return p.fp.ID() }
 
 // Fingerprint returns the fingerprint of the keyset.
-func (p *Public) Fingerprint() Fingerprint { return p.fp }
+func (p *public) Fingerprint() Fingerprint { return p.fp }
 
 // Scheme returns the scheme of the keyset.
-func (p *Public) Scheme() Scheme {
+func (p *public) Scheme() Scheme {
 	return Scheme{
 		KEM:  p.kem.Scheme(),
 		Sign: p.sign.Scheme(),
@@ -98,16 +158,16 @@ func (p *Public) Scheme() Scheme {
 }
 
 // KEM returns the KEM public key.
-func (p *Public) KEM() kem.PublicKey { return p.kem }
+func (p *public) KEM() kem.PublicKey { return p.kem }
 
 // Sign returns the signature public key.
-func (p *Public) Sign() sign.PublicKey { return p.sign }
+func (p *public) Sign() sign.PublicKey { return p.sign }
 
 // ErrInvalidSeed is returned if the seed size does not match the scheme.
 var ErrInvalidSeed = errors.New("invalid seed size")
 
 // NewPrivate creates a new private keyset from scheme and seeds.
-func NewPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (*Private, error) {
+func NewPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (Private, error) {
 	if !scheme.IsValid() {
 		return nil, ErrInvalidScheme
 	}
@@ -120,13 +180,13 @@ func NewPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (*Private,
 	signPriv, signPub := scheme.Sign.DeriveKey(signSeed)
 	kemPriv, kemPub := scheme.KEM.DeriveKey(kemSeed)
 
-	pub, err := NewPublic(id, kemPub, signPub)
+	pub, err := NewPublic(id, signPub, kemPub)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Private{
-		pub:      pub,
+	return &private{
+		public:   pub.(*public),
 		signSeed: internal.Copy(signSeed),
 		kemSeed:  internal.Copy(kemSeed),
 		sign:     signPriv,
@@ -134,13 +194,12 @@ func NewPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (*Private,
 	}, nil
 }
 
-var _ pack.Packable = (*Private)(nil)
-var _ pack.CustomEncoder = (*Private)(nil)
-var _ pack.CustomDecoder = (*Private)(nil)
+var _ Private = (*private)(nil)
+var _ pack.CustomEncoder = (*private)(nil)
+var _ pack.CustomDecoder = (*private)(nil)
 
-// Private represents a private keyset.
-type Private struct {
-	pub      *Public
+type private struct {
+	*public
 	signSeed []byte
 	kemSeed  []byte
 	sign     sign.PrivateKey
@@ -148,47 +207,26 @@ type Private struct {
 }
 
 // PacketTag implements pack.Packable interface.
-func (*Private) PacketTag() pack.Tag { return PacketTagPrivateKeyset }
+func (*private) PacketTag() pack.Tag { return PacketTagPrivateKeyset }
 
 // Public returns the public keyset.
-func (p *Private) Public() *Public { return p.pub }
-
-// Identity returns the identity of the keyset.
-func (p *Private) Identity() Identity { return p.pub.Identity() }
-
-// ID returns the ID of the keyset.
-func (p *Private) ID() ID { return p.pub.ID() }
-
-// Fingerprint returns the fingerprint of the keyset.
-func (p *Private) Fingerprint() Fingerprint { return p.pub.Fingerprint() }
-
-// Scheme returns the scheme of the keyset.
-func (p *Private) Scheme() Scheme { return p.pub.Scheme() }
+func (p *private) Public() Public { return p.public }
 
 // KEM returns the KEM private key.
-func (p *Private) KEM() kem.PrivateKey { return p.kem }
+func (p *private) KEM() kem.PrivateKey { return p.kem }
 
 // Sign returns the signature private key.
-func (p *Private) Sign() sign.PrivateKey { return p.sign }
-
-// Seeds returns the seeds of the keyset.
-func (p *Private) Seeds() (signSeed, kemSeed []byte) {
-	return internal.Copy(p.signSeed), internal.Copy(p.kemSeed)
-}
-
-var errInvalidFingerprint = errors.New("invalid fingerprint")
+func (p *private) Sign() sign.PrivateKey { return p.sign }
 
 type keysetData struct {
-	Identity    `msgpack:"identity,inline"`
-	Scheme      string      `msgpack:"scheme"`
-	Fingerprint Fingerprint `msgpack:"fp"`
+	Identity `msgpack:"identity,inline"`
+	Scheme   string `msgpack:"scheme"`
 }
 
-func packKeysetData(p *Public) keysetData {
+func packKeysetData(p *public) keysetData {
 	return keysetData{
-		Fingerprint: p.fp,
-		Scheme:      p.Scheme().String(),
-		Identity:    p.Identity(),
+		Identity: p.Identity(),
+		Scheme:   p.Scheme().String(),
 	}
 }
 
@@ -199,7 +237,7 @@ type packablePublic struct {
 }
 
 // EncodeMsgpack implements pack.CustomEncoder interface.
-func (p *Public) EncodeMsgpack(enc *pack.Encoder) error {
+func (p *public) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.Encode(packablePublic{
 		keysetData: packKeysetData(p),
 		SignPub:    p.sign.Bytes(),
@@ -208,7 +246,7 @@ func (p *Public) EncodeMsgpack(enc *pack.Encoder) error {
 }
 
 // DecodeMsgpack implements pack.CustomDecoder interface.
-func (p *Public) DecodeMsgpack(dec *pack.Decoder) error {
+func (p *public) DecodeMsgpack(dec *pack.Decoder) error {
 	pub := new(packablePublic)
 	err := dec.Decode(pub)
 	if err != nil {
@@ -223,11 +261,7 @@ func (p *Public) DecodeMsgpack(dec *pack.Decoder) error {
 		return err
 	}
 
-	if p1.fp != pub.Fingerprint {
-		return errInvalidFingerprint
-	}
-
-	*p = *p1
+	*p = *p1.(*public)
 	return nil
 }
 
@@ -238,16 +272,16 @@ type packablePrivate struct {
 }
 
 // EncodeMsgpack implements pack.CustomEncoder interface.
-func (p *Private) EncodeMsgpack(enc *pack.Encoder) error {
+func (p *private) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.Encode(packablePrivate{
-		keysetData: packKeysetData(p.pub),
+		keysetData: packKeysetData(p.public),
 		SignSeed:   p.signSeed,
 		KEMSeed:    p.kemSeed,
 	})
 }
 
 // DecodeMsgpack implements pack.CustomDecoder interface.
-func (p *Private) DecodeMsgpack(dec *pack.Decoder) error {
+func (p *private) DecodeMsgpack(dec *pack.Decoder) error {
 	priv := new(packablePrivate)
 	err := dec.Decode(priv)
 	if err != nil {
@@ -262,10 +296,6 @@ func (p *Private) DecodeMsgpack(dec *pack.Decoder) error {
 		return err
 	}
 
-	if p1.pub.fp != priv.Fingerprint {
-		return errInvalidFingerprint
-	}
-
-	*p = *p1
+	*p = *p1.(*private)
 	return nil
 }

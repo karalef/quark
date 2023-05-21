@@ -77,7 +77,7 @@ var EncryptCMD = &cli.Command{
 	},
 }
 
-func findPrivate(query string) (*quark.Private, error) {
+func findPrivate(query string) (quark.Private, error) {
 	if query == "" {
 		return keyring.Default()
 	}
@@ -85,7 +85,7 @@ func findPrivate(query string) (*quark.Private, error) {
 }
 
 func encrypt(out cmdio.Output, data []byte, recipient string, sign bool, signWith string) (err error) {
-	var privKS *quark.Private
+	var privKS quark.Private
 	if sign {
 		privKS, err = findPrivate(signWith)
 	}
@@ -97,7 +97,7 @@ func encrypt(out cmdio.Output, data []byte, recipient string, sign bool, signWit
 	if recipient == "" {
 		msg, err = quark.SignMessage(data, privKS)
 	} else {
-		var pubKS *quark.Public
+		var pubKS quark.Public
 		pubKS, err = keyring.Find(recipient)
 		if err != nil {
 			return err

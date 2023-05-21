@@ -13,7 +13,7 @@ var (
 
 // EncryptMessage encrypts a plaintext message.
 // If signWith is nil, the message will be anonymous.
-func EncryptMessage(plaintext []byte, to *Public, signWith *Private) (Message, error) {
+func EncryptMessage(plaintext []byte, to Public, signWith Private) (Message, error) {
 	if len(plaintext) == 0 {
 		return Message{}, ErrEmpty
 	}
@@ -46,7 +46,7 @@ func EncryptMessage(plaintext []byte, to *Public, signWith *Private) (Message, e
 
 // SignMessage signs a plaintext message.
 // If signWith is nil, the message will be raw.
-func SignMessage(plaintext []byte, signWith *Private) (Message, error) {
+func SignMessage(plaintext []byte, signWith Private) (Message, error) {
 	if len(plaintext) == 0 {
 		return Message{}, ErrEmpty
 	}

@@ -31,13 +31,13 @@ var ImportCMD = &cli.Command{
 			return errors.Join(err, errMaybeInvalidPassphrase)
 		}
 
-		var pub *quark.Public
+		var pub quark.Public
 		switch tag {
 		case quark.PacketTagPublicKeyset:
-			pub = v.(*quark.Public)
+			pub = v.(quark.Public)
 			err = importPub(pub)
 		case quark.PacketTagPrivateKeyset:
-			priv := v.(*quark.Private)
+			priv := v.(quark.Private)
 			pub = priv.Public()
 			err = keyring.ImportPrivate(priv)
 		default:
@@ -55,7 +55,7 @@ var ImportCMD = &cli.Command{
 
 var errMaybeInvalidPassphrase = errors.New("maybe passphrase is invalid?")
 
-func importPub(pub *quark.Public) error {
+func importPub(pub quark.Public) error {
 	yes, err := cmdio.YesNo(pub.Fingerprint().String() + "\ndoes the keyset fingerprint match?")
 	if err != nil {
 		return err

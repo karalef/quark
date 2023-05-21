@@ -9,7 +9,7 @@ import (
 )
 
 // Encrypt encrypts data for the public key.
-func Encrypt(data []byte, to *Public) (encryptedSecret []byte, ciphertext []byte, err error) {
+func Encrypt(data []byte, to Public) (encryptedSecret []byte, ciphertext []byte, err error) {
 	scheme := to.KEM().Scheme()
 	secretSeed, err := internal.RandRead(nil, scheme.EncapsulationSeedSize())
 	if err != nil {
@@ -28,7 +28,7 @@ func Encrypt(data []byte, to *Public) (encryptedSecret []byte, ciphertext []byte
 }
 
 // Decrypt decrypts data for the private key.
-func Decrypt(ciphertext []byte, encryptedSecret []byte, to *Private) (data []byte, err error) {
+func Decrypt(ciphertext []byte, encryptedSecret []byte, to Private) (data []byte, err error) {
 	ciphScheme := to.KEM().Scheme().Cipher()
 	nonce := ciphScheme.NonceSize()
 	data = make([]byte, 0, len(ciphertext)-nonce-ciphScheme.Overhead())

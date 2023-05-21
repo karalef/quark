@@ -29,16 +29,7 @@ func PrivateFileName(name string) string {
 // ErrNotFound is returned when a keyset is not found.
 var ErrNotFound = errors.New("keyset not found")
 
-// Keyset represents a keyset.
-type Keyset interface {
-	*quark.Public | *quark.Private
-	pack.Packable
-	ID() quark.ID
-	Fingerprint() quark.Fingerprint
-	Identity() quark.Identity
-}
-
-func readKeyset[T Keyset](fs storage.FS, name string) (t T, err error) {
+func readKeyset[T quark.Keyset](fs storage.FS, name string) (t T, err error) {
 	f, err := fs.Open(name)
 	if err != nil {
 		return
@@ -48,16 +39,16 @@ func readKeyset[T Keyset](fs storage.FS, name string) (t T, err error) {
 	return pack.UnpackExact[T](f, pack.WithoutArmor())
 }
 
-func readPub(name string) (*quark.Public, error) {
-	return readKeyset[*quark.Public](storage.Public(), name)
+func readPub(name string) (quark.Public, error) {
+	return readKeyset[quark.Public](storage.Public(), name)
 }
 
-func readPriv(name string) (*quark.Private, error) {
-	return readKeyset[*quark.Private](storage.Private(), name)
+func readPriv(name string) (quark.Private, error) {
+	return readKeyset[quark.Private](storage.Private(), name)
 }
 
 // ByID returns a keyset by its ID.
-func ByID(id string) (*quark.Public, error) {
+func ByID(id string) (quark.Public, error) {
 	pub, err := readPub(PublicFileName(id))
 	if os.IsNotExist(err) {
 		return nil, ErrNotFound
@@ -66,7 +57,7 @@ func ByID(id string) (*quark.Public, error) {
 }
 
 // ByIDPrivate returns a keyset by its ID.
-func ByIDPrivate(id string) (*quark.Private, error) {
+func ByIDPrivate(id string) (quark.Private, error) {
 	priv, err := readPriv(PrivateFileName(id))
 	if os.IsNotExist(err) {
 		return nil, ErrNotFound
@@ -75,7 +66,7 @@ func ByIDPrivate(id string) (*quark.Private, error) {
 }
 
 // IsPrivateExists checks if a private keyset exists.
-func IsPrivateExists(pub *quark.Public) (bool, error) {
+func IsPrivateExists(pub quark.Public) (bool, error) {
 	_, err := storage.Private().Stat(PrivateFileName(pub.ID().String()))
 	if os.IsNotExist(err) {
 		return false, nil
@@ -117,14 +108,14 @@ func loadDir(private bool) ([]string, error) {
 	return list, nil
 }
 
-func match(ks *quark.Public, query string) bool {
+func match(ks quark.Public, query string) bool {
 	ident := ks.Identity()
 	return ks.ID().String() == query || ident.Name == query || ident.Email == query
 }
 
 // Find finds public keyset by id, owner name or email.
 // It return ErrNotFound if the keyset is not found.
-func Find(query string) (*quark.Public, error) {
+func Find(query string) (quark.Public, error) {
 	if query == "" {
 		return nil, ErrNotFound
 	}
@@ -146,7 +137,7 @@ func Find(query string) (*quark.Public, error) {
 
 // FindPrivate finds private keyset by id, owner name or email.
 // It return ErrNotFound if the keyset is not found.
-func FindPrivate(query string) (*quark.Private, error) {
+func FindPrivate(query string) (quark.Private, error) {
 	pub, err := Find(query)
 	if err != nil {
 		return nil, err

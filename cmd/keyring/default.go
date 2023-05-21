@@ -71,7 +71,7 @@ var ErrNoDefaultKeyset = errors.New("no default keyset has been set")
 
 // Default returns the default keyset.
 // If no default keyset has been set it returns ErrNoDefaultKeyset.
-func Default() (*quark.Private, error) {
+func Default() (quark.Private, error) {
 	priv, err := readPriv(defaultKeysetFile)
 	if os.IsNotExist(err) {
 		err = ErrNoDefaultKeyset
@@ -81,7 +81,7 @@ func Default() (*quark.Private, error) {
 
 // DefaultPublic returns the public part of default keyset.
 // If no default keyset has been set it returns ErrNoDefaultKeyset.
-func DefaultPublic() (*quark.Public, error) {
+func DefaultPublic() (quark.Public, error) {
 	defID, err := defaultID()
 	if err != nil {
 		if os.IsNotExist(err) {
