@@ -14,12 +14,15 @@ const messageExt = ".quark"
 
 // EncryptCMD is the command to encrypt a message.
 var EncryptCMD = &cli.Command{
-	Name:        "encrypt",
-	Aliases:     []string{"enc"},
-	Category:    "encrypt/decrypt",
-	Usage:       "encrypt and sign",
-	Description: "If the file is passed as argument it overrides the default input and output (adding .quark extension to input file name).",
-	ArgsUsage:   "[input file] [output file]",
+	Name:     "encrypt",
+	Aliases:  []string{"enc"},
+	Category: "encrypt/decrypt",
+	Usage:    "encrypt and sign",
+	Description: "If the input file is provided it overrides the standard input. If the output file is:\n" +
+		"\t- not provided: adds .quark extension to input file name\n" +
+		"\t- empty: overrides the standard output with specified file\n" +
+		"\t- '-': does not override standard output.",
+	ArgsUsage: "[input file] [output file]",
 	Flags: append(cmdio.IOFlags(),
 		&cli.StringFlag{
 			Name:    "recipient",

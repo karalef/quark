@@ -13,13 +13,16 @@ import (
 
 // DecryptCMD is the command to decrypt a message.
 var DecryptCMD = &cli.Command{
-	Name:        "decrypt",
-	Aliases:     []string{"dec"},
-	Category:    "encrypt/decrypt",
-	Usage:       "decrypt and verify messages",
-	Description: "If the file is passed as argument it overrides the default input and output (removing .quark extension from input file name).",
-	ArgsUsage:   "[input file] [output file]",
-	Flags:       cmdio.IOFlags(),
+	Name:     "decrypt",
+	Aliases:  []string{"dec"},
+	Category: "encrypt/decrypt",
+	Usage:    "decrypt and verify messages",
+	Description: "If the input file is provided it overrides the standard input. If the output file is:\n" +
+		"\t- not provided: adds .quark extension to input file name\n" +
+		"\t- empty: overrides the standard output with specified file\n" +
+		"\t- '-': does not override standard output.",
+	ArgsUsage: "[input file] [output file]",
+	Flags:     cmdio.IOFlags(),
 	Action: func(c *cli.Context) (err error) {
 		input, output, err := cmdio.CustomIO(c.Args().First(), c.Args().Get(1), func(in string) string {
 			return strings.TrimSuffix(filepath.Base(in), messageExt)
