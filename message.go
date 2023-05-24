@@ -18,7 +18,7 @@ func EncryptMessage(plaintext []byte, to Public, signWith Private) (Message, err
 		return Message{}, ErrEmpty
 	}
 
-	ck, ct, err := Encrypt(plaintext, to)
+	ck, ct, err := Encrypt(nil, plaintext, to)
 	if err != nil {
 		return Message{}, err
 	}

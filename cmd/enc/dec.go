@@ -56,7 +56,7 @@ func decrypt(msg *quark.Message) error {
 	if err != nil {
 		return err
 	}
-	msg.Data, err = quark.Decrypt(msg.Data, msg.Key, privKS)
+	msg.Data, err = quark.Decrypt(nil, msg.Data, msg.Key, privKS)
 	return err
 }
 
