@@ -12,11 +12,12 @@ import (
 func main() {
 	app := &cli.App{
 		Name:                   "quark",
-		Version:                "0.1.0",
+		Version:                "0.1.1",
 		Usage:                  "encrypt and sign messages",
 		UseShortOptionHandling: true,
 		Writer:                 os.Stderr,
 		ErrWriter:              os.Stderr,
+		DefaultCommand:         enc.DecryptCMD.Name,
 		Commands: []*cli.Command{
 			keys.GenerateCMD,
 			keys.ListCMD,
