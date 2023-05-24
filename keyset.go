@@ -95,7 +95,7 @@ func NewPublic(id Identity, s sign.PublicKey, k kem.PublicKey) (Public, error) {
 	if k == nil || s == nil {
 		return nil, ErrInvalidScheme
 	}
-	if id.IsValid() {
+	if !id.IsValid() {
 		return nil, ErrInvalidIdentity
 	}
 	return &public{
