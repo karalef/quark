@@ -22,19 +22,23 @@ func SetDefault(query string) (string, error) {
 		return "", err
 	}
 
-	if ok, err := IsPrivateExists(pub); err != nil {
-		return "", err
-	} else if !ok {
-		return "", errors.New("private keyset does not exist")
-	}
-
-	err = removeDefault()
-	if err != nil {
-		return "", err
-	}
-
 	id := pub.ID().String()
-	return id, storage.Private().Symlink(PrivateFileName(id), defaultKeysetFile)
+	return id, SetDefaultByID(id)
+}
+
+// SetDefaultByID sets the default keyset by its ID.
+func SetDefaultByID(id string) error {
+	if ok, err := isPrivateExists(id); err != nil {
+		return err
+	} else if !ok {
+		return errors.New("private keyset does not exist")
+	}
+
+	err := removeDefault()
+	if err != nil {
+		return err
+	}
+	return storage.Private().Symlink(PrivateFileName(id), defaultKeysetFile)
 }
 
 func removeDefault() error {
@@ -52,6 +56,15 @@ func defaultID() (string, error) {
 	}
 	path = filepath.Base(path)
 	return path[:len(path)-len(filepath.Ext(path))], nil
+}
+
+// IsDefaultExists returns true if the default keyset is set.
+func IsDefaultExists() (bool, error) {
+	id, err := defaultID()
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return id != "", err
 }
 
 // IsDefault returns true if the specified keyset is default.

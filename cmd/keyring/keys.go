@@ -65,13 +65,17 @@ func ByIDPrivate(id string) (quark.Private, error) {
 	return priv, err
 }
 
-// IsPrivateExists checks if a private keyset exists.
-func IsPrivateExists(pub quark.Public) (bool, error) {
-	_, err := storage.Private().Stat(PrivateFileName(pub.ID().String()))
+func isPrivateExists(id string) (bool, error) {
+	_, err := storage.Private().Stat(PrivateFileName(id))
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	return err == nil, err
+}
+
+// IsPrivateExists checks if a private keyset exists.
+func IsPrivateExists(pub quark.Public) (bool, error) {
+	return isPrivateExists(pub.ID().String())
 }
 
 func validateFileName(name string, ext string) bool {

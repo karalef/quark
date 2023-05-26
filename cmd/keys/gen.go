@@ -70,6 +70,15 @@ func generate(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if ok, err := keyring.IsDefaultExists(); err != nil {
+		return cli.Exit("default keyset: "+err.Error(), 1)
+	} else if !ok {
+		err = keyring.SetDefaultByID(ks.ID().String())
+		if err != nil {
+			return err
+		}
+	}
 	cmdio.Status("generated keyset", ks.ID())
 	return nil
 }
