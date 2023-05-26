@@ -105,15 +105,8 @@ var FlagCompression = &cli.StringFlag{
 // FlagLvl is a compression level flag.
 var FlagLvl = &cli.IntFlag{
 	Name:        "lvl",
-	Usage:       "compression `LEVEL` (from -2 to 9)",
-	DefaultText: "6",
+	Usage:       "compression `LEVEL`",
 	Destination: &compressionLvl,
-	Action: func(_ *cli.Context, v int) error {
-		if v < -2 || v > 9 {
-			return cli.Exit("invalid compression level", 1)
-		}
-		return nil
-	},
 }
 
 // FlagInput is an input flag.
