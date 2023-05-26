@@ -32,6 +32,11 @@ var GenerateCMD = &cli.Command{
 			Usage:   "owner email",
 			Aliases: []string{"e"},
 		},
+		&cli.StringFlag{
+			Name:    "comment",
+			Usage:   "comment",
+			Aliases: []string{"c"},
+		},
 	},
 	Action: generate,
 }
@@ -47,8 +52,9 @@ func generate(ctx *cli.Context) error {
 	}
 
 	identity := quark.Identity{
-		Name:  ctx.String("name"),
-		Email: ctx.String("email"),
+		Name:    ctx.String("name"),
+		Email:   ctx.String("email"),
+		Comment: ctx.String("comment"),
 	}
 
 	if identity.Name == "" {
