@@ -47,8 +47,8 @@ func generate(ctx *cli.Context) error {
 	}
 
 	identity := quark.Identity{
-		Name:  ctx.String("n"),
-		Email: ctx.String("e"),
+		Name:  ctx.String("name"),
+		Email: ctx.String("email"),
 	}
 
 	if identity.Name == "" {
@@ -69,8 +69,8 @@ func generate(ctx *cli.Context) error {
 }
 
 var defaultScheme = quark.Scheme{
-	KEM:  kem.Kyber768XChaCha20Poly1305.Scheme(),
 	Sign: sign.Dilithium3ED448.Scheme(),
+	KEM:  kem.Kyber768XChaCha20Poly1305.Scheme(),
 }
 
 var listCMD = &cli.Command{
@@ -84,21 +84,21 @@ func printSchemes(*cli.Context) error {
 	cmdio.Status("All available algorithms")
 
 	cmdio.Status("\nKEM:")
-	kems := kem.ListAll()
+	kems := kem.ListAlgorithms()
 	sort.Slice(kems, func(i, j int) bool {
-		return kems[i].Alg() < kems[j].Alg()
+		return kems[i] < kems[j]
 	})
 	for _, k := range kems {
-		cmdio.Status(k.Alg())
+		cmdio.Status(k)
 	}
 
 	cmdio.Status("\nSIGNATURES:")
-	signs := sign.ListAll()
+	signs := sign.ListAlgorithms()
 	sort.Slice(signs, func(i, j int) bool {
-		return signs[i].Alg() < signs[j].Alg()
+		return signs[i] < signs[j]
 	})
 	for _, s := range signs {
-		cmdio.Status(s.Alg())
+		cmdio.Status(s)
 	}
 
 	return nil

@@ -12,6 +12,8 @@ type Algorithm string
 
 // available algorithms.
 const (
+	algInvalid Algorithm = "INVALID"
+
 	// Dilithium2ED25519 hybrids Dilithium mode2 with ed25519
 	Dilithium2ED25519 Algorithm = "DILITHIUM2_ED25519"
 
@@ -38,6 +40,15 @@ func ListAll() []Scheme {
 	return a
 }
 
+// ListAlgorithms returns all available algorithms.
+func ListAlgorithms() []Algorithm {
+	a := make([]Algorithm, 0, len(schemes))
+	for alg := range schemes {
+		a = append(a, alg)
+	}
+	return a
+}
+
 var schemes = map[Algorithm]Scheme{
 	Dilithium2ED25519: dilithium2ed25519Scheme,
 	Dilithium3ED448:   dilithium3ed448Scheme,
@@ -56,7 +67,7 @@ func (alg Algorithm) IsValid() bool  { return alg.Scheme() != nil }
 
 func (alg Algorithm) String() string {
 	if !alg.IsValid() {
-		return "INVALID"
+		return string(algInvalid)
 	}
 	return string(alg)
 }
@@ -69,8 +80,7 @@ func Generate(s Scheme, rand io.Reader) (PrivateKey, PublicKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	priv, pub := s.DeriveKey(seed)
-	return priv, pub, nil
+	return s.DeriveKey(seed)
 }
 
 // Scheme represents signature scheme.
@@ -78,9 +88,7 @@ type Scheme interface {
 	Alg() Algorithm
 
 	// DeriveKey derives a key-pair from a seed.
-	//
-	// Panics if seed is not of length SeedSize().
-	DeriveKey(seed []byte) (PrivateKey, PublicKey)
+	DeriveKey(seed []byte) (PrivateKey, PublicKey, error)
 
 	// Unpacks a PublicKey from the provided bytes.
 	UnpackPublic(key []byte) (PublicKey, error)
@@ -129,7 +137,7 @@ type PublicKey interface {
 
 // errors.
 var (
-	ErrInvalidSignature = errors.New("invalid signature")
-	ErrInvalidSeedSize  = errors.New("invalid seed size")
-	ErrInvalidKeySize   = errors.New("invalid key size")
+	ErrSignature = errors.New("invalid signature")
+	ErrSeedSize  = errors.New("invalid seed size")
+	ErrKeySize   = errors.New("invalid key size")
 )

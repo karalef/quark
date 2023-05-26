@@ -172,13 +172,15 @@ func NewPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (Private, 
 		return nil, ErrInvalidScheme
 	}
 
-	if len(signSeed) != scheme.Sign.SeedSize() || len(kemSeed) != scheme.KEM.SeedSize() {
-		return nil, ErrInvalidSeed
-	}
-
 	// derive keys
-	signPriv, signPub := scheme.Sign.DeriveKey(signSeed)
-	kemPriv, kemPub := scheme.KEM.DeriveKey(kemSeed)
+	signPriv, signPub, err := scheme.Sign.DeriveKey(signSeed)
+	if err != nil {
+		return nil, err
+	}
+	kemPriv, kemPub, err := scheme.KEM.DeriveKey(kemSeed)
+	if err != nil {
+		return nil, err
+	}
 
 	pub, err := NewPublic(id, signPub, kemPub)
 	if err != nil {

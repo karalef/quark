@@ -24,31 +24,34 @@ type circlScheme struct {
 	circlsign.Scheme
 }
 
-func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
+func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
+	if len(seed) != s.SeedSize() {
+		return nil, nil, ErrSeedSize
+	}
 	pub, priv := s.Scheme.DeriveKey(seed)
-	return &circlPrivKey{s, priv}, &circlPubKey{s, pub}
+	return &circlPrivKey{s, priv}, &circlPubKey{s, pub}, nil
 }
 
 func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
+	if len(key) != s.PublicKeySize() {
+		return nil, ErrKeySize
+	}
 	pub, err := s.UnmarshalBinaryPublicKey(key)
 	if err != nil {
 		return nil, err
 	}
-	return &circlPubKey{
-		scheme:    s,
-		PublicKey: pub,
-	}, nil
+	return &circlPubKey{s, pub}, nil
 }
 
 func (s circlScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
+	if len(key) != s.PrivateKeySize() {
+		return nil, ErrKeySize
+	}
 	priv, err := s.UnmarshalBinaryPrivateKey(key)
 	if err != nil {
 		return nil, err
 	}
-	return &circlPrivKey{
-		scheme:     s,
-		PrivateKey: priv,
-	}, nil
+	return &circlPrivKey{s, priv}, nil
 }
 
 var _ PrivateKey = &circlPrivKey{}
@@ -99,7 +102,7 @@ func (pub *circlPubKey) Bytes() []byte {
 
 func (pub *circlPubKey) Verify(msg, signature []byte) (bool, error) {
 	if len(signature) != pub.scheme.SignatureSize() {
-		return false, ErrInvalidSignature
+		return false, ErrSignature
 	}
 	return pub.scheme.Verify(pub.PublicKey, msg, signature, nil), nil
 }

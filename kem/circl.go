@@ -57,12 +57,18 @@ type circlScheme struct {
 
 func (s circlScheme) Cipher() cipher.Scheme { return s.cipher }
 
-func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
+func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
+	if len(seed) != s.SeedSize() {
+		return nil, nil, ErrSeedSize
+	}
 	pub, priv := s.Scheme.DeriveKeyPair(seed)
-	return &circlPrivKey{s, priv}, &circlPubKey{s, pub}
+	return &circlPrivKey{s, priv}, &circlPubKey{s, pub}, nil
 }
 
 func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
+	if len(key) != s.PublicKeySize() {
+		return nil, ErrKeySize
+	}
 	pub, err := s.UnmarshalBinaryPublicKey(key)
 	if err != nil {
 		return nil, err
@@ -74,6 +80,9 @@ func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
 }
 
 func (s circlScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
+	if len(key) != s.PrivateKeySize() {
+		return nil, ErrKeySize
+	}
 	priv, err := s.UnmarshalBinaryPrivateKey(key)
 	if err != nil {
 		return nil, err

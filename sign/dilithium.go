@@ -1,7 +1,8 @@
 package sign
 
 import (
-	circlsign "github.com/cloudflare/circl/sign"
+	"crypto"
+
 	"github.com/cloudflare/circl/sign/dilithium"
 )
 
@@ -39,23 +40,30 @@ type dilithiumScheme struct {
 	dilithium.Mode
 }
 
-func (s dilithiumScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
+func (s dilithiumScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
+	if len(seed) != s.SeedSize() {
+		return nil, nil, ErrSeedSize
+	}
 	pub, priv := s.Mode.NewKeyFromSeed(seed)
-	return &dilithiumPriv{s, priv}, &dilithiumPub{s, pub}
+	return &dilithiumPriv{s, priv}, &dilithiumPub{s, pub}, nil
 }
 
 func (s dilithiumScheme) UnpackPublic(key []byte) (PublicKey, error) {
 	if len(key) != s.PublicKeySize() {
-		return nil, circlsign.ErrPubKeySize
+		return nil, ErrKeySize
 	}
 	return &dilithiumPub{s, s.Mode.PublicKeyFromBytes(key)}, nil
 }
 
 func (s dilithiumScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
 	if len(key) != s.PrivateKeySize() {
-		return nil, circlsign.ErrPrivKeySize
+		return nil, ErrKeySize
 	}
 	return &dilithiumPriv{s, s.Mode.PrivateKeyFromBytes(key)}, nil
+}
+
+type cryptoEqualer interface {
+	Equal(crypto.PublicKey) bool
 }
 
 var _ PrivateKey = (*dilithiumPriv)(nil)
@@ -68,6 +76,13 @@ type dilithiumPriv struct {
 func (priv *dilithiumPriv) Scheme() Scheme { return priv.s }
 
 func (priv *dilithiumPriv) Equal(p PrivateKey) bool {
+	other, ok := p.(*dilithiumPriv)
+	if !ok {
+		return false
+	}
+	if e, ok := priv.PrivateKey.(cryptoEqualer); ok {
+		return e.Equal(other.PrivateKey)
+	}
 	return string(priv.Bytes()) == string(p.Bytes())
 }
 
@@ -85,6 +100,13 @@ type dilithiumPub struct {
 func (pub *dilithiumPub) Scheme() Scheme { return pub.s }
 
 func (pub *dilithiumPub) Equal(p PublicKey) bool {
+	other, ok := p.(*dilithiumPub)
+	if !ok {
+		return false
+	}
+	if e, ok := pub.PublicKey.(cryptoEqualer); ok {
+		return e.Equal(other.PublicKey)
+	}
 	return string(pub.Bytes()) == string(p.Bytes())
 }
 

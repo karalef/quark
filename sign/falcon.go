@@ -1,6 +1,9 @@
 package sign
 
-import "github.com/algorand/falcon"
+import (
+	"github.com/algorand/falcon"
+	"github.com/karalef/quark/internal"
+)
 
 var falcon1024Scheme Scheme = falconScheme{}
 
@@ -10,9 +13,9 @@ const falconSeedSize = 48
 
 func (falconScheme) Alg() Algorithm { return Falcon1024 }
 
-func (s falconScheme) derive(seed []byte) (PrivateKey, PublicKey, error) {
+func (s falconScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 	if len(seed) != s.SeedSize() {
-		return nil, nil, ErrInvalidSeedSize
+		return nil, nil, ErrSeedSize
 	}
 	pub, priv, err := falcon.GenerateKey(seed)
 	if err != nil {
@@ -21,17 +24,9 @@ func (s falconScheme) derive(seed []byte) (PrivateKey, PublicKey, error) {
 	return (*falconPrivKey)(&priv), (*falconPubKey)(&pub), nil
 }
 
-func (s falconScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey) {
-	priv, pub, err := s.derive(seed)
-	if err != nil {
-		panic(err)
-	}
-	return priv, pub
-}
-
 func (s falconScheme) UnpackPublic(key []byte) (PublicKey, error) {
 	if len(key) != s.PublicKeySize() {
-		return nil, ErrInvalidKeySize
+		return nil, ErrKeySize
 	}
 	pub := new(falconPubKey)
 	copy(pub[:], key)
@@ -40,7 +35,7 @@ func (s falconScheme) UnpackPublic(key []byte) (PublicKey, error) {
 
 func (s falconScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
 	if len(key) != s.PrivateKeySize() {
-		return nil, ErrInvalidKeySize
+		return nil, ErrKeySize
 	}
 	priv := new(falconPrivKey)
 	copy(priv[:], key)
@@ -65,8 +60,7 @@ func (priv *falconPrivKey) Equal(p PrivateKey) bool {
 }
 
 func (priv *falconPrivKey) Bytes() []byte {
-	cp := *priv
-	return cp[:]
+	return internal.Copy(priv[:])
 }
 
 func (priv *falconPrivKey) Sign(msg []byte) ([]byte, error) {
@@ -88,13 +82,12 @@ func (pub *falconPubKey) Equal(p PublicKey) bool {
 }
 
 func (pub *falconPubKey) Bytes() []byte {
-	cp := *pub
-	return cp[:]
+	return internal.Copy(pub[:])
 }
 
 func (pub *falconPubKey) Verify(msg, signature []byte) (bool, error) {
 	if len(signature) != falcon.CTSignatureSize {
-		return false, falcon.ErrVerifyFail
+		return false, ErrSignature
 	}
 	err := (*falcon.PublicKey)(pub).VerifyCTSignature(falcon.CTSignature(signature), msg)
 	return err == nil, nil
