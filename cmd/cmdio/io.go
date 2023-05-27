@@ -1,10 +1,13 @@
 package cmdio
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/karalef/quark/pack"
+	"golang.org/x/term"
 )
 
 var (
@@ -21,6 +24,8 @@ type Input interface {
 
 	// Read reads the value from input.
 	Read() (pack.Tag, pack.Packable, error)
+
+	reader() (io.Reader, error)
 }
 
 // Output represents a cmd output.
@@ -40,8 +45,25 @@ func (f file) Raw() *os.File { return f.File }
 
 func (f file) Close() error { return f.File.Close() }
 
+func (f file) reader() (io.Reader, error) {
+	if !term.IsTerminal(int(f.File.Fd())) {
+		return f.File, nil
+	}
+
+	// since the input is a terminal it can overlap the prompt or output (e.g. passphrase prompt).
+	buf, err := io.ReadAll(f.File)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(buf), nil
+}
+
 func (f file) Read() (pack.Tag, pack.Packable, error) {
-	return pack.Unpack(f.File, pack.WithPassphrase(PassphraseFunc("passphrase")))
+	r, err := f.reader()
+	if err != nil {
+		return 0, nil, err
+	}
+	return pack.Unpack(r, pack.WithPassphrase(PassphraseFunc("passphrase")))
 }
 
 func (f file) Write(v pack.Packable) error {
@@ -102,8 +124,12 @@ func CustomOutput(path string) (Output, error) {
 }
 
 // ReadExact reads the value with specified type from the provided input.
-func ReadExact[T pack.Packable](in Input) (T, error) {
-	return pack.UnpackExact[T](in.Raw(), pack.WithPassphrase(PassphraseFunc("passphrase")))
+func ReadExact[T pack.Packable](in Input) (v T, err error) {
+	r, err := in.reader()
+	if err != nil {
+		return
+	}
+	return pack.UnpackExact[T](r, pack.WithPassphrase(PassphraseFunc("passphrase")))
 }
 
 // Write is an alias of GetInput().Write.

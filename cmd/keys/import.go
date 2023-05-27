@@ -28,6 +28,9 @@ var ImportCMD = &cli.Command{
 
 		tag, v, err := input.Read()
 		if err != nil {
+			if errors.As(err, &cmdio.ErrNonTerminal{}) {
+				return err
+			}
 			return errors.Join(err, errMaybeInvalidPassphrase)
 		}
 

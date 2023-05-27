@@ -18,11 +18,23 @@ func getTerm() int {
 	return fd
 }
 
+// ErrNonTerminal is returned when the input is not a terminal.
+type ErrNonTerminal struct {
+	msg string
+}
+
+func (e ErrNonTerminal) Error() string {
+	if e.msg == "" {
+		return "non-terminal input"
+	}
+	return e.msg
+}
+
 // RequestPassphrase prompts the user for a passphrase.
 func RequestPassphrase(prompt string) (string, error) {
 	fd := getTerm()
 	if fd < 0 {
-		return "", errors.New("passphrase cannot be read from non-terminal input")
+		return "", ErrNonTerminal{"passphrase cannot be read from non-terminal input"}
 	}
 	fmt.Fprintf(os.Stderr, "Enter %s: ", prompt)
 	passphrase, err := term.ReadPassword(fd)
@@ -46,13 +58,14 @@ func PassphraseFunc(prompt string) func() (string, error) {
 // YesNo prompts the user for yes or no input.
 // Actually just checks the input for "y" or "yes".
 func YesNo(prompt string) (bool, error) {
+	if getTerm() < 0 {
+		return false, ErrNonTerminal{"yes/no cannot be read from non-terminal input"}
+	}
 	Statusf("%s (yes/no): ", prompt)
-	fmt.Scan()
 	response, err := readUntil(os.Stdin, '\n')
 	if err != nil {
 		return false, err
 	}
-
 	resp := string(bytes.ToLower(bytes.TrimSpace(response)))
 	return resp == "y" || resp == "yes", nil
 }

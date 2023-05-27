@@ -40,6 +40,7 @@ var DecryptCMD = &cli.Command{
 			}
 		}
 
+		cmdio.Status()
 		if !msg.Type().IsSigned() {
 			cmdio.Status(msg.Type().String(), "message")
 		} else {
