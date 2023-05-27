@@ -12,7 +12,7 @@ import (
 func main() {
 	app := &cli.App{
 		Name:                   "quark",
-		Version:                "0.1.1",
+		Version:                "0.1.2",
 		Usage:                  "encrypt and sign messages",
 		UseShortOptionHandling: true,
 		Writer:                 os.Stderr,

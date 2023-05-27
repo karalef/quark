@@ -10,7 +10,7 @@ Quark is a post-quantum cryptography tool inspired by GnuPG with a modern cli in
 
 ### [Using go](https://pkg.go.dev/cmd/go#hdr-Compile_and_install_packages_and_dependencies)
 ```sh
-go install github.com/karalef/quark/cmd/quark@v0.1.0
+go install github.com/karalef/quark/cmd/quark@v0.1.2
 ```
 
 ### Clone & build
@@ -19,5 +19,5 @@ git clone https://github.com/karalef/quark
 
 cd quark
 
-go build -o <bin output> ./cmd/quark
+go build -o path/to/binary ./cmd/quark
 ```
