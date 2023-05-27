@@ -3,6 +3,7 @@ package cmdio
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/karalef/quark/pack"
@@ -15,7 +16,6 @@ func OutputFlags() []cli.Flag {
 		FlagOutput,
 		FlagArmor,
 		FlagCompression,
-		FlagLvl,
 	}
 }
 
@@ -77,21 +77,33 @@ var FlagArmor = &cli.BoolFlag{
 	Destination: &armor,
 }
 
-var str2compression = map[string]pack.Compression{
+var str2compression = map[string]func(int) pack.Compressor{
 	"deflate": pack.Deflate,
 	"zstd":    pack.Zstd,
-	"lz4":     pack.Lz4,
+	"lz4":     func(lvl int) pack.Compressor { return pack.Lz4(lvl) },
 }
 
 // FlagCompression is a compression flag.
 var FlagCompression = &cli.StringFlag{
 	Name:        "compression",
-	Usage:       "compression `ALGORITHM`",
+	Usage:       "compression `ALGORITHM:LVL`",
 	DefaultText: "no compression",
 	Action: func(_ *cli.Context, v string) error {
-		c, ok := str2compression[v]
+		i := strings.Index(v, ":")
+		if i == 0 {
+			return cli.Exit(fmt.Errorf("invalid compression: %s", v), 1)
+		}
+		var alg string
+		var lvl int
+		if i == -1 {
+			alg = v
+		} else {
+			alg = v[:i]
+			lvl, _ = strconv.Atoi(v[i+1:])
+		}
+		c, ok := str2compression[alg]
 		if ok {
-			compression = c
+			compressor = c(lvl)
 			return nil
 		}
 		list := make([]string, 0, len(str2compression))
@@ -100,13 +112,6 @@ var FlagCompression = &cli.StringFlag{
 		}
 		return cli.Exit(fmt.Errorf("available compression algorithms: %s", strings.Join(list, ", ")), 1)
 	},
-}
-
-// FlagLvl is a compression level flag.
-var FlagLvl = &cli.IntFlag{
-	Name:        "lvl",
-	Usage:       "compression `LEVEL`",
-	Destination: &compressionLvl,
 }
 
 // FlagInput is an input flag.

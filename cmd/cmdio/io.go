@@ -11,10 +11,9 @@ import (
 )
 
 var (
-	armor          bool
-	compression    pack.Compression
-	compressionLvl int
-	passphrase     string
+	armor      bool
+	compressor pack.Compressor
+	passphrase string
 )
 
 // Input represents a cmd input.
@@ -71,8 +70,8 @@ func (f file) Write(v pack.Packable) error {
 	if armor {
 		opts = append(opts, pack.WithArmor(nil))
 	}
-	if compression != pack.NoCompression {
-		opts = append(opts, pack.WithCompression(compression, compressionLvl))
+	if compressor != nil {
+		opts = append(opts, pack.WithCompression(compressor))
 	}
 	if passphrase != "" {
 		opts = append(opts, pack.WithEncryption(passphrase, nil))

@@ -28,16 +28,11 @@ func WithArmor(header map[string]string) Option {
 }
 
 // WithCompression compresses a packet.
-func WithCompression(alg Compression, lvl int, opts ...*CompressionOpts) Option {
-	var o *CompressionOpts
-	if len(opts) > 0 {
-		o = opts[0]
+func WithCompression(c Compressor) Option {
+	if c == nil {
+		c = nopCompressor{}
 	}
-	return &compressOpt{
-		alg: alg,
-		lvl: lvl,
-		opt: o,
-	}
+	return &compressOpt{c}
 }
 
 // WithEncryption encrypts a packet.
@@ -62,9 +57,7 @@ type armorOpt struct {
 func (o *armorOpt) apply(opts *options) { opts.armor = o }
 
 type compressOpt struct {
-	alg Compression
-	lvl int
-	opt *CompressionOpts
+	Compressor
 }
 
 func (o *compressOpt) apply(opts *options) { opts.compress = o }
@@ -123,8 +116,8 @@ func Pack(out io.Writer, v Packable, opts ...Option) error {
 	}
 
 	if o.compress != nil {
-		p.Header.Compression = o.compress.alg
-		w, err := Compress(writer, o.compress.alg, o.compress.lvl, o.compress.opt)
+		p.Header.Compression = o.compress.Algorithm()
+		w, err := Compress(writer, o.compress.Compressor)
 		if err != nil {
 			return err
 		}
@@ -168,8 +161,8 @@ func WithPassphrase(passphrase func() (string, error)) UnpackOption {
 }
 
 // WithDecompressionOpts decompresses a packet using provided options.
-func WithDecompressionOpts(opts *CompressionOpts) UnpackOption {
-	return decompressOpt{opts: opts}
+func WithDecompressionOpts(opts map[Compression]DecompressOpts) UnpackOption {
+	return decompressOpt(opts)
 }
 
 type withoutArmor struct{}
@@ -193,16 +186,14 @@ func (o passphraseOpt) reader(r io.Reader, enc *Encryption) (io.Reader, error) {
 
 func (o passphraseOpt) apply(opts *unpackOptions) { opts.passphrase = o }
 
-type decompressOpt struct {
-	opts *CompressionOpts
-}
+type decompressOpt map[Compression]DecompressOpts
 
-func (o decompressOpt) apply(opts *unpackOptions) { opts.decompress = o.opts }
+func (o decompressOpt) apply(opts *unpackOptions) { opts.decompress = o }
 
 type unpackOptions struct {
 	passphrase passphraseOpt
 	noArmor    bool
-	decompress *CompressionOpts
+	decompress decompressOpt
 }
 
 // Unpack unpacks an object from binary format.
@@ -246,7 +237,7 @@ func Unpack(in io.Reader, opts ...UnpackOption) (Tag, Packable, error) {
 	}
 
 	if comp := p.Header.Compression; comp != NoCompression {
-		reader, err = Decompress(reader, comp, o.decompress)
+		reader, err = Decompress(reader, comp, o.decompress[p.Header.Compression])
 		if err != nil {
 			return p.Tag, nil, err
 		}
