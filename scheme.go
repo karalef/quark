@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/karalef/quark/kem"
+	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/sign"
 )
 
@@ -34,6 +35,9 @@ var (
 	ErrInvalidScheme = errors.New("invalid scheme")
 )
 
+var _ pack.CustomEncoder = Scheme{}
+var _ pack.CustomDecoder = (*Scheme)(nil)
+
 // Scheme type.
 type Scheme struct {
 	Sign sign.Scheme
@@ -48,4 +52,27 @@ func (s Scheme) String() string {
 // IsValid returns true if scheme is valid.
 func (s Scheme) IsValid() bool {
 	return s.Sign != nil && s.KEM != nil
+}
+
+// EncodeMsgpack implements pack.CustomEncoder.
+func (s Scheme) EncodeMsgpack(enc *pack.Encoder) error {
+	if !s.IsValid() {
+		return ErrInvalidScheme
+	}
+	return enc.EncodeString(s.String())
+}
+
+// DecodeMsgpack implements pack.CustomDecoder.
+func (s *Scheme) DecodeMsgpack(dec *pack.Decoder) error {
+	sch, err := dec.DecodeString()
+	if err != nil {
+		return err
+	}
+
+	ps, err := ParseScheme(sch)
+	if err != nil {
+		return err
+	}
+	*s = ps
+	return nil
 }

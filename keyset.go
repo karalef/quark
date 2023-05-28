@@ -224,14 +224,14 @@ func (p *private) KEM() kem.PrivateKey { return p.kem }
 func (p *private) Sign() sign.PrivateKey { return p.sign }
 
 type keysetData struct {
-	Identity `msgpack:"identity,inline"`
-	Scheme   string `msgpack:"scheme"`
+	Identity `msgpack:",inline"`
+	Scheme   Scheme `msgpack:"scheme"`
 }
 
 func packKeysetData(p *public) keysetData {
 	return keysetData{
 		Identity: p.Identity(),
-		Scheme:   p.Scheme().String(),
+		Scheme:   p.Scheme(),
 	}
 }
 
@@ -257,16 +257,12 @@ func (p *public) DecodeMsgpack(dec *pack.Decoder) error {
 	if err != nil {
 		return err
 	}
-	sch, err := ParseScheme(pub.Scheme)
-	if err != nil {
-		return err
-	}
-	p1, err := NewPublicFromBytes(pub.Identity, sch, pub.SignPub, pub.KEMPub)
+	p1, err := NewPublicFromBytes(pub.Identity, pub.Scheme, pub.SignPub, pub.KEMPub)
 	if err != nil {
 		return err
 	}
 
-	*p = *p1.(*public)
+	*p = *p1.pub()
 	return nil
 }
 
@@ -292,11 +288,7 @@ func (p *private) DecodeMsgpack(dec *pack.Decoder) error {
 	if err != nil {
 		return err
 	}
-	sch, err := ParseScheme(priv.Scheme)
-	if err != nil {
-		return err
-	}
-	p1, err := NewPrivate(priv.Identity, sch, priv.SignSeed, priv.KEMSeed)
+	p1, err := NewPrivate(priv.Identity, priv.Scheme, priv.SignSeed, priv.KEMSeed)
 	if err != nil {
 		return err
 	}
