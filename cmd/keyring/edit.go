@@ -31,12 +31,12 @@ func Edit(query string, id quark.Identity) (quark.Public, error) {
 		id.Comment = old.Comment
 	}
 
-	err = quark.ChangeIdentity(pub, id)
+	err = pub.ChangeIdentity(id)
 	if err != nil {
 		return pub, err
 	}
 	if priv != nil {
-		err = quark.ChangeIdentity(priv, id)
+		err = priv.ChangeIdentity(id)
 		if err != nil {
 			return pub, err
 		}

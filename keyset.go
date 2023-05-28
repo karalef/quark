@@ -21,15 +21,6 @@ func Generate(id Identity, scheme Scheme) (Private, error) {
 	return NewPrivate(id, scheme, signSeed, kemSeed)
 }
 
-// ChangeIdentity changes the identity of the keyset.
-func ChangeIdentity(ks Keyset, id Identity) error {
-	if !id.IsValid() {
-		return ErrInvalidIdentity
-	}
-	ks.pub().identity = id
-	return nil
-}
-
 // Identity represents the keyset's identity.
 type Identity struct {
 	Name    string `msgpack:"name"`
@@ -60,6 +51,9 @@ type Keyset interface {
 
 	// Scheme returns the scheme of the keyset.
 	Scheme() Scheme
+
+	// ChangeIdentity changes the identity of the keyset.
+	ChangeIdentity(Identity) error
 
 	pub() *public
 }
@@ -155,6 +149,15 @@ func (p *public) Scheme() Scheme {
 		KEM:  p.kem.Scheme(),
 		Sign: p.sign.Scheme(),
 	}
+}
+
+// ChangeIdentity changes the identity of the keyset.
+func (p *public) ChangeIdentity(id Identity) error {
+	if !id.IsValid() {
+		return ErrInvalidIdentity
+	}
+	p.identity = id
+	return nil
 }
 
 // KEM returns the KEM public key.
