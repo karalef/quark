@@ -67,7 +67,7 @@ func (f file) Read() (pack.Tag, pack.Packable, error) {
 
 func (f file) Write(v pack.Packable) error {
 	var opts []pack.Option
-	if armor {
+	if armor || term.IsTerminal(int(f.File.Fd())) {
 		opts = append(opts, pack.WithArmor(nil))
 	}
 	if compressor != nil {

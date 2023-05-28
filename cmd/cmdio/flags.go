@@ -75,6 +75,7 @@ var FlagArmor = &cli.BoolFlag{
 	Aliases:     []string{"a"},
 	Usage:       "use ascii-armored output",
 	Destination: &armor,
+	DefaultText: "enabled by default for terminal output",
 }
 
 var str2compression = map[string]func(int) pack.Compressor{
