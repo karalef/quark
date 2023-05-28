@@ -91,22 +91,20 @@ func encrypt(out cmdio.Output, data []byte, recipient string, sign bool, signWit
 	var privKS quark.Private
 	if sign {
 		privKS, err = findPrivate(signWith)
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
-	var msg quark.Message
-	if recipient == "" {
-		msg, err = quark.SignMessage(data, privKS)
-	} else {
-		var pubKS quark.Public
+	var pubKS quark.Public
+	if recipient != "" {
 		pubKS, err = keyring.Find(recipient)
 		if err != nil {
 			return err
 		}
-		msg, err = quark.EncryptMessage(data, pubKS, privKS)
 	}
+
+	msg, err := quark.NewMessage(data, pubKS, privKS)
 	if err != nil {
 		return err
 	}

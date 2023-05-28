@@ -2,6 +2,7 @@ package quark
 
 import (
 	"errors"
+	"time"
 
 	"github.com/karalef/quark/pack"
 )
@@ -11,60 +12,51 @@ var (
 	ErrEmpty = errors.New("empty data")
 )
 
-// EncryptMessage encrypts a plaintext message.
-// If signWith is nil, the message will be anonymous.
-func EncryptMessage(plaintext []byte, to Public, signWith Private) (Message, error) {
+// NewMessage creates a new message.
+// If the sender is nil, the message will be Anonymous.
+// If the recipient is nil, the message will be Clear-Signed.
+func NewMessage(plaintext []byte, recipient Public, sender Private) (Message, error) {
 	if len(plaintext) == 0 {
-		return Message{}, ErrEmpty
+		return Message{}, errors.New("empty plaintext")
 	}
 
-	ck, ct, err := Encrypt(nil, plaintext, to)
-	if err != nil {
-		return Message{}, err
+	msg := Message{
+		Data: plaintext,
+		Time: time.Now().Unix(),
+	}
+	var err error
+	if recipient != nil {
+		msg.Key, msg.Data, err = Encrypt(nil, plaintext, recipient)
+		if err != nil {
+			return Message{}, err
+		}
+		msg.Recipient = recipient.ID()
 	}
 
-	m := Message{
-		Recipient: to.Fingerprint(),
-		Key:       ck,
-		Data:      ct,
+	if sender != nil {
+		msg.Signature, err = Sign(plaintext, sender)
+		if err != nil {
+			return Message{}, err
+		}
 	}
 
-	if signWith == nil {
-		return m, nil
-	}
-
-	signature, err := signWith.Sign().Sign(plaintext)
-	if err != nil {
-		return Message{}, err
-	}
-
-	m.Signature = signature
-	m.Sender = signWith.Fingerprint()
-
-	return m, nil
+	return msg, nil
 }
 
-// SignMessage signs a plaintext message.
-// If signWith is nil, the message will be raw.
-func SignMessage(plaintext []byte, signWith Private) (Message, error) {
-	if len(plaintext) == 0 {
-		return Message{}, ErrEmpty
+// NewMessageFile creates a new message containing a file.
+// If the filename is empty it just returns the result of NewMessage.
+func NewMessageFile(data []byte, filename string, mtime int64, recipient Public, sender Private) (Message, error) {
+	msg, err := NewMessage(data, recipient, sender)
+	if err != nil || filename == "" {
+		return msg, err
 	}
 
-	if signWith == nil {
-		return Message{Data: plaintext}, nil
+	msg.Filename = filename
+	if mtime != 0 {
+		msg.Time = mtime
 	}
 
-	signature, err := signWith.Sign().Sign(plaintext)
-	if err != nil {
-		return Message{}, err
-	}
-
-	return Message{
-		Sender:    signWith.Fingerprint(),
-		Signature: signature,
-		Data:      plaintext,
-	}, nil
+	return msg, nil
 }
 
 // MessageType represents a message type.
@@ -110,17 +102,20 @@ var _ pack.Packable = (*Message)(nil)
 
 // Message contains a message.
 type Message struct {
-	// sender`s public keyset fingerprint
-	Sender Fingerprint `msgpack:"sender"`
-
-	// recipient`s public keyset fingerprint
-	Recipient Fingerprint `msgpack:"recipient"`
-
 	// signature
-	Signature []byte `msgpack:"sig"`
+	Signature *Signature `msgpack:"signature,omitempty"`
+
+	// keyset id used for encryption
+	Recipient ID `msgpack:"recipient,omitempty"`
 
 	// encapsulated shared secret
-	Key []byte `msgpack:"key"`
+	Key []byte `msgpack:"key,omitempty"`
+
+	// name of the file
+	Filename string `msgpack:"filename,omitempty"`
+
+	// time of the last file modification or message creation
+	Time int64 `msgpack:"time,omitempty"`
 
 	// data
 	Data []byte `msgpack:"data"`
@@ -134,7 +129,7 @@ func (m *Message) Type() (typ MessageType) {
 	if len(m.Key) != 0 {
 		typ |= MessageFlagEncrypted
 	}
-	if len(m.Signature) != 0 {
+	if !m.Signature.IsEmpty() {
 		typ |= MessageFlagSigned
 	}
 	return

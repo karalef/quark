@@ -41,10 +41,12 @@ var DecryptCMD = &cli.Command{
 		}
 
 		cmdio.Status()
-		if !msg.Type().IsSigned() {
+		if msg.Signature.IsEmpty() {
 			cmdio.Status(msg.Type().String(), "message")
+		} else if msg.Signature.IsValid() {
+			cmdio.Status(verify(msg.Signature.ID, msg.Data, msg.Signature.Signature))
 		} else {
-			cmdio.Status(verify(msg.Sender, msg.Data, msg.Signature))
+			cmdio.Status("invalid message signature: " + msg.Signature.Error())
 		}
 
 		_, err = output.Raw().Write(msg.Data)
@@ -53,7 +55,7 @@ var DecryptCMD = &cli.Command{
 }
 
 func decrypt(msg *quark.Message) error {
-	privKS, err := keyring.FindPrivate(msg.Recipient.ID().String())
+	privKS, err := keyring.FindPrivate(msg.Recipient.String())
 	if err != nil {
 		return err
 	}
@@ -61,8 +63,8 @@ func decrypt(msg *quark.Message) error {
 	return err
 }
 
-func verify(fp quark.Fingerprint, data []byte, sig []byte) string {
-	pubKS, err := keyring.ByID(fp.ID().String())
+func verify(sender quark.ID, data []byte, sig []byte) string {
+	pubKS, err := keyring.ByID(sender.String())
 	if err != nil {
 		return "sender cannot be verified: " + err.Error()
 	}
