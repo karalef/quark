@@ -4,32 +4,19 @@ import (
 	"github.com/karalef/quark"
 )
 
-// KeysetEntry contains general keyset info.
-type KeysetEntry struct {
-	ID       string
-	FP       quark.Fingerprint
-	Identity quark.Identity
-	Scheme   quark.Scheme
-}
-
 // List lists all keysets.
-func List(secrets bool) ([]KeysetEntry, error) {
+func List(secrets bool) ([]quark.KeysetInfo, error) {
 	entries, err := listEntries(secrets)
 	if err != nil {
 		return nil, err
 	}
-	list := make([]KeysetEntry, 0, len(entries))
+	list := make([]quark.KeysetInfo, 0, len(entries))
 	for _, entry := range entries {
 		pub, err := readPub(entry)
 		if err != nil {
 			return nil, err
 		}
-		list = append(list, KeysetEntry{
-			ID:       pub.ID().String(),
-			FP:       pub.Fingerprint(),
-			Identity: pub.Identity(),
-			Scheme:   pub.Scheme(),
-		})
+		list = append(list, pub.Info())
 	}
 	return list, err
 }

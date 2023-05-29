@@ -36,9 +36,21 @@ func (i Identity) IsValid() bool {
 // ErrInvalidIdentity is returned if the identity is invalid.
 var ErrInvalidIdentity = errors.New("invalid identity")
 
+// KeysetInfo contains the info about the keyset.
+type KeysetInfo struct {
+	ID          ID          `msgpack:"-"`
+	Fingerprint Fingerprint `msgpack:"-"`
+
+	Identity Identity `msgpack:"identity"`
+	Scheme   Scheme   `msgpack:"scheme"`
+}
+
 // Keyset represents a keyset.
 type Keyset interface {
 	pack.Packable
+
+	// Info returns the info of the keyset.
+	Info() KeysetInfo
 
 	// Identity returns the identity of the keyset.
 	Identity() Identity
@@ -92,11 +104,16 @@ func NewPublic(id Identity, s sign.PublicKey, k kem.PublicKey) (Public, error) {
 	if !id.IsValid() {
 		return nil, ErrInvalidIdentity
 	}
+	fp := calculateFingerprint(s, k)
 	return &public{
-		identity: id,
-		fp:       calculateFingerprint(s, k),
-		sign:     s,
-		kem:      k,
+		info: KeysetInfo{
+			ID:          fp.ID(),
+			Fingerprint: fp,
+			Identity:    id,
+			Scheme:      Scheme{Sign: s.Scheme(), KEM: k.Scheme()},
+		},
+		sign: s,
+		kem:  k,
 	}, nil
 }
 
@@ -123,10 +140,9 @@ var _ pack.CustomEncoder = (*public)(nil)
 var _ pack.CustomDecoder = (*public)(nil)
 
 type public struct {
-	identity Identity
-	fp       Fingerprint
-	sign     sign.PublicKey
-	kem      kem.PublicKey
+	info KeysetInfo
+	sign sign.PublicKey
+	kem  kem.PublicKey
 }
 
 func (p *public) pub() *public { return p }
@@ -134,29 +150,27 @@ func (p *public) pub() *public { return p }
 // PacketTag implements pack.Packable interface.
 func (*public) PacketTag() pack.Tag { return PacketTagPublicKeyset }
 
+// Info returns the info of the keyset.
+func (p *public) Info() KeysetInfo { return p.info }
+
 // Identity returns the identity of the keyset.
-func (p *public) Identity() Identity { return p.identity }
+func (p *public) Identity() Identity { return p.info.Identity }
 
 // ID returns the ID of the keyset.
-func (p *public) ID() ID { return p.fp.ID() }
+func (p *public) ID() ID { return p.info.ID }
 
 // Fingerprint returns the fingerprint of the keyset.
-func (p *public) Fingerprint() Fingerprint { return p.fp }
+func (p *public) Fingerprint() Fingerprint { return p.info.Fingerprint }
 
 // Scheme returns the scheme of the keyset.
-func (p *public) Scheme() Scheme {
-	return Scheme{
-		KEM:  p.kem.Scheme(),
-		Sign: p.sign.Scheme(),
-	}
-}
+func (p *public) Scheme() Scheme { return p.info.Scheme }
 
 // ChangeIdentity changes the identity of the keyset.
 func (p *public) ChangeIdentity(id Identity) error {
 	if !id.IsValid() {
 		return ErrInvalidIdentity
 	}
-	p.identity = id
+	p.info.Identity = id
 	return nil
 }
 
@@ -223,20 +237,8 @@ func (p *private) KEM() kem.PrivateKey { return p.kem }
 // Sign returns the signature private key.
 func (p *private) Sign() sign.PrivateKey { return p.sign }
 
-type keysetData struct {
-	Identity `msgpack:",inline"`
-	Scheme   Scheme `msgpack:"scheme"`
-}
-
-func packKeysetData(p *public) keysetData {
-	return keysetData{
-		Identity: p.Identity(),
-		Scheme:   p.Scheme(),
-	}
-}
-
 type packablePublic struct {
-	keysetData `msgpack:",inline"`
+	KeysetInfo `msgpack:",inline"`
 	SignPub    []byte `msgpack:"sign_pub"`
 	KEMPub     []byte `msgpack:"kem_pub"`
 }
@@ -244,7 +246,7 @@ type packablePublic struct {
 // EncodeMsgpack implements pack.CustomEncoder interface.
 func (p *public) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.Encode(packablePublic{
-		keysetData: packKeysetData(p),
+		KeysetInfo: p.info,
 		SignPub:    p.sign.Bytes(),
 		KEMPub:     p.kem.Bytes(),
 	})
@@ -267,7 +269,7 @@ func (p *public) DecodeMsgpack(dec *pack.Decoder) error {
 }
 
 type packablePrivate struct {
-	keysetData `msgpack:",inline"`
+	KeysetInfo `msgpack:",inline"`
 	SignSeed   []byte `msgpack:"sign_seed"`
 	KEMSeed    []byte `msgpack:"kem_seed"`
 }
@@ -275,7 +277,7 @@ type packablePrivate struct {
 // EncodeMsgpack implements pack.CustomEncoder interface.
 func (p *private) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.Encode(packablePrivate{
-		keysetData: packKeysetData(p.public),
+		KeysetInfo: p.public.info,
 		SignSeed:   p.signSeed,
 		KEMSeed:    p.kemSeed,
 	})

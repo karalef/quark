@@ -23,12 +23,7 @@ func defaultKeyset(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	printKeyset(keyring.KeysetEntry{
-		ID:       def.ID().String(),
-		FP:       def.Fingerprint(),
-		Identity: def.Identity(),
-		Scheme:   def.Scheme(),
-	})
+	printKeyset(def.Info())
 	return nil
 }
 

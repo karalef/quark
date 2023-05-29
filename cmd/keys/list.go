@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
 	"github.com/urfave/cli/v2"
@@ -26,13 +27,17 @@ var ListCMD = &cli.Command{
 		}
 		for i := range pubs {
 			printKeyset(pubs[i])
-			cmdio.Status()
+			if i < len(pubs)-1 {
+				cmdio.Status()
+			}
 		}
 		return nil
 	},
 }
 
-func printKeyset(k keyring.KeysetEntry) {
-	id := k.Identity
-	cmdio.Statusf("%s\t%s <%s> (%s)\n%s\n%s\n", k.ID, id.Name, id.Email, id.Comment, k.Scheme.String(), k.FP.String())
+func printKeyset(info quark.KeysetInfo) {
+	id := info.Identity
+	cmdio.Statusf("%s\t%s <%s> (%s)\n%s\n%s\n", info.ID, id.Name, id.Email, id.Comment,
+		info.Scheme.String(),
+		info.Fingerprint.String())
 }

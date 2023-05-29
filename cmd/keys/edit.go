@@ -47,11 +47,6 @@ func edit(ctx *cli.Context) error {
 		return err
 	}
 
-	printKeyset(keyring.KeysetEntry{
-		ID:       pub.ID().String(),
-		FP:       pub.Fingerprint(),
-		Identity: pub.Identity(),
-		Scheme:   pub.Scheme(),
-	})
+	printKeyset(pub.Info())
 	return nil
 }
