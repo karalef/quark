@@ -24,14 +24,14 @@ func (e *Encryption) IsValid() bool {
 	if e == nil {
 		return false
 	}
-	return e.ID != ID{} && len(e.Nonce) > 0 && len(e.Secret) > 0
+	return !e.ID.IsEmpty() && len(e.Nonce) > 0 && len(e.Secret) > 0
 }
 
 func (e *Encryption) Error() string {
 	switch {
 	case e == nil, len(e.Secret) == 0, len(e.Nonce) == 0:
 		return "empty encryption"
-	case e.ID == ID{}:
+	case e.ID.IsEmpty():
 		return "empty keyset id"
 	}
 	return ""

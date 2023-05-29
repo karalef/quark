@@ -44,14 +44,14 @@ func (s *Signature) IsValid() bool {
 	if s == nil {
 		return false
 	}
-	return s.ID != ID{} && len(s.Signature) > 0 && s.Time < time.Now().Unix()
+	return !s.ID.IsEmpty() && len(s.Signature) > 0 && s.Time < time.Now().Unix()
 }
 
 func (s *Signature) Error() string {
 	switch {
 	case s == nil || len(s.Signature) == 0:
 		return "empty signature"
-	case s.ID == ID{}:
+	case s.ID.IsEmpty():
 		return "empty keyset id"
 	case s.Time < time.Now().Unix():
 		return "the time of signature creation is the time in the future"
