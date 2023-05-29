@@ -41,7 +41,7 @@ var DecryptCMD = &cli.Command{
 		}
 
 		cmdio.Status()
-		if msg.Signature.IsEmpty() {
+		if msg.Signature == nil {
 			cmdio.Status(msg.Type().String(), "message")
 		} else if msg.Signature.IsValid() {
 			cmdio.Status(verify(msg.Signature.ID, msg.Data, msg.Signature.Signature))

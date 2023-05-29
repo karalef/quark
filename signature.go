@@ -39,28 +39,20 @@ type Signature struct {
 	Time int64 `msgpack:"time"`
 }
 
-// IsEmpty returns true if the signature is empty.
-func (s *Signature) IsEmpty() bool {
-	if s == nil {
-		return true
-	}
-	return s.ID == ID{} && len(s.Signature) == 0 && s.Time == 0
-}
-
 // IsValid returns true if the signature is valid.
 func (s *Signature) IsValid() bool {
-	if s.IsEmpty() {
+	if s == nil {
 		return false
 	}
-	return s.Time < time.Now().Unix()
+	return s.ID != ID{} && len(s.Signature) > 0 && s.Time < time.Now().Unix()
 }
 
 func (s *Signature) Error() string {
 	switch {
+	case s == nil || len(s.Signature) == 0:
+		return "empty signature"
 	case s.ID == ID{}:
 		return "empty keyset id"
-	case len(s.Signature) == 0:
-		return "empty signature"
 	case s.Time < time.Now().Unix():
 		return "the time of signature creation is the time in the future"
 	}

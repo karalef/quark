@@ -129,7 +129,7 @@ func (m *Message) Type() (typ MessageType) {
 	if len(m.Key) != 0 {
 		typ |= MessageFlagEncrypted
 	}
-	if !m.Signature.IsEmpty() {
+	if m.Signature != nil {
 		typ |= MessageFlagSigned
 	}
 	return
