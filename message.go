@@ -24,20 +24,17 @@ func NewMessage(plaintext []byte, recipient Public, sender Private) (Message, er
 		Data: plaintext,
 		Time: time.Now().Unix(),
 	}
-	var err error
-	if recipient != nil {
-		msg.Key, msg.Data, err = Encrypt(nil, plaintext, recipient)
-		if err != nil {
-			return Message{}, err
-		}
-		msg.Recipient = recipient.ID()
-	}
 
 	if sender != nil {
+		var err error
 		msg.Signature, err = Sign(plaintext, sender)
 		if err != nil {
 			return Message{}, err
 		}
+	}
+
+	if recipient != nil {
+		msg.Data, msg.Encryption = Encrypt(nil, plaintext, recipient)
 	}
 
 	return msg, nil
@@ -105,11 +102,8 @@ type Message struct {
 	// signature
 	Signature *Signature `msgpack:"signature,omitempty"`
 
-	// keyset id used for encryption
-	Recipient ID `msgpack:"recipient,omitempty"`
-
-	// encapsulated shared secret
-	Key []byte `msgpack:"key,omitempty"`
+	// encryption
+	Encryption *Encryption `msgpack:"encryption,omitempty"`
 
 	// name of the file
 	Filename string `msgpack:"filename,omitempty"`
@@ -126,7 +120,7 @@ func (*Message) PacketTag() pack.Tag { return PacketTagMessage }
 
 // Type returns the message type.
 func (m *Message) Type() (typ MessageType) {
-	if len(m.Key) != 0 {
+	if m.Encryption != nil {
 		typ |= MessageFlagEncrypted
 	}
 	if m.Signature != nil {

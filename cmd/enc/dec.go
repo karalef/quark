@@ -55,11 +55,14 @@ var DecryptCMD = &cli.Command{
 }
 
 func decrypt(msg *quark.Message) error {
-	privKS, err := keyring.FindPrivate(msg.Recipient.String())
+	if !msg.Encryption.IsValid() {
+		return msg.Encryption
+	}
+	privKS, err := keyring.FindPrivate(msg.Encryption.ID.String())
 	if err != nil {
 		return err
 	}
-	msg.Data, err = quark.Decrypt(nil, msg.Data, msg.Key, privKS)
+	msg.Data, err = quark.Decrypt(msg.Data[:0], msg.Data, msg.Encryption, privKS)
 	return err
 }
 
