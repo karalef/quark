@@ -94,7 +94,10 @@ func Encapsulate(pk PublicKey, rand io.Reader) ([]byte, cipher.Cipher, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	ct, ss := pk.Encapsulate(seed)
+	ct, ss, err := pk.Encapsulate(seed)
+	if err != nil {
+		return nil, nil, err
+	}
 	ciph, err := pk.Scheme().Cipher().Unpack(ss)
 	return ct, ciph, err
 }
@@ -129,7 +132,7 @@ func Open(sk PrivateKey, dst, encryptedSecret, nonce, ciphertext []byte) (plaint
 // It panics if nonce is not of length Scheme().Cipher().NonceSize()
 // or if secretSeed is not of length Scheme().EncapsulationSeedSize().
 func Seal(pk PublicKey, dst, secretSeed, nonce, plaintext []byte) (ciphertext, ecnryptedSecret []byte) {
-	ecnryptedSecret, key := pk.Encapsulate(secretSeed)
+	ecnryptedSecret, key, err := pk.Encapsulate(secretSeed)
 	ciph, err := pk.Scheme().Cipher().Unpack(key)
 	if err != nil {
 		panic(err)
@@ -197,12 +200,12 @@ type PublicKey interface {
 	Bytes() []byte
 
 	// Encapsulate encapsulates a shared secret generated from provided seed.
-	// It panics if seed is not of length Scheme().SeedSize().
-	Encapsulate(seed []byte) (ciphertext, secret []byte)
+	Encapsulate(seed []byte) (ciphertext, secret []byte, err error)
 }
 
 // errors.
 var (
-	ErrSeedSize = errors.New("invalid seed size")
-	ErrKeySize  = errors.New("invalid key size")
+	ErrKeySize           = errors.New("invalid key size")
+	ErrSeedSize          = errors.New("invalid seed size")
+	ErrEncapsulationSeed = errors.New("invalid encapsulation seed size")
 )

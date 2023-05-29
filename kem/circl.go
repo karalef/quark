@@ -140,10 +140,13 @@ func (pub *circlPubKey) Equal(p PublicKey) bool {
 	return pub.pk.Equal(pk.pk)
 }
 
-func (pub *circlPubKey) Encapsulate(seed []byte) (ciphertext, secret []byte) {
+func (pub *circlPubKey) Encapsulate(seed []byte) (ciphertext, secret []byte, err error) {
+	if len(seed) != pub.sch.EncapsulationSeedSize() {
+		return nil, nil, ErrEncapsulationSeed
+	}
 	ct, ss, err := pub.sch.Scheme.EncapsulateDeterministically(pub.pk, seed)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
-	return ct, ss
+	return ct, ss, nil
 }
