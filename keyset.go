@@ -64,9 +64,6 @@ type Keyset interface {
 	// Scheme returns the scheme of the keyset.
 	Scheme() Scheme
 
-	// ChangeIdentity changes the identity of the keyset.
-	ChangeIdentity(Identity) error
-
 	pub() *public
 }
 
@@ -88,11 +85,16 @@ type Private interface {
 	// Public returns the public keyset.
 	Public() Public
 
+	// ChangeIdentity changes the identity of the keyset.
+	ChangeIdentity(Identity) error
+
 	// KEM returns the KEM public key.
 	KEM() kem.PrivateKey
 
 	// Sign returns the signature public key.
 	Sign() sign.PrivateKey
+
+	priv() *private
 }
 
 // NewPublic creates a new public keyset.
@@ -135,51 +137,6 @@ func NewPublicFromBytes(id Identity, scheme Scheme, signPub []byte, kemPub []byt
 	return NewPublic(id, s, k)
 }
 
-var _ Public = (*public)(nil)
-var _ pack.CustomEncoder = (*public)(nil)
-var _ pack.CustomDecoder = (*public)(nil)
-
-type public struct {
-	info KeysetInfo
-	sign sign.PublicKey
-	kem  kem.PublicKey
-}
-
-func (p *public) pub() *public { return p }
-
-// PacketTag implements pack.Packable interface.
-func (*public) PacketTag() pack.Tag { return PacketTagPublicKeyset }
-
-// Info returns the info of the keyset.
-func (p *public) Info() KeysetInfo { return p.info }
-
-// Identity returns the identity of the keyset.
-func (p *public) Identity() Identity { return p.info.Identity }
-
-// ID returns the ID of the keyset.
-func (p *public) ID() ID { return p.info.ID }
-
-// Fingerprint returns the fingerprint of the keyset.
-func (p *public) Fingerprint() Fingerprint { return p.info.Fingerprint }
-
-// Scheme returns the scheme of the keyset.
-func (p *public) Scheme() Scheme { return p.info.Scheme }
-
-// ChangeIdentity changes the identity of the keyset.
-func (p *public) ChangeIdentity(id Identity) error {
-	if !id.IsValid() {
-		return ErrInvalidIdentity
-	}
-	p.info.Identity = id
-	return nil
-}
-
-// KEM returns the KEM public key.
-func (p *public) KEM() kem.PublicKey { return p.kem }
-
-// Sign returns the signature public key.
-func (p *public) Sign() sign.PublicKey { return p.sign }
-
 // ErrInvalidSeed is returned if the seed size does not match the scheme.
 var ErrInvalidSeed = errors.New("invalid seed size")
 
@@ -211,90 +168,4 @@ func NewPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (Private, 
 		sign:     signPriv,
 		kem:      kemPriv,
 	}, nil
-}
-
-var _ Private = (*private)(nil)
-var _ pack.CustomEncoder = (*private)(nil)
-var _ pack.CustomDecoder = (*private)(nil)
-
-type private struct {
-	*public
-	signSeed []byte
-	kemSeed  []byte
-	sign     sign.PrivateKey
-	kem      kem.PrivateKey
-}
-
-// PacketTag implements pack.Packable interface.
-func (*private) PacketTag() pack.Tag { return PacketTagPrivateKeyset }
-
-// Public returns the public keyset.
-func (p *private) Public() Public { return p.public }
-
-// KEM returns the KEM private key.
-func (p *private) KEM() kem.PrivateKey { return p.kem }
-
-// Sign returns the signature private key.
-func (p *private) Sign() sign.PrivateKey { return p.sign }
-
-type packablePublic struct {
-	KeysetInfo `msgpack:",inline"`
-	SignPub    []byte `msgpack:"sign_pub"`
-	KEMPub     []byte `msgpack:"kem_pub"`
-}
-
-// EncodeMsgpack implements pack.CustomEncoder interface.
-func (p *public) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.Encode(packablePublic{
-		KeysetInfo: p.info,
-		SignPub:    p.sign.Bytes(),
-		KEMPub:     p.kem.Bytes(),
-	})
-}
-
-// DecodeMsgpack implements pack.CustomDecoder interface.
-func (p *public) DecodeMsgpack(dec *pack.Decoder) error {
-	pub := new(packablePublic)
-	err := dec.Decode(pub)
-	if err != nil {
-		return err
-	}
-	p1, err := NewPublicFromBytes(pub.Identity, pub.Scheme, pub.SignPub, pub.KEMPub)
-	if err != nil {
-		return err
-	}
-
-	*p = *p1.pub()
-	return nil
-}
-
-type packablePrivate struct {
-	KeysetInfo `msgpack:",inline"`
-	SignSeed   []byte `msgpack:"sign_seed"`
-	KEMSeed    []byte `msgpack:"kem_seed"`
-}
-
-// EncodeMsgpack implements pack.CustomEncoder interface.
-func (p *private) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.Encode(packablePrivate{
-		KeysetInfo: p.public.info,
-		SignSeed:   p.signSeed,
-		KEMSeed:    p.kemSeed,
-	})
-}
-
-// DecodeMsgpack implements pack.CustomDecoder interface.
-func (p *private) DecodeMsgpack(dec *pack.Decoder) error {
-	priv := new(packablePrivate)
-	err := dec.Decode(priv)
-	if err != nil {
-		return err
-	}
-	p1, err := NewPrivate(priv.Identity, priv.Scheme, priv.SignSeed, priv.KEMSeed)
-	if err != nil {
-		return err
-	}
-
-	*p = *p1.(*private)
-	return nil
 }

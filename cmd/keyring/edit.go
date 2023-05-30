@@ -10,17 +10,12 @@ import (
 
 // Edit edits a keyset.
 func Edit(query string, id quark.Identity) (quark.Public, error) {
-	pub, err := Find(query)
+	priv, err := FindPrivate(query)
 	if err != nil {
 		return nil, err
 	}
 
-	priv, err := ByIDPrivate(pub.ID().String())
-	if err != nil && err != ErrNotFound {
-		return nil, err
-	}
-
-	old := pub.Identity()
+	old := priv.Identity()
 	if id.Name == "" {
 		id.Name = old.Name
 	}
@@ -31,25 +26,20 @@ func Edit(query string, id quark.Identity) (quark.Public, error) {
 		id.Comment = old.Comment
 	}
 
-	err = pub.ChangeIdentity(id)
+	err = priv.ChangeIdentity(id)
 	if err != nil {
-		return pub, err
-	}
-	if priv != nil {
-		err = priv.ChangeIdentity(id)
-		if err != nil {
-			return pub, err
-		}
+		return priv.Public(), err
 	}
 
-	err = editKeyset(storage.Public(), PublicFileName(pub.ID().String()), pub)
+	err = editKeyset(storage.Private(), PrivateFileName(priv.ID().String()), priv)
 	if err != nil {
-		return pub, err
+		return priv.Public(), err
 	}
-	if priv != nil {
-		err = editKeyset(storage.Private(), PrivateFileName(priv.ID().String()), priv)
+	err = editKeyset(storage.Public(), PublicFileName(priv.ID().String()), priv.Public())
+	if err != nil {
+		return priv.Public(), err
 	}
-	return pub, err
+	return priv.Public(), err
 }
 
 func editKeyset(fs storage.FS, name string, ks quark.Keyset) error {
