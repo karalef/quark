@@ -27,6 +27,15 @@ func Sign(plaintext []byte, keyset Private) (*Signature, error) {
 	}, nil
 }
 
+// Verify verifies a signature.
+func Verify(data []byte, signature Signature, keyset Public) (bool, error) {
+	err := signature.Validate(keyset)
+	if err != nil {
+		return false, err
+	}
+	return keyset.Sign().Verify(data, signature.Signature)
+}
+
 // Signature represents a signature.
 type Signature struct {
 	// keyset id used for signing
@@ -41,10 +50,21 @@ type Signature struct {
 
 // IsValid returns true if the signature is valid.
 func (s *Signature) IsValid() bool {
-	if s == nil {
-		return false
+	return s.Error() == ""
+}
+
+// Validate compares the signature against the public keyset id and scheme.
+func (s *Signature) Validate(pub Public) error {
+	if s.ID != pub.ID() {
+		return errors.New("wrong recipient")
 	}
-	return !s.ID.IsEmpty() && len(s.Signature) > 0 && s.Time < time.Now().Unix()
+	if len(s.Signature) != pub.Scheme().Sign.SignatureSize() {
+		return errors.New("invalid signature size")
+	}
+	if s.Time > time.Now().Unix() {
+		return errors.New("the time of signature creation is the time in the future")
+	}
+	return nil
 }
 
 func (s *Signature) Error() string {
@@ -53,7 +73,7 @@ func (s *Signature) Error() string {
 		return "empty signature"
 	case s.ID.IsEmpty():
 		return "empty keyset id"
-	case s.Time < time.Now().Unix():
+	case s.Time > time.Now().Unix():
 		return "the time of signature creation is the time in the future"
 	}
 	return ""
