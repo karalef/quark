@@ -7,13 +7,7 @@ import (
 	"reflect"
 
 	"github.com/karalef/quark/internal"
-	"github.com/vmihailenco/msgpack/v5"
 )
-
-// Packable represents a packable object.
-type Packable interface {
-	PacketTag() Tag
-}
 
 // Option represents packing option.
 type Option interface {
@@ -74,10 +68,10 @@ func (o *encryptOpt) writer(w io.Writer) io.WriteCloser {
 func (o *encryptOpt) apply(opts *options) { opts.enc = o }
 
 type options struct {
-	armor    *armorOpt
-	compress *compressOpt
+	armor *armorOpt
 
-	enc *encryptOpt
+	compress *compressOpt
+	enc      *encryptOpt
 }
 
 // Pack creates a packet and encodes it into binary format.
@@ -92,14 +86,16 @@ func Pack(out io.Writer, v Packable, opts ...Option) error {
 		opt.apply(&o)
 	}
 
-	output := NopCloser(out)
+	var output io.WriteCloser
 
 	if o.armor != nil {
 		var err error
-		output, err = ArmoredEncoder(output, tag.BlockType(), o.armor.header)
+		output, err = ArmoredEncoder(out, tag.BlockType(), o.armor.header)
 		if err != nil {
 			return err
 		}
+	} else {
+		output = NopCloser(out)
 	}
 
 	object, pipeW := io.Pipe()
@@ -191,8 +187,9 @@ type decompressOpt map[Compression]DecompressOpts
 func (o decompressOpt) apply(opts *unpackOptions) { opts.decompress = o }
 
 type unpackOptions struct {
+	noArmor bool
+
 	passphrase passphraseOpt
-	noArmor    bool
 	decompress decompressOpt
 }
 
@@ -204,18 +201,11 @@ func Unpack(in io.Reader, opts ...UnpackOption) (Tag, Packable, error) {
 	}
 
 	if !o.noArmor {
-		armored, r, err := DetermineArmor(in)
+		_, _, r, err := Dearmor(in)
 		if err != nil {
 			return TagInvalid, nil, err
 		}
 		in = r
-		if armored {
-			block, err := DecodeArmored(r)
-			if err != nil {
-				return TagInvalid, nil, err
-			}
-			in = block.Body
-		}
 	}
 
 	p, err := DecodeBinaryNew[Packet](in)
@@ -271,37 +261,4 @@ func UnpackExact[T Packable](in io.Reader, opts ...UnpackOption) (val T, err err
 		return val, ErrMismatchType{expected: val, got: tag}
 	}
 	return
-}
-
-var _ msgpack.CustomEncoder = (*Object)(nil)
-var _ msgpack.CustomDecoder = (*Object)(nil)
-
-// Object represents an object as io.Reader.
-// It must be the last field in the message.
-type Object struct {
-	Reader io.Reader
-}
-
-// EncodeMsgpack implements msgpack.CustomEncoder.
-func (o *Object) EncodeMsgpack(enc *msgpack.Encoder) error {
-	_, err := io.Copy(enc.Writer(), o.Reader)
-	return err
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder.
-func (o *Object) DecodeMsgpack(dec *msgpack.Decoder) error {
-	o.Reader = dec.Buffered()
-	return nil
-}
-
-// Packet is a binary packet.
-type Packet struct {
-	_msgpack struct{} `msgpack:",as_array"`
-
-	Tag    Tag
-	Header struct {
-		Encryption  *Encryption `msgpack:"encryption,omitempty"`
-		Compression Compression `msgpack:"compression,omitempty"`
-	}
-	Object Object
 }

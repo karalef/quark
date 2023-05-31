@@ -21,6 +21,25 @@ func DetermineArmor(in io.Reader) (bool, io.Reader, error) {
 	return string(buf[:n]) == armorStart, in, err
 }
 
+// Dearmor determines if an input is an OpenPGP armored block and decodes it.
+// It does nothing if the input is not an OpenPGP armored block.
+func Dearmor(in io.Reader) (string, map[string]string, io.Reader, error) {
+	armored, in, err := DetermineArmor(in)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	if !armored {
+		return "", nil, in, nil
+	}
+
+	block, err := DecodeArmored(in)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	return block.Type, block.Header, block.Body, nil
+}
+
 // ArmoredBlock represents an OpenPGP armored block.
 type ArmoredBlock = armor.Block
 

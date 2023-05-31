@@ -2,8 +2,49 @@ package pack
 
 import (
 	"errors"
+	"io"
 	"reflect"
+
+	"github.com/vmihailenco/msgpack/v5"
 )
+
+// Packable represents a packable object.
+type Packable interface {
+	PacketTag() Tag
+}
+
+var _ msgpack.CustomEncoder = (*Object)(nil)
+var _ msgpack.CustomDecoder = (*Object)(nil)
+
+// Object represents an object as io.Reader.
+// It must be the last field in the message.
+type Object struct {
+	Reader io.Reader
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (o *Object) EncodeMsgpack(enc *msgpack.Encoder) error {
+	_, err := io.Copy(enc.Writer(), o.Reader)
+	return err
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (o *Object) DecodeMsgpack(dec *msgpack.Decoder) error {
+	o.Reader = dec.Buffered()
+	return nil
+}
+
+// Packet is a binary packet.
+type Packet struct {
+	_msgpack struct{} `msgpack:",as_array"`
+
+	Tag    Tag
+	Header struct {
+		Encryption  *Encryption `msgpack:"encryption,omitempty"`
+		Compression Compression `msgpack:"compression,omitempty"`
+	}
+	Object Object
+}
 
 // Tag is used to determine the binary packet type.
 type Tag byte
