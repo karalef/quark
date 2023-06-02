@@ -97,75 +97,17 @@ type Private interface {
 	priv() *private
 }
 
-// NewPublic creates a new public keyset.
-// It returns ErrInvalidScheme if public keys or hash scheme is nil.
-func NewPublic(id Identity, s sign.PublicKey, k kem.PublicKey) (Public, error) {
-	if k == nil || s == nil {
-		return nil, ErrInvalidScheme
-	}
-	if !id.IsValid() {
-		return nil, ErrInvalidIdentity
-	}
-	fp := calculateFingerprint(s, k)
-	return &public{
-		info: KeysetInfo{
-			ID:          fp.ID(),
-			Fingerprint: fp,
-			Identity:    id,
-			Scheme:      Scheme{Sign: s.Scheme(), KEM: k.Scheme()},
-		},
-		sign: s,
-		kem:  k,
-	}, nil
-}
-
-// NewPublicFromBytes creates a new public keyset parsing the scheme, signature public key and KEM public key.
-func NewPublicFromBytes(id Identity, scheme Scheme, signPub []byte, kemPub []byte) (Public, error) {
-	if !scheme.IsValid() {
-		return nil, ErrInvalidScheme
-	}
-
-	s, err := scheme.Sign.UnpackPublic(signPub)
-	if err != nil {
-		return nil, err
-	}
-	k, err := scheme.KEM.UnpackPublic(kemPub)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewPublic(id, s, k)
-}
-
 // ErrInvalidSeed is returned if the seed size does not match the scheme.
 var ErrInvalidSeed = errors.New("invalid seed size")
 
 // NewPrivate creates a new private keyset from scheme and seeds.
 func NewPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (Private, error) {
+	if !id.IsValid() {
+		return nil, ErrInvalidIdentity
+	}
 	if !scheme.IsValid() {
 		return nil, ErrInvalidScheme
 	}
 
-	// derive keys
-	signPriv, signPub, err := scheme.Sign.DeriveKey(signSeed)
-	if err != nil {
-		return nil, err
-	}
-	kemPriv, kemPub, err := scheme.KEM.DeriveKey(kemSeed)
-	if err != nil {
-		return nil, err
-	}
-
-	pub, err := NewPublic(id, signPub, kemPub)
-	if err != nil {
-		return nil, err
-	}
-
-	return &private{
-		public:   pub.(*public),
-		signSeed: internal.Copy(signSeed),
-		kemSeed:  internal.Copy(kemSeed),
-		sign:     signPriv,
-		kem:      kemPriv,
-	}, nil
+	return newPrivate(id, scheme, signSeed, kemSeed)
 }

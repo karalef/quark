@@ -1,6 +1,7 @@
 package quark
 
 import (
+	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/sign"
@@ -28,11 +29,7 @@ func (p *private) Public() Public { return p.public }
 
 // ChangeIdentity changes the identity of the keyset.
 func (p *private) ChangeIdentity(id Identity) error {
-	if !id.IsValid() {
-		return ErrInvalidIdentity
-	}
-	p.info.Identity = id
-	return nil
+	return p.public.changeIdentity(id, p)
 }
 
 // KEM returns the KEM private key.
@@ -63,11 +60,35 @@ func (p *private) DecodeMsgpack(dec *pack.Decoder) error {
 	if err != nil {
 		return err
 	}
-	p1, err := NewPrivate(priv.Identity, priv.Scheme, priv.SignSeed, priv.KEMSeed)
+	p1, err := newPrivate(priv.Identity, priv.Scheme, priv.SignSeed, priv.KEMSeed)
 	if err != nil {
 		return err
 	}
 
-	*p = *p1.priv()
+	*p = *p1
 	return nil
+}
+
+func newPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (*private, error) {
+	signPriv, signPub, err := scheme.Sign.DeriveKey(signSeed)
+	if err != nil {
+		return nil, err
+	}
+	kemPriv, kemPub, err := scheme.KEM.DeriveKey(kemSeed)
+	if err != nil {
+		return nil, err
+	}
+
+	pub, err := newPublic(id, signPub, kemPub, signPriv)
+	if err != nil {
+		return nil, err
+	}
+
+	return &private{
+		public:   pub,
+		signSeed: internal.Copy(signSeed),
+		kemSeed:  internal.Copy(kemSeed),
+		sign:     signPriv,
+		kem:      kemPriv,
+	}, nil
 }

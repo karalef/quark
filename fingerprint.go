@@ -5,9 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"strings"
-
-	"github.com/karalef/quark/kem"
-	"github.com/karalef/quark/sign"
 )
 
 // id and fingerprint sizes.
@@ -52,10 +49,10 @@ func (id ID) Uint() uint64 {
 	return binary.LittleEndian.Uint64(id[:])
 }
 
-func calculateFingerprint(sign sign.PublicKey, kem kem.PublicKey) Fingerprint {
+func calculateFingerprint(sign []byte, kem []byte) Fingerprint {
 	md5 := md5.New()
-	md5.Write(sign.Bytes())
-	md5.Write(kem.Bytes())
+	md5.Write(sign)
+	md5.Write(kem)
 	return Fingerprint(md5.Sum(nil))
 }
 
@@ -64,7 +61,7 @@ func FingerprintFromString(strFP string) (fp Fingerprint, ok bool) {
 	if len(strFP) != FPStringSize {
 		return
 	}
-	strings.ReplaceAll(strFP, ":", "")
+	strFP = strings.ReplaceAll(strFP, ":", "")
 	_, err := hex.Decode(fp[:], []byte(strFP))
 	return fp, err == nil
 }

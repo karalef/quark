@@ -37,7 +37,7 @@ func (e *Encryption) Error() string {
 	return ""
 }
 
-// Validate validates the encryption data.
+// Validate compares the encryption data against the private keyset id and scheme.
 func (e *Encryption) Validate(p Private) error {
 	if e.ID != p.ID() {
 		return errors.New("wrong recipient")
