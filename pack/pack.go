@@ -101,7 +101,7 @@ func Pack(out io.Writer, v Packable, opts ...Option) error {
 	object, pipeW := io.Pipe()
 	p := &Packet{
 		Tag:    tag,
-		Object: Object{Reader: object},
+		Object: Stream{Reader: object},
 	}
 
 	writer := io.WriteCloser(pipeW)
