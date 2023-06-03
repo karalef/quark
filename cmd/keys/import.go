@@ -1,8 +1,6 @@
 package keys
 
 import (
-	"errors"
-
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
@@ -28,10 +26,7 @@ var ImportCMD = &cli.Command{
 
 		tag, v, err := input.Read()
 		if err != nil {
-			if errors.As(err, &cmdio.ErrNonTerminal{}) {
-				return err
-			}
-			return errors.Join(err, errMaybeInvalidPassphrase)
+			return err
 		}
 
 		var pub quark.Public
@@ -55,8 +50,6 @@ var ImportCMD = &cli.Command{
 		return err
 	},
 }
-
-var errMaybeInvalidPassphrase = errors.New("maybe passphrase is invalid?")
 
 func importPub(pub quark.Public) error {
 	yes, err := cmdio.YesNo(pub.Fingerprint().String() + "\ndoes the keyset fingerprint match?")
