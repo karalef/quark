@@ -59,11 +59,11 @@ type cryptoEqualer interface {
 var _ PrivateKey = (*dilithiumPriv)(nil)
 
 type dilithiumPriv struct {
-	s dilithiumScheme
+	scheme dilithiumScheme
 	dilithium.PrivateKey
 }
 
-func (priv *dilithiumPriv) Scheme() Scheme { return priv.s }
+func (priv *dilithiumPriv) Scheme() Scheme { return priv.scheme }
 
 func (priv *dilithiumPriv) Equal(p PrivateKey) bool {
 	other, ok := p.(*dilithiumPriv)
@@ -77,17 +77,17 @@ func (priv *dilithiumPriv) Equal(p PrivateKey) bool {
 }
 
 func (priv *dilithiumPriv) Sign(msg []byte) ([]byte, error) {
-	return priv.s.Mode.Sign(priv.PrivateKey, msg), nil
+	return priv.scheme.Mode.Sign(priv.PrivateKey, msg), nil
 }
 
 var _ PublicKey = (*dilithiumPub)(nil)
 
 type dilithiumPub struct {
-	s dilithiumScheme
+	scheme dilithiumScheme
 	dilithium.PublicKey
 }
 
-func (pub *dilithiumPub) Scheme() Scheme { return pub.s }
+func (pub *dilithiumPub) Scheme() Scheme { return pub.scheme }
 
 func (pub *dilithiumPub) Equal(p PublicKey) bool {
 	other, ok := p.(*dilithiumPub)
@@ -101,5 +101,8 @@ func (pub *dilithiumPub) Equal(p PublicKey) bool {
 }
 
 func (pub *dilithiumPub) Verify(msg []byte, signature []byte) (bool, error) {
-	return pub.s.Mode.Verify(pub.PublicKey, msg, signature), nil
+	if len(signature) != pub.scheme.SignatureSize() {
+		return false, ErrSignature
+	}
+	return pub.scheme.Mode.Verify(pub.PublicKey, msg, signature), nil
 }

@@ -80,5 +80,6 @@ type PublicKey interface {
 var (
 	ErrKeySize           = errors.New("invalid key size")
 	ErrSeedSize          = errors.New("invalid seed size")
+	ErrCiphertext        = errors.New("invalid ciphertext size")
 	ErrEncapsulationSeed = errors.New("invalid encapsulation seed size")
 )

@@ -84,6 +84,9 @@ func (priv *circlPrivKey) Equal(p PrivateKey) bool {
 }
 
 func (priv *circlPrivKey) Decapsulate(ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) != priv.sch.CiphertextSize() {
+		return nil, ErrCiphertext
+	}
 	return priv.sch.Decapsulate(priv.sk, ciphertext)
 }
 
