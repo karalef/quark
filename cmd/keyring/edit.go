@@ -1,16 +1,17 @@
 package keyring
 
 import (
-	"os"
-
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/cmd/storage"
-	"github.com/karalef/quark/pack"
 )
 
 // Edit edits a keyset.
 func Edit(query string, id quark.Identity) (quark.Public, error) {
-	priv, err := FindPrivate(query)
+	privName, err := findPrivate(query)
+	if err != nil {
+		return nil, err
+	}
+
+	passphrase, priv, err := readPrivWithPassphrase(privName)
 	if err != nil {
 		return nil, err
 	}
@@ -26,27 +27,20 @@ func Edit(query string, id quark.Identity) (quark.Public, error) {
 		id.Comment = old.Comment
 	}
 
+	pub := priv.Public()
+
 	err = priv.ChangeIdentity(id)
 	if err != nil {
-		return priv.Public(), err
+		return pub, err
 	}
 
-	err = editKeyset(storage.Private(), PrivateFileName(priv.ID().String()), priv)
+	err = writePriv(false, priv, func() (string, error) { return passphrase, nil })
 	if err != nil {
-		return priv.Public(), err
+		return pub, err
 	}
-	err = editKeyset(storage.Public(), PublicFileName(priv.ID().String()), priv.Public())
+	err = writePub(false, pub)
 	if err != nil {
-		return priv.Public(), err
+		return pub, err
 	}
-	return priv.Public(), err
-}
-
-func editKeyset(fs storage.FS, name string, ks quark.Keyset) error {
-	f, err := fs.OpenFile(name, os.O_WRONLY|os.O_TRUNC, 0600)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return pack.Pack(f, ks)
+	return pub, err
 }
