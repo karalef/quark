@@ -5,13 +5,12 @@ import (
 	"github.com/karalef/quark/internal"
 )
 
-var falcon1024Scheme Scheme = falconScheme{}
+// Falcon1024 returns the Falcon1024 signature scheme.
+func Falcon1024() Scheme { return falconScheme{} }
 
 type falconScheme struct{}
 
 const falconSeedSize = 48
-
-func (falconScheme) Alg() Algorithm { return Falcon1024 }
 
 func (s falconScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 	if len(seed) != s.SeedSize() {
@@ -52,7 +51,7 @@ var _ PublicKey = &falconPubKey{}
 
 type falconPrivKey falcon.PrivateKey
 
-func (*falconPrivKey) Scheme() Scheme { return falcon1024Scheme }
+func (*falconPrivKey) Scheme() Scheme { return falconScheme{} }
 
 func (priv *falconPrivKey) Equal(p PrivateKey) bool {
 	sec, ok := p.(*falconPrivKey)
@@ -74,7 +73,7 @@ func (priv *falconPrivKey) Sign(msg []byte) ([]byte, error) {
 
 type falconPubKey falcon.PublicKey
 
-func (*falconPubKey) Scheme() Scheme { return falcon1024Scheme }
+func (*falconPubKey) Scheme() Scheme { return falconScheme{} }
 
 func (pub *falconPubKey) Equal(p PublicKey) bool {
 	sec, ok := p.(*falconPubKey)

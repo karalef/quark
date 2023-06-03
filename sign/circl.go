@@ -7,20 +7,19 @@ import (
 )
 
 var (
-	dilithium2ed25519Scheme = circlScheme{
-		Algorithm: Dilithium2ED25519,
-		Scheme:    eddilithium2.Scheme(),
-	}
-	dilithium3ed448Scheme = circlScheme{
-		Algorithm: Dilithium3ED448,
-		Scheme:    eddilithium3.Scheme(),
-	}
+	dilithium2ed25519Scheme = circlScheme{eddilithium2.Scheme()}
+	dilithium3ed448Scheme   = circlScheme{eddilithium3.Scheme()}
 )
+
+// EDDilithium2 returns the hybrid signature scheme ed25519 with Dilithium2.
+func EDDilithium2() Scheme { return dilithium2ed25519Scheme }
+
+// EDDilithium3 returns the hybrid signature scheme ed448 with Dilithium3.
+func EDDilithium3() Scheme { return dilithium3ed448Scheme }
 
 var _ Scheme = circlScheme{}
 
 type circlScheme struct {
-	Algorithm
 	circlsign.Scheme
 }
 

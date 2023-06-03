@@ -6,8 +6,6 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
-	"github.com/karalef/quark/kem"
-	"github.com/karalef/quark/sign"
 	"github.com/urfave/cli/v2"
 )
 
@@ -84,8 +82,8 @@ func generate(ctx *cli.Context) error {
 }
 
 var defaultScheme = quark.Scheme{
-	Sign: sign.Dilithium3ED448.Scheme(),
-	KEM:  kem.Kyber768XChaCha20Poly1305.Scheme(),
+	Sign: quark.Dilithium3ED448.Scheme(),
+	KEM:  quark.Kyber768XChaCha20Poly1305.Scheme(),
 }
 
 var listCMD = &cli.Command{
@@ -99,7 +97,7 @@ func printSchemes(*cli.Context) error {
 	cmdio.Status("All available algorithms")
 
 	cmdio.Status("\nKEM:")
-	kems := kem.ListAlgorithms()
+	kems := quark.ListKEMAlgorithms()
 	sort.Slice(kems, func(i, j int) bool {
 		return kems[i] < kems[j]
 	})
@@ -108,7 +106,7 @@ func printSchemes(*cli.Context) error {
 	}
 
 	cmdio.Status("\nSIGNATURES:")
-	signs := sign.ListAlgorithms()
+	signs := quark.ListSignAlgorithms()
 	sort.Slice(signs, func(i, j int) bool {
 		return signs[i] < signs[j]
 	})

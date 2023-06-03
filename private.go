@@ -79,7 +79,7 @@ func newPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (*private,
 		return nil, err
 	}
 
-	pub, err := newPublic(id, signPub, kemPub, signPriv)
+	pub, err := newPublic(id, scheme, signPub, kemPub, signPriv)
 	if err != nil {
 		return nil, err
 	}

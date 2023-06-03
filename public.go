@@ -180,22 +180,17 @@ func (p *public) DecodeMsgpack(dec *pack.Decoder) error {
 }
 
 // newPublic is used to create a public keyset from the newly generated keys.
-func newPublic(identity Identity, signPub sign.PublicKey, kemPub kem.PublicKey, signer sign.PrivateKey) (*public, error) {
+func newPublic(identity Identity, scheme Scheme, signPub sign.PublicKey, kemPub kem.PublicKey, signer sign.PrivateKey) (*public, error) {
 	if signer == nil {
 		panic("nil signer")
 	}
 	if !identity.IsValid() {
 		return nil, ErrInvalidIdentity
 	}
-	if signPub == nil || kemPub == nil {
+	if !scheme.IsValid() {
 		return nil, ErrInvalidScheme
 	}
-
-	scheme := Scheme{
-		Sign: signPub.Scheme(),
-		KEM:  kemPub.Scheme(),
-	}
-	if !scheme.IsValid() {
+	if signPub == nil || kemPub == nil {
 		return nil, ErrInvalidScheme
 	}
 

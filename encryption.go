@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/karalef/quark/internal"
-	"github.com/karalef/quark/kem"
 )
 
 // Encryption contains encryption data.
@@ -42,10 +41,10 @@ func (e *Encryption) Validate(p Private) error {
 	if e.ID != p.ID() {
 		return errors.New("wrong recipient")
 	}
-	if len(e.Nonce) != p.KEM().Scheme().Cipher().NonceSize() {
+	if len(e.Nonce) != p.Scheme().KEM.Cipher().NonceSize() {
 		return errors.New("invalid nonce size")
 	}
-	if len(e.Secret) != p.KEM().Scheme().CiphertextSize() {
+	if len(e.Secret) != p.Scheme().KEM.CiphertextSize() {
 		return errors.New("invalid encrypted secret size")
 	}
 	return nil
@@ -54,10 +53,15 @@ func (e *Encryption) Validate(p Private) error {
 // Encrypt encrypts data for the public key and appends the result to dst, returning the updated slice.
 // The result ciphertext includes encrypted data with appended auth tag.
 func Encrypt(dst, data []byte, recipient Public) (ciphertext []byte, enc *Encryption) {
-	nonce := internal.Rand(recipient.KEM().Scheme().Cipher().NonceSize())
-	secretSeed := internal.Rand(recipient.KEM().Scheme().EncapsulationSeedSize())
+	nonce := internal.Rand(recipient.Scheme().KEM.Cipher().NonceSize())
+	secretSeed := internal.Rand(recipient.Scheme().KEM.EncapsulationSeedSize())
 
-	ciphertext, encryptedSecret := kem.Seal(recipient.KEM(), dst, secretSeed, nonce, data)
+	encryptedSecret, key, err := recipient.KEM().Encapsulate(secretSeed)
+	ciph, err := recipient.Scheme().KEM.Cipher().Unpack(key)
+	if err != nil {
+		panic(err)
+	}
+	ciphertext = ciph.Seal(dst, nonce, data)
 	return ciphertext, &Encryption{
 		ID:     recipient.ID(),
 		Nonce:  nonce,
@@ -72,5 +76,13 @@ func Decrypt(dst, ciphertext []byte, enc *Encryption, recipient Private) ([]byte
 	if err != nil {
 		return nil, err
 	}
-	return kem.Open(recipient.KEM(), dst, enc.Secret, enc.Nonce, ciphertext)
+	key, err := recipient.KEM().Decapsulate(enc.Secret)
+	if err != nil {
+		return nil, err
+	}
+	ciph, err := recipient.Scheme().KEM.Cipher().Unpack(key)
+	if err != nil {
+		return nil, err // must never happen
+	}
+	return ciph.Open(dst, enc.Nonce, ciphertext)
 }

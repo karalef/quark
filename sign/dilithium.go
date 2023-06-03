@@ -6,37 +6,27 @@ import (
 	"github.com/cloudflare/circl/sign/dilithium"
 )
 
-var (
-	dilithium2 = dilithiumScheme{
-		Algorithm: Dilithium2,
-		Mode:      dilithium.Mode2,
-	}
-	dilithium2aes = dilithiumScheme{
-		Algorithm: Dilithium2AES,
-		Mode:      dilithium.Mode2AES,
-	}
-	dilithium3 = dilithiumScheme{
-		Algorithm: Dilithium3,
-		Mode:      dilithium.Mode3,
-	}
-	dilithium3aes = dilithiumScheme{
-		Algorithm: Dilithium3AES,
-		Mode:      dilithium.Mode3AES,
-	}
-	dilithium5 = dilithiumScheme{
-		Algorithm: Dilithium5,
-		Mode:      dilithium.Mode5,
-	}
-	dilithium5aes = dilithiumScheme{
-		Algorithm: Dilithium5AES,
-		Mode:      dilithium.Mode5AES,
-	}
-)
+// Dilithium2 returns the Dilithium2 signature scheme.
+func Dilithium2() Scheme { return dilithiumScheme{dilithium.Mode2} }
+
+// Dilithium2AES returns the Dilithium2-AES signature scheme.
+func Dilithium2AES() Scheme { return dilithiumScheme{dilithium.Mode2AES} }
+
+// Dilithium3 returns the Dilithium3 signature scheme.
+func Dilithium3() Scheme { return dilithiumScheme{dilithium.Mode3} }
+
+// Dilithium3AES returns the Dilithium3-AES signature scheme.
+func Dilithium3AES() Scheme { return dilithiumScheme{dilithium.Mode3AES} }
+
+// Dilithium5 returns the Dilithium5 signature scheme.
+func Dilithium5() Scheme { return dilithiumScheme{dilithium.Mode5} }
+
+// Dilithium5AES returns the Dilithium5-AES signature scheme.
+func Dilithium5AES() Scheme { return dilithiumScheme{dilithium.Mode5AES} }
 
 var _ Scheme = dilithiumScheme{}
 
 type dilithiumScheme struct {
-	Algorithm
 	dilithium.Mode
 }
 

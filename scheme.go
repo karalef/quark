@@ -4,10 +4,14 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/karalef/quark/kem"
 	"github.com/karalef/quark/pack"
-	"github.com/karalef/quark/sign"
 )
+
+// Algorithm represents algorithm as string.
+type Algorithm string
+
+// InvalidAlgorithm represents unsupported or invalid algorithm.
+const InvalidAlgorithm Algorithm = "INVALID"
 
 const (
 	schemeDelim = "::"
@@ -21,8 +25,8 @@ func ParseScheme(s string) (Scheme, error) {
 		return Scheme{}, ErrInvalidScheme
 	}
 	sch := Scheme{
-		Sign: sign.Algorithm(parts[0]).Scheme(),
-		KEM:  kem.Algorithm(parts[1]).Scheme(),
+		Sign: SignAlgorithm(parts[0]).Scheme(),
+		KEM:  KEMAlgorithm(parts[1]).Scheme(),
 	}
 	if !sch.IsValid() {
 		return Scheme{}, ErrInvalidScheme
@@ -40,8 +44,8 @@ var _ pack.CustomDecoder = (*Scheme)(nil)
 
 // Scheme type.
 type Scheme struct {
-	Sign sign.Scheme
-	KEM  kem.Scheme
+	Sign SignScheme
+	KEM  KEMScheme
 }
 
 func (s Scheme) String() string {
