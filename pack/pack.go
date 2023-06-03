@@ -14,13 +14,6 @@ type Option interface {
 	apply(*options)
 }
 
-// WithArmor makes the output OpenPGP armored.
-func WithArmor(header map[string]string) Option {
-	return &armorOpt{
-		header: header,
-	}
-}
-
 // WithCompression compresses a packet.
 func WithCompression(c Compressor) Option {
 	if c == nil {
@@ -44,12 +37,6 @@ func WithEncryption(passphrase string, params *Encryption) Option {
 	}
 }
 
-type armorOpt struct {
-	header map[string]string
-}
-
-func (o *armorOpt) apply(opts *options) { opts.armor = o }
-
 type compressOpt struct {
 	Compressor
 }
@@ -68,8 +55,6 @@ func (o *encryptOpt) writer(w io.Writer) io.WriteCloser {
 func (o *encryptOpt) apply(opts *options) { opts.enc = o }
 
 type options struct {
-	armor *armorOpt
-
 	compress *compressOpt
 	enc      *encryptOpt
 }
@@ -84,18 +69,6 @@ func Pack(out io.Writer, v Packable, opts ...Option) error {
 	var o options
 	for _, opt := range opts {
 		opt.apply(&o)
-	}
-
-	var output io.WriteCloser
-
-	if o.armor != nil {
-		var err error
-		output, err = ArmoredEncoder(out, tag.BlockType(), o.armor.header)
-		if err != nil {
-			return err
-		}
-	} else {
-		output = NopCloser(out)
 	}
 
 	object, pipeW := io.Pipe()
@@ -128,22 +101,12 @@ func Pack(out io.Writer, v Packable, opts ...Option) error {
 		pipeW.CloseWithError(err)
 	}()
 
-	err := EncodeBinary(output, p)
-	if err != nil {
-		return err
-	}
-
-	return output.Close()
+	return EncodeBinary(out, p)
 }
 
 // UnpackOption represents unpacking option.
 type UnpackOption interface {
 	apply(*unpackOptions)
-}
-
-// WithoutArmor skips OpenPGP armor determination.
-func WithoutArmor() UnpackOption {
-	return withoutArmor{}
 }
 
 // WithPassphrase decrypts a packet if it is encrypted.
@@ -160,10 +123,6 @@ func WithPassphrase(passphrase func() (string, error)) UnpackOption {
 func WithDecompressionOpts(opts map[Compression]DecompressOpts) UnpackOption {
 	return decompressOpt(opts)
 }
-
-type withoutArmor struct{}
-
-func (withoutArmor) apply(opts *unpackOptions) { opts.noArmor = true }
 
 type passphraseOpt func() (string, error)
 
@@ -187,8 +146,6 @@ type decompressOpt map[Compression]DecompressOpts
 func (o decompressOpt) apply(opts *unpackOptions) { opts.decompress = o }
 
 type unpackOptions struct {
-	noArmor bool
-
 	passphrase passphraseOpt
 	decompress decompressOpt
 }
@@ -198,14 +155,6 @@ func Unpack(in io.Reader, opts ...UnpackOption) (Tag, Packable, error) {
 	var o unpackOptions
 	for _, opt := range opts {
 		opt.apply(&o)
-	}
-
-	if !o.noArmor {
-		_, _, r, err := Dearmor(in)
-		if err != nil {
-			return TagInvalid, nil, err
-		}
-		in = r
 	}
 
 	p, err := DecodeBinaryNew[Packet](in)

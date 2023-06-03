@@ -46,7 +46,8 @@ func (f file) Close() error { return f.File.Close() }
 
 func (f file) reader() (io.Reader, error) {
 	if !term.IsTerminal(int(f.File.Fd())) {
-		return f.File, nil
+		_, _, in, err := pack.Dearmor(f.File)
+		return in, err
 	}
 
 	// since the input is a terminal it can overlap the prompt or output (e.g. passphrase prompt).
@@ -54,7 +55,8 @@ func (f file) reader() (io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return bytes.NewReader(buf), nil
+	_, _, in, err := pack.Dearmor(bytes.NewReader(buf))
+	return in, err
 }
 
 func (f file) Read() (pack.Tag, pack.Packable, error) {
@@ -66,9 +68,15 @@ func (f file) Read() (pack.Tag, pack.Packable, error) {
 }
 
 func (f file) Write(v pack.Packable) error {
+	out := io.Writer(f.File)
 	var opts []pack.Option
 	if armor || term.IsTerminal(int(f.File.Fd())) {
-		opts = append(opts, pack.WithArmor(nil))
+		armored, err := pack.ArmoredEncoder(out, v.PacketTag().BlockType(), nil)
+		if err != nil {
+			return err
+		}
+		defer armored.Close()
+		out = armored
 	}
 	if compressor != nil {
 		opts = append(opts, pack.WithCompression(compressor))

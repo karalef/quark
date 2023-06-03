@@ -36,7 +36,7 @@ func readKeyset[T quark.Keyset](fs storage.FS, name string) (t T, err error) {
 	}
 	defer f.Close()
 
-	return pack.UnpackExact[T](f, pack.WithoutArmor())
+	return pack.UnpackExact[T](f)
 }
 
 func readPub(name string) (quark.Public, error) {

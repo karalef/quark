@@ -26,20 +26,33 @@ func TestPacking(t *testing.T) {
 
 	buf := new(bytes.Buffer)
 
-	err := Pack(buf, tt,
+	out, err := ArmoredEncoder(buf, tt.PacketTag().BlockType(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = Pack(out, tt,
 		WithCompression(Zstd(0)),
 		WithEncryption("test", nil),
-		WithArmor(map[string]string{
-			"test": "test",
-		}),
 	)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err = out.Close(); err != nil {
 		t.Fatal(err)
 	}
 
 	println(buf.Len())
 
-	tag, v, err := Unpack(buf,
+	blockType, header, in, err := Dearmor(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blockType != tt.PacketTag().BlockType() || len(header) != 0 {
+		t.Fatal("unexpected armor block")
+	}
+
+	tag, v, err := Unpack(in,
 		WithPassphrase(func() (string, error) { return "test", nil }),
 	)
 	if err != nil {
