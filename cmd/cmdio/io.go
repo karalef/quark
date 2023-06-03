@@ -85,7 +85,7 @@ func (f file) Write(v pack.Packable) error {
 		opts = append(opts, pack.WithEncryption(passphrase, nil))
 	}
 
-	return pack.Pack(f.File, v, opts...)
+	return pack.Pack(out, v, opts...)
 }
 
 // WithPassphrase requests the passphrase and creates packing option.
