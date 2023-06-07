@@ -17,13 +17,13 @@ var _ msgpack.CustomEncoder = (*Stream)(nil)
 var _ msgpack.CustomDecoder = (*Stream)(nil)
 
 // Stream represents a msgpack bytes stream.
-// It must be the last field in the message.
+// It must be the last field in the whole message.
 type Stream struct {
 	Reader io.Reader
 }
 
 // EncodeMsgpack implements msgpack.CustomEncoder.
-func (s *Stream) EncodeMsgpack(enc *msgpack.Encoder) error {
+func (s Stream) EncodeMsgpack(enc *msgpack.Encoder) error {
 	_, err := io.Copy(enc.Writer(), s.Reader)
 	return err
 }
@@ -32,6 +32,22 @@ func (s *Stream) EncodeMsgpack(enc *msgpack.Encoder) error {
 func (s *Stream) DecodeMsgpack(dec *msgpack.Decoder) error {
 	s.Reader = dec.Buffered()
 	return nil
+}
+
+var _ Packable = (*RawObject)(nil)
+
+// RawObject represents a binary packet`s object.
+type RawObject struct {
+	Stream
+	Tag Tag
+}
+
+// PacketTag returns the tag of the packet.
+func (r *RawObject) PacketTag() Tag {
+	if r == nil {
+		return TagInvalid
+	}
+	return r.Tag
 }
 
 // Packet is a binary packet.
@@ -45,6 +61,12 @@ type Packet struct {
 	}
 	Object Stream
 }
+
+// IsEncrypted returns true if the packet is symmetrically encrypted.
+func (p Packet) IsEncrypted() bool { return p.Header.Encryption != nil }
+
+// IsCompressed returns true if the packet is compressed.
+func (p Packet) IsCompressed() bool { return p.Header.Compression != NoCompression }
 
 // Tag is used to determine the binary packet type.
 type Tag byte

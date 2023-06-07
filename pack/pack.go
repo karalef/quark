@@ -68,7 +68,9 @@ func Pack(out io.Writer, v Packable, opts ...Option) error {
 
 	var o options
 	for _, opt := range opts {
-		opt.apply(&o)
+		if opt != nil {
+			opt.apply(&o)
+		}
 	}
 
 	object, pipeW := io.Pipe()
@@ -113,9 +115,6 @@ type UnpackOption interface {
 // passphrase func called only if the packet is encrypted.
 // Panics if passphrase is nil.
 func WithPassphrase(passphrase func() (string, error)) UnpackOption {
-	if passphrase == nil {
-		panic("nil passphrase")
-	}
 	return passphraseOpt(passphrase)
 }
 
@@ -150,40 +149,75 @@ type unpackOptions struct {
 	decompress decompressOpt
 }
 
-// Unpack unpacks an object from binary format.
-func Unpack(in io.Reader, opts ...UnpackOption) (Tag, Packable, error) {
-	var o unpackOptions
-	for _, opt := range opts {
-		opt.apply(&o)
-	}
-
+// DecodePacket decodes the binary formatted packet.
+// Returns the decoded packet even if the tag is unknown (with ErrUnknownTag error).
+func DecodePacket(in io.Reader) (*Packet, error) {
 	p, err := DecodeBinaryNew[Packet](in)
 	if err != nil {
-		return TagInvalid, nil, err
+		return p, err
+	}
+
+	_, err = p.Tag.Type()
+	return p, err
+}
+
+// UnpackPacket unpacks the binary formatted object from the packet.
+// Returns a RawObject (with ErrUnknownTag error) if the tag is unknown.
+func UnpackPacket(p *Packet, opts ...UnpackOption) (Packable, error) {
+	if p == nil {
+		return nil, nil
+	}
+
+	var o unpackOptions
+	for _, opt := range opts {
+		if opt != nil {
+			opt.apply(&o)
+		}
+	}
+
+	reader := p.Object.Reader
+	var err error
+	if p.IsEncrypted() {
+		reader, err = o.passphrase.reader(reader, p.Header.Encryption)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if p.IsCompressed() {
+		comp := p.Header.Compression
+		reader, err = Decompress(reader, comp, o.decompress[comp])
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	typ, err := p.Tag.Type()
 	if err != nil {
-		return p.Tag, nil, err
-	}
-	reader := p.Object.Reader
-
-	if enc := p.Header.Encryption; enc != nil {
-		reader, err = o.passphrase.reader(reader, enc)
-		if err != nil {
-			return p.Tag, nil, err
-		}
-	}
-
-	if comp := p.Header.Compression; comp != NoCompression {
-		reader, err = Decompress(reader, comp, o.decompress[p.Header.Compression])
-		if err != nil {
-			return p.Tag, nil, err
-		}
+		return &RawObject{
+			Tag:    p.Tag,
+			Stream: Stream{Reader: reader},
+		}, err
 	}
 
 	v := typ.new()
-	return p.Tag, v, DecodeBinary(reader, v)
+	decErr := DecodeBinary(reader, v)
+	if decErr != nil {
+		return nil, decErr
+	}
+	return v, err
+}
+
+// Unpack decodes the packet and unpacks the binary formatted object.
+// Returns a RawObject (with ErrUnknownTag error) if the tag is unknown.
+func Unpack(in io.Reader, opts ...UnpackOption) (Tag, Packable, error) {
+	p, err := DecodePacket(in)
+	if err != nil && err != ErrUnknownTag {
+		return TagInvalid, nil, err
+	}
+
+	v, err := UnpackPacket(p, opts...)
+	return p.Tag, v, err
 }
 
 // ErrMismatchType is returned when the object type mismatches the expected one.
