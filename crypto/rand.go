@@ -1,11 +1,11 @@
-package internal
+package crypto
 
 import (
 	cryptorand "crypto/rand"
 	"io"
 )
 
-// RandRead allocates a random byte slice of length size.
+// RandRead allocates and reads a random byte slice of length size.
 // If rand is nil, crypto/rand is used.
 func RandRead(rand io.Reader, size int) ([]byte, error) {
 	if rand == nil {
@@ -18,7 +18,7 @@ func RandRead(rand io.Reader, size int) ([]byte, error) {
 	return buf, nil
 }
 
-// Rand allocates a random byte slice of length size.
+// Rand allocates and reads a random byte slice of length size using crypto/rand.
 // Panics if crypto/rand returns an error.
 func Rand(size int) []byte {
 	buf, err := RandRead(nil, size)
