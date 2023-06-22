@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414
-	github.com/cloudflare/circl v1.3.2
+	github.com/karalef/circl v0.0.0-20230622122353-8efed9f7ce60
 	github.com/pierrec/lz4/v4 v4.1.17
 	github.com/urfave/cli/v2 v2.25.0
 	github.com/valyala/gozstd v1.19.1
