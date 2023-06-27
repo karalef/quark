@@ -1,30 +1,29 @@
 package kem
 
 import (
-	circlkem "github.com/cloudflare/circl/kem"
-	"github.com/cloudflare/circl/kem/frodo/frodo640shake"
-	"github.com/cloudflare/circl/kem/kyber/kyber1024"
-	"github.com/cloudflare/circl/kem/kyber/kyber512"
-	"github.com/cloudflare/circl/kem/kyber/kyber768"
+	circlkem "github.com/karalef/circl/kem"
+	"github.com/karalef/circl/kem/frodo/frodo640shake"
+	"github.com/karalef/circl/kem/kyber/kyber1024"
+	"github.com/karalef/circl/kem/kyber/kyber512"
+	"github.com/karalef/circl/kem/kyber/kyber768"
 )
 
-// Kyber512 returns the Kyber512 scheme.
-func Kyber512() Scheme { return circlScheme{kyber512.Scheme()} }
-
-// Kyber768 returns the Kyber768 scheme.
-func Kyber768() Scheme { return circlScheme{kyber768.Scheme()} }
-
-// Kyber1024 returns the Kyber1024 scheme.
-func Kyber1024() Scheme { return circlScheme{kyber1024.Scheme()} }
-
-// Frodo640Shake returns the variant FrodoKEM-640 with SHAKE.
-func Frodo640Shake() Scheme { return circlScheme{frodo640shake.Scheme()} }
+// kem schemes.
+var (
+	Kyber512      = circlScheme{"Kyber512", kyber512.Scheme()}
+	Kyber768      = circlScheme{"Kyber768", kyber768.Scheme()}
+	Kyber1024     = circlScheme{"Kyber1024", kyber1024.Scheme()}
+	Frodo640Shake = circlScheme{"Frodo640SHAKE", frodo640shake.Scheme()}
+)
 
 var _ Scheme = circlScheme{}
 
 type circlScheme struct {
+	name string
 	circlkem.Scheme
 }
+
+func (s circlScheme) Name() string { return s.name }
 
 func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 	if len(seed) != s.SeedSize() {
@@ -116,7 +115,7 @@ func (pub *circlPubKey) Encapsulate(seed []byte) (ciphertext, secret []byte, err
 	if len(seed) != pub.sch.EncapsulationSeedSize() {
 		return nil, nil, ErrEncapsulationSeed
 	}
-	ct, ss, err := pub.sch.Scheme.EncapsulateDeterministically(pub.pk, seed)
+	ct, ss, err := pub.sch.Scheme.Encapsulate(pub.pk, seed)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -1,27 +1,33 @@
 package sign
 
 import (
-	circlsign "github.com/cloudflare/circl/sign"
-	"github.com/cloudflare/circl/sign/eddilithium2"
-	"github.com/cloudflare/circl/sign/eddilithium3"
+	circlsign "github.com/karalef/circl/sign"
+	"github.com/karalef/circl/sign/dilithium"
 )
 
 var (
-	dilithium2ed25519Scheme = circlScheme{eddilithium2.Scheme()}
-	dilithium3ed448Scheme   = circlScheme{eddilithium3.Scheme()}
+	// Dilithium2 is the Dilithium signature scheme in mode 2.
+	Dilithium2 = circlScheme{"Dilithium2", dilithium.Mode2}
+	// Dilithium2AES is the Dilithium signature scheme in mode 2 with AES.
+	Dilithium2AES = circlScheme{"Dilithium2_AES", dilithium.Mode2AES}
+	// Dilithium3 is the Dilithium signature scheme in mode 3.
+	Dilithium3 = circlScheme{"Dilithium3", dilithium.Mode3}
+	// Dilithium3AES is the Dilithium signature scheme in mode 3 with AES.
+	Dilithium3AES = circlScheme{"Dilithium3_AES", dilithium.Mode2AES}
+	// Dilithium5 is the Dilithium signature scheme in mode 5.
+	Dilithium5 = circlScheme{"Dilithium5", dilithium.Mode5}
+	// Dilithium5AES is the Dilithium signature scheme in mode 5 with AES.
+	Dilithium5AES = circlScheme{"Dilithium5_AES", dilithium.Mode5AES}
 )
-
-// EDDilithium2 returns the hybrid signature scheme ed25519 with Dilithium2.
-func EDDilithium2() Scheme { return dilithium2ed25519Scheme }
-
-// EDDilithium3 returns the hybrid signature scheme ed448 with Dilithium3.
-func EDDilithium3() Scheme { return dilithium3ed448Scheme }
 
 var _ Scheme = circlScheme{}
 
 type circlScheme struct {
+	name string
 	circlsign.Scheme
 }
+
+func (s circlScheme) Name() string { return s.name }
 
 func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 	if len(seed) != s.SeedSize() {
@@ -74,8 +80,8 @@ func (priv *circlPrivKey) Bytes() []byte {
 	return b
 }
 
-func (priv *circlPrivKey) Sign(msg []byte) ([]byte, error) {
-	return priv.scheme.Sign(priv.PrivateKey, msg, nil), nil
+func (priv *circlPrivKey) Signer() Signer {
+	return priv.scheme.Signer(priv.PrivateKey)
 }
 
 var _ PublicKey = &circlPubKey{}
@@ -99,9 +105,23 @@ func (pub *circlPubKey) Bytes() []byte {
 	return b
 }
 
-func (pub *circlPubKey) Verify(msg, signature []byte) (bool, error) {
-	if len(signature) != pub.scheme.SignatureSize() {
+func (pub *circlPubKey) Verifier() Verifier {
+	return circlVerifier{
+		scheme:   pub.scheme,
+		Verifier: pub.scheme.Verifier(pub.PublicKey),
+	}
+}
+
+var _ Verifier = circlVerifier{}
+
+type circlVerifier struct {
+	scheme Scheme
+	circlsign.Verifier
+}
+
+func (v circlVerifier) Verify(signature []byte) (bool, error) {
+	if len(signature) != v.scheme.SignatureSize() {
 		return false, ErrSignature
 	}
-	return pub.scheme.Verify(pub.PublicKey, msg, signature, nil), nil
+	return v.Verifier.Verify(signature), nil
 }

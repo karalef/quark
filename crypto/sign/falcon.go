@@ -1,5 +1,7 @@
 package sign
 
+// TODO: implement falcon1024 signature state
+/*
 import (
 	"github.com/algorand/falcon"
 	"github.com/karalef/quark/internal"
@@ -91,3 +93,4 @@ func (pub *falconPubKey) Verify(msg, signature []byte) (bool, error) {
 	err := (*falcon.PublicKey)(pub).VerifyCTSignature(falcon.CTSignature(signature), msg)
 	return err == nil, nil
 }
+*/
