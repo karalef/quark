@@ -13,16 +13,17 @@ type Scheme interface {
 	Name() string
 	Size() int
 	KeySize() int
+
 	// New returns a new MAC instance.
-	// Panics if key is not of Size() bytes.
+	// Panics if key is not of length KeySize().
 	New(key []byte) MAC
 }
 
 type baseScheme struct {
+	new     func(key []byte) MAC
 	name    string
 	size    int
 	keySize int
-	new     func(key []byte) MAC
 }
 
 func (s baseScheme) Name() string { return s.name }

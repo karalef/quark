@@ -17,6 +17,7 @@ type AE interface {
 
 // Scheme represents authenticated encryption scheme.
 type Scheme interface {
+	Approach() Approach
 	Cipher() cipher.Scheme
 	MAC() mac.Scheme
 	XOF() xof.XOF
@@ -71,6 +72,3 @@ func (e *baseAE) writeMAC(p []byte) {
 		panic(err)
 	}
 }
-
-// ErrKeySize is returned when key size is invalid.
-var ErrKeySize = cipher.ErrKeySize
