@@ -1,13 +1,19 @@
 package ae
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 // Approach represents AE approach.
 type Approach uint8
 
 const (
+	// InvalidApproach represents an invalid AE approach.
+	InvalidApproach Approach = iota
+
 	// EncryptThanMAC is an Encrypt-than-MAC approach.
-	EncryptThanMAC Approach = iota
+	EncryptThanMAC
 
 	// EncryptAndMAC is an Encrypt-and-MAC approach.
 	EncryptAndMAC
@@ -24,16 +30,16 @@ func (a Approach) String() string {
 	}
 }
 
-// FromString sets the approach from a string.
+// ApproachFromString returns the AE approach from a string.
 // Returns ErrInvalidApproach if the string is not a valid representation of an approach.
-func (a Approach) FromString(str string) error {
-	switch str {
-	case "EtM":
-		a = EncryptThanMAC
-	case "EaM":
-		a = EncryptAndMAC
+func ApproachFromString(str string) Approach {
+	switch strings.ToUpper(str) {
+	case "ETM":
+		return EncryptThanMAC
+	case "EAM":
+		return EncryptAndMAC
 	}
-	return ErrUnknownApproach
+	return InvalidApproach
 }
 
 // ErrUnknownApproach is returned if the approach is unknown.
