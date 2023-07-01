@@ -18,15 +18,6 @@ type Packet[T any] struct {
 	Object T
 }
 
-// RawObject contains tag with decoder.
-type RawObject struct {
-	Decoder *Decoder
-	Tag     Tag
-}
-
-// PacketTag returns the tag of the packet.
-func (r RawObject) PacketTag() Tag { return r.Tag }
-
 // Tag is used to determine the binary packet type.
 type Tag byte
 
@@ -69,12 +60,6 @@ func RegisterPacketType(typ PacketType) {
 	if typ.Tag == TagInvalid {
 		panic("tag cannot be zero")
 	}
-	if typ.Type == nil {
-		panic("type cannot be nil")
-	}
-	if !reflect.PointerTo(typ.Type).Implements(packableType) {
-		panic("type does not implement Packable")
-	}
 	if typ.Name == "" {
 		panic("name cannot be empty")
 	}
@@ -92,12 +77,10 @@ func RegisterPacketType(typ PacketType) {
 var tagToType = make(map[Tag]PacketType)
 
 // NewType creates a new packet type.
-// v must be a pointer to a packable type.
 // Even if v is a typed nil pointer it must be able to return the packet tag.
 func NewType(v Packable, name, blockType string) PacketType {
 	return PacketType{
 		Tag:       v.PacketTag(),
-		Type:      reflect.TypeOf(v).Elem(),
 		Name:      name,
 		BlockType: blockType,
 	}
@@ -105,14 +88,7 @@ func NewType(v Packable, name, blockType string) PacketType {
 
 // PacketType represents a binary packet type.
 type PacketType struct {
-	Tag Tag
-	// Must be settable for msgpack.
-	// A pointer to this type must implement the Packable interface.
-	Type      reflect.Type
+	Tag       Tag
 	Name      string
 	BlockType string
-}
-
-func (t PacketType) new() Packable {
-	return reflect.New(t.Type).Interface().(Packable)
 }

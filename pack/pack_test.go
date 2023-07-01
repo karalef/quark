@@ -47,21 +47,13 @@ func TestPacking(t *testing.T) {
 		t.Fatal("unexpected armor block")
 	}
 
-	tag, v, err := Unpack(in)
+	v := new(testPack)
+	err = UnpackExact(in, v)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if tag != testValue.PacketTag() {
-		t.Fatal("unexpected tag")
-	}
-
-	tt2, ok := v.(*testPack)
-	if !ok {
-		t.Fatal("unexpected type")
-	}
-
-	if tt2.Test != "test" {
+	if v.Test != "test" {
 		t.Fatal("unexpected data")
 	}
 }

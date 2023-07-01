@@ -3,7 +3,6 @@ package pack
 import (
 	"fmt"
 	"io"
-	"reflect"
 
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -51,67 +50,43 @@ func (r *rawObject) DecodeMsgpack(dec *Decoder) error {
 	return nil
 }
 
-// UnpackPacket unpacks the binary formatted object from the packet.
-// Returns a RawObject (with ErrUnknownTag error) if the tag is unknown.
-// Puts the decoder to the pool if the error is not ErrUnknownTag.
-func UnpackPacket(p *Packet[*Decoder]) (Packable, error) {
-	if p == nil {
-		return nil, nil
+// Unpack unpacks the binary formatted object from the packet.
+// Puts the decoder to the pool if the error is not ErrMismatchType.
+// Panics if one of the arguments is nil.
+func Unpack(p *Packet[*Decoder], v Packable) error {
+	if p == nil || v == nil {
+		panic("pack.Unpack: nil argument")
 	}
-
-	typ, err := p.Tag.Type()
-	if err != nil {
-		return &RawObject{
-			Tag:     p.Tag,
-			Decoder: p.Object,
-		}, err
+	if p.Tag != v.PacketTag() {
+		return ErrMismatchType{expected: p.Tag, got: v.PacketTag()}
 	}
 
 	defer msgpack.PutDecoder(p.Object)
-
-	v := typ.new()
-	err = p.Object.Decode(v)
-	if err != nil {
-		return nil, err
-	}
-	return v, err
-}
-
-// Unpack decodes the packet and unpacks the binary formatted object.
-// Returns a RawObject (with ErrUnknownTag error) if the tag is unknown.
-func Unpack(in io.Reader) (Tag, Packable, error) {
-	p, err := DecodePacket(in)
-	if err != nil && err != ErrUnknownTag {
-		return TagInvalid, nil, err
-	}
-
-	v, err := UnpackPacket(p)
-	return p.Tag, v, err
+	return p.Object.Decode(v)
 }
 
 // ErrMismatchType is returned when the object type mismatches the expected one.
 type ErrMismatchType struct {
-	expected Packable
+	expected Tag
 	got      Tag
 }
 
 func (e ErrMismatchType) Error() string {
-	got := e.got.String()
-	if reflect.TypeOf(e.expected) == nil { // type parameter is interface
-		return fmt.Sprintf("object type (%s) does not implement the specified interface", got)
-	}
-	return fmt.Sprintf("object type mismatches the expected %s (got %s)", e.expected.PacketTag().String(), got)
+	return fmt.Sprintf("object type mismatches the expected %s (got %s)", e.expected.String(), e.got.String())
 }
 
-// UnpackExact decodes an object from binary format and casts it to specified type.
-func UnpackExact[T Packable](in io.Reader) (val T, err error) {
-	tag, v, err := Unpack(in)
-	if err != nil {
-		return
+// UnpackExact decodes the packet and unpacks the binary formatted object.
+// If the tag does not match the tag of the provided object, returns ErrMismatchType.
+// It always puts the decoder to the pool.
+func UnpackExact(in io.Reader, v Packable) error {
+	p, err := DecodePacket(in)
+	if err != nil && err != ErrUnknownTag {
+		return err
 	}
-	val, ok := v.(T)
-	if !ok {
-		return val, ErrMismatchType{expected: val, got: tag}
+
+	err = Unpack(p, v)
+	if _, ok := err.(ErrMismatchType); ok {
+		msgpack.PutDecoder(p.Object)
 	}
-	return
+	return err
 }
