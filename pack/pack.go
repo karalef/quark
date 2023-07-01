@@ -1,222 +1,91 @@
 package pack
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"reflect"
 
-	"github.com/karalef/quark/internal"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Option represents packing option.
-type Option interface {
-	apply(*options)
-}
-
-// WithCompression compresses a packet.
-func WithCompression(c Compressor) Option {
-	if c == nil {
-		c = nopCompressor{}
-	}
-	return &compressOpt{c}
-}
-
-// WithEncryption encrypts a packet.
-// If params is nil, random values are used.
-func WithEncryption(passphrase string, params *Encryption) Option {
-	if params == nil {
-		params = new(Encryption)
-		params.IV = [IVSize]byte(internal.Rand(IVSize))
-		params.Salt = internal.Rand(SaltSizeRFC)
-		params.Argon2ID = Argon2Defaults()
-	}
-	return &encryptOpt{
-		passphrase: passphrase,
-		params:     *params,
-	}
-}
-
-type compressOpt struct {
-	Compressor
-}
-
-func (o *compressOpt) apply(opts *options) { opts.compress = o }
-
-type encryptOpt struct {
-	passphrase string
-	params     Encryption
-}
-
-func (o *encryptOpt) writer(w io.Writer) io.WriteCloser {
-	return NopCloser(Encrypt(w, o.passphrase, o.params.IV, o.params.Salt, o.params.Argon2ID))
-}
-
-func (o *encryptOpt) apply(opts *options) { opts.enc = o }
-
-type options struct {
-	compress *compressOpt
-	enc      *encryptOpt
-}
-
 // Pack creates a packet and encodes it into binary format.
-func Pack(out io.Writer, v Packable, opts ...Option) error {
+func Pack(out io.Writer, v Packable) error {
 	tag := v.PacketTag()
 	if _, err := tag.Type(); err != nil {
 		return err
 	}
 
-	var o options
-	for _, opt := range opts {
-		if opt != nil {
-			opt.apply(&o)
-		}
-	}
-
-	object, pipeW := io.Pipe()
-	p := &Packet{
+	return EncodeBinary(out, Packet[Packable]{
 		Tag:    tag,
-		Object: Stream{Reader: object},
-	}
-
-	writer := io.WriteCloser(pipeW)
-
-	if o.enc != nil {
-		p.Header.Encryption = &o.enc.params
-		writer = ChainCloser(writer, o.enc.writer(writer))
-	}
-
-	if o.compress != nil {
-		p.Header.Compression = o.compress.Algorithm()
-		w, err := Compress(writer, o.compress.Compressor)
-		if err != nil {
-			return err
-		}
-		writer = ChainCloser(writer, w)
-	}
-
-	go func() {
-		err := EncodeBinary(writer, v)
-		if err == nil {
-			err = writer.Close()
-		}
-		pipeW.CloseWithError(err)
-	}()
-
-	return EncodeBinary(out, p)
+		Object: v,
+	})
 }
 
-// UnpackOption represents unpacking option.
-type UnpackOption interface {
-	apply(*unpackOptions)
-}
-
-// WithPassphrase decrypts a packet if it is encrypted.
-// passphrase func called only if the packet is encrypted.
-// Panics if passphrase is nil.
-func WithPassphrase(passphrase func() (string, error)) UnpackOption {
-	return passphraseOpt(passphrase)
-}
-
-// WithDecompressionOpts decompresses a packet using provided options.
-func WithDecompressionOpts(opts map[Compression]DecompressOpts) UnpackOption {
-	return decompressOpt(opts)
-}
-
-type passphraseOpt func() (string, error)
-
-var errNoPassphrase = errors.New("pack: object is encrypted but no passphrase is provided")
-
-func (o passphraseOpt) reader(r io.Reader, enc *Encryption) (io.Reader, error) {
-	if o == nil {
-		return nil, errNoPassphrase
-	}
-	pass, err := o()
-	if err != nil {
-		return nil, errors.Join(errNoPassphrase, err)
-	}
-	return Decrypt(r, pass, enc.IV, enc.Salt, enc.Argon2ID), nil
-}
-
-func (o passphraseOpt) apply(opts *unpackOptions) { opts.passphrase = o }
-
-type decompressOpt map[Compression]DecompressOpts
-
-func (o decompressOpt) apply(opts *unpackOptions) { opts.decompress = o }
-
-type unpackOptions struct {
-	passphrase passphraseOpt
-	decompress decompressOpt
-}
-
-// DecodePacket decodes the binary formatted packet.
+// DecodePacket decodes the packet from binary format.
 // Returns the decoded packet even if the tag is unknown (with ErrUnknownTag error).
-func DecodePacket(in io.Reader) (*Packet, error) {
-	p, err := DecodeBinaryNew[Packet](in)
+func DecodePacket(in io.Reader) (*Packet[*Decoder], error) {
+	dec := msgpack.GetDecoder()
+	dec.Reset(in)
+
+	p := new(Packet[rawObject])
+	err := dec.Decode(p)
 	if err != nil {
-		return p, err
+		return nil, err
 	}
 
 	_, err = p.Tag.Type()
-	return p, err
+	return &Packet[*Decoder]{
+		Tag:    p.Tag,
+		Object: p.Object.Decoder,
+	}, err
+}
+
+var _ CustomDecoder = (*rawObject)(nil)
+
+type rawObject struct {
+	*Decoder
+}
+
+func (r *rawObject) DecodeMsgpack(dec *Decoder) error {
+	r.Decoder = dec
+	return nil
 }
 
 // UnpackPacket unpacks the binary formatted object from the packet.
 // Returns a RawObject (with ErrUnknownTag error) if the tag is unknown.
-func UnpackPacket(p *Packet, opts ...UnpackOption) (Packable, error) {
+// Puts the decoder to the pool if the error is not ErrUnknownTag.
+func UnpackPacket(p *Packet[*Decoder]) (Packable, error) {
 	if p == nil {
 		return nil, nil
-	}
-
-	var o unpackOptions
-	for _, opt := range opts {
-		if opt != nil {
-			opt.apply(&o)
-		}
-	}
-
-	reader := p.Object.Reader
-	var err error
-	if p.IsEncrypted() {
-		reader, err = o.passphrase.reader(reader, p.Header.Encryption)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if p.IsCompressed() {
-		comp := p.Header.Compression
-		reader, err = Decompress(reader, comp, o.decompress[comp])
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	typ, err := p.Tag.Type()
 	if err != nil {
 		return &RawObject{
-			Tag:    p.Tag,
-			Stream: Stream{Reader: reader},
+			Tag:     p.Tag,
+			Decoder: p.Object,
 		}, err
 	}
 
+	defer msgpack.PutDecoder(p.Object)
+
 	v := typ.new()
-	decErr := DecodeBinary(reader, v)
-	if decErr != nil {
-		return nil, decErr
+	err = p.Object.Decode(v)
+	if err != nil {
+		return nil, err
 	}
 	return v, err
 }
 
 // Unpack decodes the packet and unpacks the binary formatted object.
 // Returns a RawObject (with ErrUnknownTag error) if the tag is unknown.
-func Unpack(in io.Reader, opts ...UnpackOption) (Tag, Packable, error) {
+func Unpack(in io.Reader) (Tag, Packable, error) {
 	p, err := DecodePacket(in)
 	if err != nil && err != ErrUnknownTag {
 		return TagInvalid, nil, err
 	}
 
-	v, err := UnpackPacket(p, opts...)
+	v, err := UnpackPacket(p)
 	return p.Tag, v, err
 }
 
@@ -227,15 +96,16 @@ type ErrMismatchType struct {
 }
 
 func (e ErrMismatchType) Error() string {
+	got := e.got.String()
 	if reflect.TypeOf(e.expected) == nil { // type parameter is interface
-		return fmt.Sprintf("object type (%s) does not implement the specified interface", e.got.String())
+		return fmt.Sprintf("object type (%s) does not implement the specified interface", got)
 	}
-	return fmt.Sprintf("object type mismatches the expected %s (got %s)", e.expected.PacketTag().String(), e.got.String())
+	return fmt.Sprintf("object type mismatches the expected %s (got %s)", e.expected.PacketTag().String(), got)
 }
 
 // UnpackExact decodes an object from binary format and casts it to specified type.
-func UnpackExact[T Packable](in io.Reader, opts ...UnpackOption) (val T, err error) {
-	tag, v, err := Unpack(in, opts...)
+func UnpackExact[T Packable](in io.Reader) (val T, err error) {
+	tag, v, err := Unpack(in)
 	if err != nil {
 		return
 	}
