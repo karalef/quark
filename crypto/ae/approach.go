@@ -54,9 +54,9 @@ func (a Approach) NewEncrypter(s Scheme, sharedSecret []byte, iv []byte) (AE, er
 func (a Approach) NewDecrypter(s Scheme, sharedSecret []byte, iv []byte) (AE, error) {
 	switch a {
 	case EncryptThanMAC:
-		newEtM(s, sharedSecret, iv, decryptEtM)
+		return newEtM(s, sharedSecret, iv, decryptEtM)
 	case EncryptAndMAC:
-		newEaM(s, sharedSecret, iv, decryptEaM)
+		return newEaM(s, sharedSecret, iv, decryptEaM)
 	}
 	panic("unknown approach")
 }
