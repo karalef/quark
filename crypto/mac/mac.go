@@ -65,7 +65,6 @@ func init() {
 	Register(SHA256)
 	Register(SHA3_256)
 	Register(BLAKE2b128)
-	Register(BLAKE2b128X)
 	Register(BLAKE2b256)
 }
 

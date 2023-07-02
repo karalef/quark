@@ -22,7 +22,7 @@ func TestPassword(t *testing.T) {
 	testPassword := "password"
 	testData := []byte("testing data")
 	testIV, _ := crypto.RandRead(noncryptoRand, testScheme.AE().Cipher().IVSize())
-	testSalt, _ := crypto.RandRead(noncryptoRand, ae.NormalSecretSize(testScheme.AE()))
+	testSalt, _ := crypto.RandRead(noncryptoRand, testScheme.AE().Cipher().KeySize())
 	testKDFParams := kdf.Argon2Params{
 		Rounds:  1,
 		Memory:  8 * 1024,

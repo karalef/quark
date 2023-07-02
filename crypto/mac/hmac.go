@@ -22,37 +22,28 @@ var (
 	SHA256 = baseScheme{
 		name:    "SHA256",
 		size:    sha256.Size,
-		keySize: 32,
+		keySize: sha256.BlockSize,
 		new:     func(key []byte) MAC { return hmac{hmacpkg.New(sha256.New, key)} },
 	}
 	SHA3_256 = baseScheme{
 		name:    "SHA3_256",
 		size:    32,
-		keySize: 32,
+		keySize: 136,
 		new:     func(key []byte) MAC { return hmac{hmacpkg.New(sha3.New256, key)} },
 	}
 	BLAKE2b128 = baseScheme{
-		name:    "BLAKE2b_128",
+		name:    "BLAKE2b128",
 		size:    16,
-		keySize: 16,
-		new: func(key []byte) MAC {
-			h, _ := blake2b.New(16, key)
-			return hmac{h}
-		},
-	}
-	BLAKE2b128X = baseScheme{
-		name:    "BLAKE2b_128X",
-		size:    16,
-		keySize: 32,
+		keySize: blake2b.BlockSize,
 		new: func(key []byte) MAC {
 			h, _ := blake2b.New(16, key)
 			return hmac{h}
 		},
 	}
 	BLAKE2b256 = baseScheme{
-		name:    "BLAKE2b_256",
+		name:    "BLAKE2b256",
 		size:    blake2b.Size256,
-		keySize: 32,
+		keySize: blake2b.BlockSize,
 		new: func(key []byte) MAC {
 			h, _ := blake2b.New256(key)
 			return hmac{h}

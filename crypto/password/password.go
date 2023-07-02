@@ -22,7 +22,11 @@ type Scheme interface {
 
 // DeriveKey derives a key from a password and salt.
 func DeriveKey(s Scheme, password string, salt []byte, params kdf.Params) ([]byte, error) {
-	return s.KDF().Derive([]byte(password), salt, ae.NormalSecretSize(s.AE()), params)
+	size := s.AE().Cipher().KeySize()
+	if s.AE().Approach() == ae.EncryptThanMAC {
+		size *= 2
+	}
+	return s.KDF().Derive([]byte(password), salt, size, params)
 }
 
 // Crypter represents en/decrypter.

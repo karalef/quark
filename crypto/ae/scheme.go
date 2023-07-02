@@ -20,22 +20,6 @@ func Build(approach Approach, cipher cipher.Scheme, mac mac.Scheme, xof xof.XOF)
 	}
 }
 
-// NormalSecretSize returns the recommended size of the secret to
-// match the security parameters of the cipher and MAC.
-func NormalSecretSize(s Scheme) int {
-	c, m := s.Cipher().KeySize(), s.MAC().KeySize()
-	switch s.Approach() {
-	case EncryptThanMAC:
-		return c + m
-	case EncryptAndMAC:
-		if c > m {
-			return c
-		}
-		return m
-	}
-	return c
-}
-
 var _ Scheme = (*scheme)(nil)
 
 type scheme struct {
