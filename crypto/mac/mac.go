@@ -56,6 +56,9 @@ func Equal(tag1, tag2 []byte) bool {
 // ErrKeySize is returned when the key size is invalid.
 var ErrKeySize = errors.New("invalid key size")
 
+// ErrMismatch is returned when the MACs do not match.
+var ErrMismatch = errors.New("MACs do not match")
+
 var schemes = make(internal.Schemes[Scheme])
 
 func init() {
@@ -72,3 +75,9 @@ func Register(scheme Scheme) { schemes.Register(scheme) }
 // ByName returns the MAC scheme by the provided name.
 // Returns nil if the name is not registered.
 func ByName(name string) Scheme { return schemes.ByName(name) }
+
+// ListAll returns all registered MAC algorithms.
+func ListAll() []string { return schemes.ListAll() }
+
+// ListSchemes returns all registered MAC schemes.
+func ListSchemes() []Scheme { return schemes.ListSchemes() }

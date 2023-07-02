@@ -75,3 +75,9 @@ func Register(kdf KDF) { kdfs.Register(kdf) }
 // ByName returns the KDF by the provided name.
 // Returns nil if the name is not registered.
 func ByName(name string) KDF { return kdfs.ByName(name) }
+
+// ListAll returns all registered KDF algorithms.
+func ListAll() []string { return kdfs.ListAll() }
+
+// ListSchemes returns all registered KDF schemes.
+func ListSchemes() []KDF { return kdfs.ListSchemes() }

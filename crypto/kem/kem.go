@@ -102,3 +102,9 @@ func Register(scheme Scheme) { schemes.Register(scheme) }
 // ByName returns the KEM scheme by the provided name.
 // Returns nil if the name is not registered.
 func ByName(name string) Scheme { return schemes.ByName(name) }
+
+// ListAll returns all registered KEM algorithms.
+func ListAll() []string { return schemes.ListAll() }
+
+// ListSchemes returns all registered KEM schemes.
+func ListSchemes() []Scheme { return schemes.ListSchemes() }

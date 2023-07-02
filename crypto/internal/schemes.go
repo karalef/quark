@@ -19,3 +19,19 @@ func (schemes Schemes[T]) Register(scheme T) {
 func (schemes Schemes[T]) ByName(name string) T {
 	return schemes[strings.ToUpper(name)]
 }
+
+func (schemes Schemes[T]) ListAll() []string {
+	all := make([]string, 0, len(schemes))
+	for k := range schemes {
+		all = append(all, k)
+	}
+	return all
+}
+
+func (schemes Schemes[T]) ListSchemes() []T {
+	all := make([]T, 0, len(schemes))
+	for _, v := range schemes {
+		all = append(all, v)
+	}
+	return all
+}

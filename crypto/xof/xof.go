@@ -52,3 +52,9 @@ func Register(xof XOF) { xofs.Register(xof) }
 // ByName returns the XOF by the provided name.
 // Returns nil if the name is not registered.
 func ByName(name string) XOF { return xofs.ByName(name) }
+
+// ListAll returns all registered XOF names.
+func ListAll() []string { return xofs.ListAll() }
+
+// ListSchemes returns all registered XOF schemes.
+func ListSchemes() []XOF { return xofs.ListSchemes() }

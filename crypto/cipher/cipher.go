@@ -78,3 +78,9 @@ func Register(scheme Scheme) { schemes.Register(scheme) }
 // ByName returns the cipher scheme by the provided name.
 // Returns nil if the name is not registered.
 func ByName(name string) Scheme { return schemes.ByName(name) }
+
+// ListAll returns all registered cipher algorithms.
+func ListAll() []string { return schemes.ListAll() }
+
+// ListSchemes returns all registered cipher schemes.
+func ListSchemes() []Scheme { return schemes.ListSchemes() }
