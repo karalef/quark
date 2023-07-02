@@ -3,8 +3,6 @@ package pack
 import (
 	"fmt"
 	"io"
-
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Pack creates a packet and encodes it into binary format.
@@ -20,11 +18,13 @@ func Pack(out io.Writer, v Packable) error {
 	})
 }
 
+// TypedDecoder represents the decoder with the packet tag.
+type TypedDecoder = Packet[*Decoder]
+
 // DecodePacket decodes the packet from binary format.
 // Returns the decoded packet even if the tag is unknown (with ErrUnknownTag error).
-func DecodePacket(in io.Reader) (*Packet[*Decoder], error) {
-	dec := msgpack.GetDecoder()
-	dec.Reset(in)
+func DecodePacket(in io.Reader) (*TypedDecoder, error) {
+	dec := GetDecoder(in)
 
 	p := new(Packet[rawObject])
 	err := dec.Decode(p)
@@ -33,7 +33,7 @@ func DecodePacket(in io.Reader) (*Packet[*Decoder], error) {
 	}
 
 	_, err = p.Tag.Type()
-	return &Packet[*Decoder]{
+	return &TypedDecoder{
 		Tag:    p.Tag,
 		Object: p.Object.Decoder,
 	}, err
@@ -53,26 +53,26 @@ func (r *rawObject) DecodeMsgpack(dec *Decoder) error {
 // Unpack unpacks the binary formatted object from the packet.
 // Puts the decoder to the pool if the error is not ErrMismatchType.
 // Panics if one of the arguments is nil.
-func Unpack(p *Packet[*Decoder], v Packable) error {
+func Unpack(p *TypedDecoder, v Packable) error {
 	if p == nil || v == nil {
 		panic("pack.Unpack: nil argument")
 	}
 	if p.Tag != v.PacketTag() {
-		return ErrMismatchType{expected: p.Tag, got: v.PacketTag()}
+		return ErrMismatchType{Expected: p.Tag, Got: v.PacketTag()}
 	}
 
-	defer msgpack.PutDecoder(p.Object)
+	defer PutDecoder(p.Object)
 	return p.Object.Decode(v)
 }
 
 // ErrMismatchType is returned when the object type mismatches the expected one.
 type ErrMismatchType struct {
-	expected Tag
-	got      Tag
+	Expected Tag
+	Got      Tag
 }
 
 func (e ErrMismatchType) Error() string {
-	return fmt.Sprintf("object type mismatches the expected %s (got %s)", e.expected.String(), e.got.String())
+	return fmt.Sprintf("object type mismatches the expected %s (got %s)", e.Expected.String(), e.Got.String())
 }
 
 // UnpackExact decodes the packet and unpacks the binary formatted object.
@@ -86,7 +86,7 @@ func UnpackExact(in io.Reader, v Packable) error {
 
 	err = Unpack(p, v)
 	if _, ok := err.(ErrMismatchType); ok {
-		msgpack.PutDecoder(p.Object)
+		PutDecoder(p.Object)
 	}
 	return err
 }
