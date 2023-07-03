@@ -22,9 +22,9 @@ func argon2id(password, salt []byte, size int, params Argon2Params) ([]byte, err
 
 // Argon2Params contains the argon2 parameters.
 type Argon2Params struct {
-	Rounds  uint32 `msgpack:"rounds"`
-	Memory  uint32 `msgpack:"memory"`
-	Threads uint8  `msgpack:"threads"`
+	Rounds  uint32
+	Memory  uint32
+	Threads uint8
 }
 
 // Validate validates the argon2 parameters.

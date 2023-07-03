@@ -10,13 +10,15 @@ import (
 type KDF interface {
 	Name() string
 
+	// NewParams creates a new key derivation function parameters.
+	NewParams() Params
+
 	// Derive derives a key of the specified size from a password and salt.
 	// Panics if size is zero.
 	Derive(password, salt []byte, size int, params Params) ([]byte, error)
 }
 
 // Params represents the key derivation function parameters.
-// Params must be encodable/decodable for msgpack.
 type Params interface {
 	Validate() error
 }
@@ -53,9 +55,12 @@ type baseKDF[T Params] struct {
 	name string
 }
 
-func (kdf baseKDF[T]) Name() string {
-	return kdf.name
+func (kdf baseKDF[T]) NewParams() Params {
+	var p T
+	return p
 }
+
+func (kdf baseKDF[T]) Name() string { return kdf.name }
 
 func (kdf baseKDF[T]) Derive(password, salt []byte, size int, params Params) ([]byte, error) {
 	if len(password) == 0 {
