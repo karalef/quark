@@ -7,16 +7,10 @@ import (
 )
 
 // Argon2i KDF.
-var Argon2i KDF = baseKDF[Argon2Params]{
-	name: "argon2i",
-	kdf:  argon2i,
-}
+var Argon2i = New("argon2i", argon2i)
 
 // Argon2id KDF.
-var Argon2id KDF = baseKDF[Argon2Params]{
-	name: "argon2id",
-	kdf:  argon2id,
-}
+var Argon2id KDF = New("argon2id", argon2id)
 
 func argon2i(password, salt []byte, size int, params Argon2Params) ([]byte, error) {
 	return argon2.Key(password, salt, params.Rounds, params.Memory, params.Threads, uint32(size)), nil

@@ -3,10 +3,7 @@ package kdf
 import "golang.org/x/crypto/scrypt"
 
 // Scrypt is a scrypt KDF.
-var Scrypt KDF = baseKDF[ScryptParams]{
-	name: "scrypt",
-	kdf:  deriveScrypt,
-}
+var Scrypt KDF = New("scrypt", deriveScrypt)
 
 func deriveScrypt(password, salt []byte, size int, params ScryptParams) ([]byte, error) {
 	return scrypt.Key(password, salt, params.N, params.BlockMix, params.Parallelism, size)

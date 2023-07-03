@@ -19,8 +19,23 @@ type Scheme interface {
 	New(key []byte) MAC
 }
 
+// NewFunc represents the function to create a MAC.
+type NewFunc func(key []byte) MAC
+
+// New creates new MAC scheme.
+// It does not register the scheme.
+// The returned scheme guarantees the correct key length.
+func New(name string, keySize, size int, new NewFunc) Scheme {
+	return baseScheme{
+		new:     new,
+		name:    name,
+		size:    size,
+		keySize: keySize,
+	}
+}
+
 type baseScheme struct {
-	new     func(key []byte) MAC
+	new     NewFunc
 	name    string
 	size    int
 	keySize int
@@ -38,6 +53,7 @@ func (s baseScheme) New(key []byte) MAC {
 
 // MAC represent MAC state.
 type MAC interface {
+	// Write never returns an error.
 	io.Writer
 
 	// Tag appends the current mac to b and returns the resulting slice.

@@ -25,26 +25,18 @@ type scheme struct {
 func (s scheme) AE() ae.Scheme { return s.ae }
 func (s scheme) KDF() kdf.KDF  { return s.kdf }
 
-func (s scheme) Encrypter(password string, iv, salt []byte, params kdf.Params) (Crypter, error) {
+func (s scheme) Encrypter(password string, iv, salt []byte, params kdf.Params) (ae.AE, error) {
 	key, err := DeriveKey(s, password, salt, params)
 	if err != nil {
 		return nil, err
 	}
-	enc, err := s.AE().Encrypter(key, iv)
-	if err != nil {
-		return nil, err
-	}
-	return crypter{scheme: s, AE: enc}, nil
+	return s.AE().Encrypter(key, iv)
 }
 
-func (s scheme) Decrypter(password string, iv, salt []byte, params kdf.Params) (Crypter, error) {
+func (s scheme) Decrypter(password string, iv, salt []byte, params kdf.Params) (ae.AE, error) {
 	key, err := DeriveKey(s, password, salt, params)
 	if err != nil {
 		return nil, err
 	}
-	dec, err := s.AE().Decrypter(key, iv)
-	if err != nil {
-		return nil, err
-	}
-	return crypter{scheme: s, AE: dec}, nil
+	return s.AE().Decrypter(key, iv)
 }

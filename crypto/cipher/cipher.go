@@ -8,11 +8,7 @@ import (
 )
 
 // Stream represents a stream cipher.
-type Stream interface {
-	Scheme() Scheme
-
-	stdcipher.Stream
-}
+type Stream = stdcipher.Stream
 
 // Scheme type.
 type Scheme interface {
@@ -24,11 +20,27 @@ type Scheme interface {
 	New(key, iv []byte) (Stream, error)
 }
 
+// NewFunc represents the function to create a stream cipher.
+type NewFunc func(key, iv []byte) (Stream, error)
+
+// New creates new cipher scheme.
+// It does not register the scheme.
+// The returned scheme guarantees the correct key and iv lengths
+// that are passed to the new.
+func New(name string, keySize, ivSize int, new NewFunc) Scheme {
+	return baseScheme{
+		name:    name,
+		keySize: keySize,
+		ivSize:  ivSize,
+		newFunc: new,
+	}
+}
+
 var _ Scheme = baseScheme{}
 
 type baseScheme struct {
+	newFunc NewFunc
 	name    string
-	newFunc func(s Scheme, key, iv []byte) (Stream, error)
 	keySize int
 	ivSize  int
 }
@@ -43,17 +55,8 @@ func (s baseScheme) New(key, iv []byte) (Stream, error) {
 	if len(iv) != s.ivSize {
 		return nil, ErrIVSize
 	}
-	return s.newFunc(s, key, iv)
+	return s.newFunc(key, iv)
 }
-
-var _ Stream = baseStream{}
-
-type baseStream struct {
-	scheme Scheme
-	stdcipher.Stream
-}
-
-func (s baseStream) Scheme() Scheme { return s.scheme }
 
 // errors
 var (

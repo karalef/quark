@@ -26,14 +26,14 @@ func TestPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 	encrypter.Crypt(encryptedBuffer, testData)
-	mac1 := encrypter.MAC()
+	mac1 := encrypter.Tag(nil)
 
 	decrypter, err := testScheme.Decrypter(testSecret, testIV)
 	if err != nil {
 		t.Fatal(err)
 	}
 	decrypter.Crypt(decryptedBuffer, encryptedBuffer)
-	mac2 := decrypter.MAC()
+	mac2 := decrypter.Tag(nil)
 
 	if !mac.Equal(mac1, mac2) {
 		t.Fatal("MAC mismatch")

@@ -7,15 +7,17 @@ import (
 
 // blake xofs.
 var (
-	BLAKE2xb = scheme{NewBLAKE2xb, "BLAKE2xb"}
-	BLAKE3x  = scheme{NewBLAKE3x, "BLAKE3x"}
+	BLAKE2xb = New("BLAKE2xb", NewBLAKE2xb)
+	BLAKE3x  = New("BLAKE3x", NewBLAKE3x)
 )
 
+// NewBLAKE2xb creates a new BLAKE2b variable-output-length State.
 func NewBLAKE2xb() State {
 	xof, _ := blake2b.NewXOF(blake2b.OutputLengthUnknown, nil)
 	return blakeXOF{xof}
 }
 
+// NewBLAKE3x creates a new BLAKE3 variable-output-length State.
 func NewBLAKE3x() State {
 	return &blake3XOF{h: blake3.New()}
 }

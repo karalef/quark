@@ -5,28 +5,11 @@ import (
 )
 
 // ChaCha20 scheme.
-var ChaCha20 Scheme = &baseScheme{
-	name:    "CHACHA20",
-	keySize: chacha20.KeySize,
-	ivSize:  chacha20.NonceSize,
-	newFunc: newChaCha20,
-}
+var ChaCha20 = New("CHACHA20", chacha20.KeySize, chacha20.NonceSize, newChaCha20)
 
 // XChaCha20 scheme.
-var XChaCha20 Scheme = &baseScheme{
-	name:    "XCHACHA20",
-	keySize: chacha20.KeySize,
-	ivSize:  chacha20.NonceSizeX,
-	newFunc: newChaCha20,
-}
+var XChaCha20 = New("XCHACHA20", chacha20.KeySize, chacha20.NonceSizeX, newChaCha20)
 
-func newChaCha20(s Scheme, key, iv []byte) (Stream, error) {
-	cipher, err := chacha20.NewUnauthenticatedCipher(key, iv)
-	if err != nil {
-		return nil, err
-	}
-	return baseStream{
-		scheme: s,
-		Stream: cipher,
-	}, nil
+func newChaCha20(key, iv []byte) (Stream, error) {
+	return chacha20.NewUnauthenticatedCipher(key, iv)
 }

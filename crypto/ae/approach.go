@@ -64,7 +64,7 @@ func (a Approach) NewDecrypter(s Scheme, sharedSecret []byte, iv []byte) (AE, er
 	case EncryptAndMAC:
 		return newEaM(s, sharedSecret, iv, decryptEaM)
 	}
-	panic("unknown approach")
+	return nil, ErrUnknownApproach
 }
 
 func newEtM(s Scheme, sharedSecret, iv []byte, crypt func(*baseAE, []byte, []byte)) (AE, error) {
@@ -81,11 +81,11 @@ func newEtM(s Scheme, sharedSecret, iv []byte, crypt func(*baseAE, []byte, []byt
 
 func encryptEtM(ae *baseAE, dst, src []byte) {
 	ae.cipher.XORKeyStream(dst, src)
-	ae.writeMAC(dst)
+	ae.mac.Write(dst)
 }
 
 func decryptEtM(ae *baseAE, dst, src []byte) {
-	ae.writeMAC(src)
+	ae.mac.Write(src)
 	ae.cipher.XORKeyStream(dst, src)
 }
 
@@ -98,11 +98,11 @@ func newEaM(s Scheme, sharedSecret, iv []byte, crypt func(*baseAE, []byte, []byt
 }
 
 func encryptEaM(ae *baseAE, dst, src []byte) {
-	ae.writeMAC(src)
+	ae.mac.Write(src)
 	ae.cipher.XORKeyStream(dst, src)
 }
 
 func decryptEaM(ae *baseAE, dst, src []byte) {
 	ae.cipher.XORKeyStream(dst, src)
-	ae.writeMAC(dst)
+	ae.mac.Write(dst)
 }

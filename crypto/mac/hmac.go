@@ -17,36 +17,20 @@ type hmac struct {
 
 func (h hmac) Tag(b []byte) []byte { return h.Hash.Sum(b) }
 
+func newHMAC(newHash func() hash.Hash) NewFunc {
+	return func(key []byte) MAC { return hmac{hmacpkg.New(newHash, key)} }
+}
+
 // hmac schemes.
 var (
-	SHA256 = baseScheme{
-		name:    "SHA256",
-		size:    sha256.Size,
-		keySize: sha256.BlockSize,
-		new:     func(key []byte) MAC { return hmac{hmacpkg.New(sha256.New, key)} },
-	}
-	SHA3_256 = baseScheme{
-		name:    "SHA3_256",
-		size:    32,
-		keySize: 136,
-		new:     func(key []byte) MAC { return hmac{hmacpkg.New(sha3.New256, key)} },
-	}
-	BLAKE2b128 = baseScheme{
-		name:    "BLAKE2b128",
-		size:    16,
-		keySize: blake2b.BlockSize,
-		new: func(key []byte) MAC {
-			h, _ := blake2b.New(16, key)
-			return hmac{h}
-		},
-	}
-	BLAKE2b256 = baseScheme{
-		name:    "BLAKE2b256",
-		size:    blake2b.Size256,
-		keySize: blake2b.BlockSize,
-		new: func(key []byte) MAC {
-			h, _ := blake2b.New256(key)
-			return hmac{h}
-		},
-	}
+	SHA256     = New("SHA256", 32, sha256.Size, newHMAC(sha256.New))
+	SHA3_256   = New("SHA3_256", 32, 32, newHMAC(sha3.New256))
+	BLAKE2b128 = New("BLAKE2b128", 16, 16, func(key []byte) MAC {
+		h, _ := blake2b.New(16, key)
+		return hmac{h}
+	})
+	BLAKE2b256 = New("BLAKE2b256", 32, blake2b.Size256, func(key []byte) MAC {
+		h, _ := blake2b.New256(key)
+		return hmac{h}
+	})
 )

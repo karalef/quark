@@ -29,6 +29,15 @@ type State interface {
 	Reset()
 }
 
+// New creates a new XOF.
+// It does not register the XOF.
+func New(name string, new func() State) XOF {
+	return scheme{
+		new:  new,
+		name: name,
+	}
+}
+
 type scheme struct {
 	new  func() State
 	name string

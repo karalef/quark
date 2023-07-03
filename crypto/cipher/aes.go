@@ -7,50 +7,24 @@ import (
 
 // aes variants.
 var (
-	AESCTR128 = baseScheme{
-		name:    "AESCTR128",
-		keySize: 16,
-		ivSize:  aes.BlockSize,
-		newFunc: newAESCTR,
-	}
-	AESCTR256 = baseScheme{
-		name:    "AESCTR256",
-		keySize: 32,
-		ivSize:  aes.BlockSize,
-		newFunc: newAESCTR,
-	}
-	AESOFB128 = baseScheme{
-		name:    "AESOFB128",
-		keySize: 16,
-		ivSize:  aes.BlockSize,
-		newFunc: newAESOFB,
-	}
-	AESOFB256 = baseScheme{
-		name:    "AESOFB256",
-		keySize: 32,
-		ivSize:  aes.BlockSize,
-		newFunc: newAESOFB,
-	}
+	AESCTR128 = New("AES_CTR128", 16, aes.BlockSize, newAESCTR)
+	AESCTR256 = New("AES_CTR256", 32, aes.BlockSize, newAESCTR)
+	AESOFB128 = New("AES_OFB128", 16, aes.BlockSize, newAESOFB)
+	AESOFB256 = New("AES_OFB256", 32, aes.BlockSize, newAESOFB)
 )
 
-func newAESCTR(s Scheme, key, iv []byte) (Stream, error) {
+func newAESCTR(key, iv []byte) (Stream, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
-	return baseStream{
-		scheme: s,
-		Stream: stdcipher.NewCTR(block, iv),
-	}, nil
+	return stdcipher.NewCTR(block, iv), nil
 }
 
-func newAESOFB(s Scheme, key, iv []byte) (Stream, error) {
+func newAESOFB(key, iv []byte) (Stream, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
-	return baseStream{
-		scheme: s,
-		Stream: stdcipher.NewOFB(block, iv),
-	}, nil
+	return stdcipher.NewOFB(block, iv), nil
 }

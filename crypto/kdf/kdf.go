@@ -26,11 +26,26 @@ var ErrPassword = errors.New("kdf: empty password")
 
 // ErrInvalidParams is returned when the parameters are invalid.
 type ErrInvalidParams struct {
+	KDF KDF
 	Err error
 }
 
 func (e ErrInvalidParams) Error() string {
-	return "kdf: invalid parameters: " + e.Err.Error()
+	return "kdf: invalid " + e.KDF.Name() + " parameters: " + e.Err.Error()
+}
+
+// Func represents the KDF as function.
+type Func[T Params] func(password, salt []byte, size int, params T) ([]byte, error)
+
+// New creates a new KDF.
+// It does not register the KDF.
+// The returned KDF ensures that the password length and size are at least 1
+// and that the Params is correct.
+func New[T Params](name string, fn Func[T]) KDF {
+	return baseKDF[T]{
+		kdf:  fn,
+		name: name,
+	}
 }
 
 type baseKDF[T Params] struct {
@@ -45,6 +60,9 @@ func (kdf baseKDF[T]) Name() string {
 func (kdf baseKDF[T]) Derive(password, salt []byte, size int, params Params) ([]byte, error) {
 	if len(password) == 0 {
 		return nil, ErrPassword
+	}
+	if size < 1 {
+		panic("kdf: size must be at least 1")
 	}
 	p, ok := params.(T)
 	if !ok {
