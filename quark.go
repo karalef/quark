@@ -17,21 +17,18 @@ func init() {
 
 var (
 	packetTypeMessage = pack.NewType(
-		PacketTagMessage,
 		(*Message)(nil),
 		"message",
 		"QUARK MESSAGE",
 	)
 
 	packetTypePublicKeyset = pack.NewType(
-		PacketTagPublicKeyset,
 		(*public)(nil),
 		"public keyset",
 		"QUARK PUBLIC KEYSET",
 	)
 
 	packetTypePrivateKeyset = pack.NewType(
-		PacketTagPrivateKeyset,
 		(*private)(nil),
 		"private keyset",
 		"QUARK PRIVATE KEYSET",

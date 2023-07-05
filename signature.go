@@ -1,80 +1,90 @@
 package quark
 
 import (
+	"encoding/binary"
 	"errors"
-	"time"
+
+	"github.com/karalef/quark/crypto/sign"
+	"github.com/karalef/quark/internal"
 )
 
-// Sign creates a signature.
-// Returns an empty signature without error if the keyset is nil.
-func Sign(plaintext []byte, keyset Private) (*Signature, error) {
-	if len(plaintext) == 0 {
-		return nil, errors.New("Sign: empty data")
-	}
-	if keyset == nil {
-		return nil, nil
-	}
+// SignStream creates a sign.Signer and writes the current time to it.
+func SignStream(issuer Private, time int64) (sign.Signer, error) {
+	return signStream(issuer.Sign(), time)
+}
 
-	signature, err := keyset.Sign().Sign(plaintext)
+func signStream(issuer sign.PrivateKey, time int64) (sign.Signer, error) {
+	signer := issuer.Signer()
+
+	_, err := signer.Write(MarshalTime(time))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Signature{
-		ID:        keyset.ID(),
-		Signature: signature,
-		Time:      time.Now().Unix(),
-	}, nil
+	return signer, nil
 }
 
-// Verify verifies a signature.
-func Verify(data []byte, signature Signature, keyset Public) (bool, error) {
-	err := signature.Validate(keyset)
+// VerifyStream creates a sign.Verifier and writes the current time to it.
+func VerifyStream(issuer Public, time int64) (sign.Verifier, error) {
+	return verifyStream(issuer.Sign(), time)
+}
+
+func verifyStream(issuer sign.PublicKey, time int64) (sign.Verifier, error) {
+	verifier := issuer.Verifier()
+
+	_, err := verifier.Write(MarshalTime(time))
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return keyset.Sign().Verify(data, signature.Signature)
+
+	return verifier, nil
+}
+
+// MarshalTime encodes a unix time into a byte array.
+func MarshalTime(time int64) []byte {
+	var binTime [8]byte
+	binary.LittleEndian.PutUint64(binTime[:], uint64(time))
+	return binTime[:]
 }
 
 // Signature represents a signature.
-type Signature struct {
-	// keyset id used for signing
-	ID ID `msgpack:"id"`
+type Signature []byte
 
-	// signature
-	Signature []byte `msgpack:"sig"`
-
-	// signature time stamp
-	Time int64 `msgpack:"time"`
+// Copy returns a copy of the signature.
+func (s Signature) Copy() Signature {
+	return internal.Copy(s)
 }
 
 // IsValid returns true if the signature is valid.
-func (s *Signature) IsValid() bool {
+func (s Signature) IsValid() bool {
 	return s.Error() == ""
 }
 
 // Validate compares the signature against the public keyset id and scheme.
-func (s *Signature) Validate(pub Public) error {
-	if s.ID != pub.ID() {
-		return errors.New("wrong recipient")
-	}
-	if len(s.Signature) != pub.Scheme().Sign.SignatureSize() {
+func (s Signature) Validate(pub Public) error {
+	if len(s) != pub.Scheme().Sign.SignatureSize() {
 		return errors.New("invalid signature size")
-	}
-	if s.Time > time.Now().Unix() {
-		return errors.New("the time of signature creation is the time in the future")
 	}
 	return nil
 }
 
-func (s *Signature) Error() string {
+func (s Signature) Error() string {
 	switch {
-	case s == nil || len(s.Signature) == 0:
+	case s == nil || len(s) == 0:
 		return "empty signature"
-	case s.ID.IsEmpty():
-		return "empty keyset id"
-	case s.Time > time.Now().Unix():
-		return "the time of signature creation is the time in the future"
 	}
 	return ""
+}
+
+// CertificationSignature represents a certification signature.
+type CertificationSignature struct {
+	Signature Signature `msgpack:"sig"`
+	Time      int64     `msgpack:"time"`
+	Issuer    ID        `msgpack:"issuer"`
+}
+
+// Copy returns a copy of the certification signature.
+func (s CertificationSignature) Copy() CertificationSignature {
+	s.Signature = s.Signature.Copy()
+	return s
 }

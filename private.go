@@ -1,10 +1,9 @@
 package quark
 
 import (
-	"github.com/karalef/quark/internal"
-	"github.com/karalef/quark/kem"
+	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/pack"
-	"github.com/karalef/quark/sign"
 )
 
 var _ Private = (*private)(nil)
@@ -13,10 +12,8 @@ var _ pack.CustomDecoder = (*private)(nil)
 
 type private struct {
 	*public
-	signSeed []byte
-	kemSeed  []byte
-	sign     sign.PrivateKey
-	kem      kem.PrivateKey
+
+	privateKeyset
 }
 
 func (p *private) priv() *private { return p }
@@ -29,66 +26,90 @@ func (p *private) Public() Public { return p.public }
 
 // ChangeIdentity changes the identity of the keyset.
 func (p *private) ChangeIdentity(id Identity) error {
-	return p.public.changeIdentity(id, p)
+	err := p.public.changeIdentity(id)
+	if err != nil {
+		return err
+	}
+	return p.public.sign(p)
 }
 
-// KEM returns the KEM private key.
-func (p *private) KEM() kem.PrivateKey { return p.kem }
+// ChangeExpiry changes the expiry of the keyset.
+func (p *private) ChangeExpiry(expiry int64) error {
+	err := p.public.changeExpiry(expiry)
+	if err != nil {
+		return err
+	}
+	return p.public.sign(p)
+}
+
+// Revoke revokes the keyset.
+func (p *private) Revoke(reason string) error {
+	err := p.public.revoke(reason)
+	if err != nil {
+		return err
+	}
+	return p.public.sign(p)
+}
+
+// Cert returns the certification private key.
+func (p *private) Cert() sign.PrivateKey { return p.privateKeyset.cert }
 
 // Sign returns the signature private key.
-func (p *private) Sign() sign.PrivateKey { return p.sign }
+func (p *private) Sign() sign.PrivateKey { return p.privateKeyset.sign }
 
-type packablePrivate struct {
-	KeysetInfo `msgpack:",inline"`
-	SignSeed   []byte `msgpack:"sign_seed"`
-	KEMSeed    []byte `msgpack:"kem_seed"`
-}
+// KEM returns the KEM private key.
+func (p *private) KEM() kem.PrivateKey { return p.privateKeyset.kem }
 
 // EncodeMsgpack implements pack.CustomEncoder interface.
 func (p *private) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.Encode(packablePrivate{
-		KeysetInfo: p.public.info,
-		SignSeed:   p.signSeed,
-		KEMSeed:    p.kemSeed,
-	})
+	err := enc.Encode(p.public.keysetInfo)
+	if err != nil {
+		return err
+	}
+	err = enc.Encode(p.privateKeyset)
+	if err != nil {
+		return err
+	}
+	return enc.Encode(p.public.keysetSigs)
 }
 
 // DecodeMsgpack implements pack.CustomDecoder interface.
 func (p *private) DecodeMsgpack(dec *pack.Decoder) error {
-	priv := new(packablePrivate)
-	err := dec.Decode(priv)
-	if err != nil {
-		return err
-	}
-	p1, err := newPrivate(priv.Identity, priv.Scheme, priv.SignSeed, priv.KEMSeed)
-	if err != nil {
-		return err
-	}
+	p.public = new(public)
 
-	*p = *p1
-	return nil
+	err := dec.Decode(&p.public.keysetInfo)
+	if err != nil {
+		return err
+	}
+	err = dec.Decode(&p.privateKeyset)
+	if err != nil {
+		return err
+	}
+	p.public.publicKeyset = p.privateKeyset.public
+
+	return dec.Decode(&p.public.keysetSigs)
 }
 
-func newPrivate(id Identity, scheme Scheme, signSeed, kemSeed []byte) (*private, error) {
-	signPriv, signPub, err := scheme.Sign.DeriveKey(signSeed)
-	if err != nil {
-		return nil, err
-	}
-	kemPriv, kemPub, err := scheme.KEM.DeriveKey(kemSeed)
+func newPrivate(id Identity, scheme Scheme, expires int64, certSeed, signSeed, kemSeed []byte) (*private, error) {
+	ks, err := newPrivateKeyset(scheme, certSeed, signSeed, kemSeed)
 	if err != nil {
 		return nil, err
 	}
 
-	pub, err := newPublic(id, scheme, signPub, kemPub, signPriv)
+	pub, err := newPublic(id, expires, ks.public)
 	if err != nil {
 		return nil, err
 	}
 
-	return &private{
-		public:   pub,
-		signSeed: internal.Copy(signSeed),
-		kemSeed:  internal.Copy(kemSeed),
-		sign:     signPriv,
-		kem:      kemPriv,
-	}, nil
+	priv := &private{
+		public:        pub,
+		privateKeyset: ks,
+	}
+
+	err = pub.sign(priv)
+	if err != nil {
+		return nil, err
+	}
+
+	return priv, nil
 }

@@ -9,11 +9,22 @@ import (
 	"github.com/karalef/quark/pack"
 )
 
-// Algorithm represents algorithm as string.
+// Algorithm represents public key algorithm as string.
 type Algorithm string
+
+func (a Algorithm) String() string {
+	return strings.ToUpper(string(a))
+}
 
 // InvalidAlgorithm represents unsupported or invalid algorithm.
 const InvalidAlgorithm Algorithm = "INVALID"
+
+// ErrUnsupportedAlgorithm is returned if algorithm is not supported.
+type ErrUnsupportedAlgorithm Algorithm
+
+func (e ErrUnsupportedAlgorithm) Error() string {
+	return "unsupported public key algorithm: " + Algorithm(e).String()
+}
 
 const (
 	schemeDelim = "::"

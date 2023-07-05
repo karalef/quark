@@ -1,137 +1,170 @@
 package quark
 
 import (
-	"crypto/md5"
-	"crypto/subtle"
-	"encoding/binary"
-	"encoding/hex"
-	"strings"
+	"errors"
+	"time"
 
+	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/sign"
+	"github.com/karalef/quark/pack"
 	"golang.org/x/crypto/sha3"
 )
 
-// KeyFlag represents key flag.
-type KeyFlag byte
-
-// key flags.
-const (
-	FlagSign KeyFlag = 1 << iota
-	FlagEncapsulate
-	flagCertify
-	Primary KeyFlag = FlagSign | flagCertify
-)
-
-// IsPrimary returns true if the key is primary.
-func (f KeyFlag) IsPrimary() bool { return f&Primary == Primary }
-
-// CanSign returns true if the key can sign.
-func (f KeyFlag) CanSign() bool { return f&FlagSign != 0 }
-
-// CanEncapsulate returns true if the key can encrypt.
-func (f KeyFlag) CanEncapsulate() bool { return f&FlagEncapsulate != 0 }
-
-// Algorithm represents algorithm as string.
-type Algorithm string
-
-// InvalidAlgorithm represents unsupported or invalid algorithm.
-const InvalidAlgorithm Algorithm = "INVALID"
-
-// Key represents de/serializable key.
-type Key struct {
-	KeyFlag   `msgpack:"flag"`
-	Algorithm Algorithm `msgpack:"algorithm"`
-	Created   int64     `msgpack:"created"`
-	Expires   int64     `msgpack:"expires"`
-	Key       []byte    `msgpack:"key"`
+type keysetInfo struct {
+	Identity Identity `msgpack:"identity"`
+	Validity Validity `msgpack:"validity"`
 }
 
-// id sizes.
-const (
-	IDSize       = md5.Size / 2 // 8
-	IDStringSize = IDSize * 2   // hexed id (16)
-)
-
-// IDFromString parses hexed keyset ID.
-// It returns false if the string is not a valid keyset ID.
-func IDFromString(strID string) (id ID, ok bool) {
-	if len(strID) != IDStringSize {
-		return
+func (i *keysetInfo) changeIdentity(id Identity) error {
+	if !id.IsValid() {
+		return ErrInvalidIdentity
 	}
-	_, err := hex.Decode(id[:], []byte(strID))
-	return id, err == nil
+	i.Identity = id
+	return nil
 }
 
-// IDFromUint converts uint64 to ID.
-func IDFromUint(uintID uint64) (id ID) {
-	binary.LittleEndian.PutUint64(id[:], uintID)
+func (i *keysetInfo) changeExpiry(expiry int64) error {
+	if expiry < time.Now().Unix() {
+		return errors.New("expiration time cannot be in the past")
+	}
+	i.Validity.Expires = expiry
+	return nil
+}
+
+func (i *keysetInfo) revoke(reason string) error {
+	if i.Validity.Revoked != 0 {
+		return errors.New("the keyset is already revoked")
+	}
+	i.Validity.Revoked = time.Now().Unix()
+	i.Validity.Reason = reason
+	return nil
+}
+
+type keysetSigs struct {
+	Self CertificationSignature   `msgpack:"self"`
+	Sigs []CertificationSignature `msgpack:"sigs"`
+}
+
+// fpPart contains immutable parts of the keyset
+// so it is used to calculate the fingerprint and id.
+type fpPart struct {
+	Scheme Scheme `msgpack:"scheme"`
+	Cert   []byte `msgpack:"cert"`
+	Sign   []byte `msgpack:"sign"`
+	KEM    []byte `msgpack:"kem"`
+}
+
+func (f fpPart) fp() (fp Fingerprint) {
+	if f.Cert == nil {
+		panic("fpPart must be non-empty")
+	}
+	sha3 := sha3.New256()
+	err := pack.EncodeBinary(sha3, f)
+	if err != nil {
+		panic(err)
+	}
+	sha3.Sum(fp[:0])
 	return
 }
 
-// CalculateID calculates key ID.
-func CalculateID(publicMaterial []byte) ID {
-	sum := md5.Sum(publicMaterial)
-	subtle.XORBytes(sum[:IDSize], sum[:IDSize], sum[IDSize:])
-	return ID(sum[:IDSize])
-}
-
-// ID represents the key ID.
-type ID [IDSize]byte
-
-// IsEmpty returns true if ID is empty.
-func (id ID) IsEmpty() bool {
-	return id == ID{}
-}
-
-func (id ID) String() string {
-	return hex.EncodeToString(id[:])
-}
-
-// Uint returns keyset ID as uint64 in little endian order.
-func (id ID) Uint() uint64 {
-	return binary.LittleEndian.Uint64(id[:])
-}
-
-// fp sizes.
-const (
-	FPSize       = 32                      // sha3-256 output
-	FPStringSize = FPSize*2 + FPSize/2 - 1 // 79
-)
-
-// CalculateFingerprint calculates key fingerprint.
-func CalculateFingerprint(publicKey []byte) Fingerprint {
-	return Fingerprint(sha3.Sum256(publicKey))
-}
-
-// FingerprintFromString parses string keyset fingerprint.
-func FingerprintFromString(strFP string) (fp Fingerprint, ok bool) {
-	if len(strFP) != FPStringSize {
+func newPrivateKeyset(scheme Scheme, certSeed, signSeed, kemSeed []byte) (ks privateKeyset, err error) {
+	ks.cert, ks.public.cert, err = scheme.Cert.DeriveKey(certSeed)
+	if err != nil {
 		return
 	}
-	strFP = strings.ReplaceAll(strFP, ":", "")
-	_, err := hex.Decode(fp[:], []byte(strFP))
-	return fp, err == nil
-}
-
-// Fingerprint represents keyset fingerprint.
-type Fingerprint [FPSize]byte
-
-// IsEmpty returns true if fingerprint is empty.
-func (f Fingerprint) IsEmpty() bool {
-	return f == Fingerprint{}
-}
-
-// ID calculates keyset ID from fingerprint.
-func (f Fingerprint) ID() ID {
-	return ID(f[:IDSize])
-}
-
-func (f Fingerprint) String() string {
-	const hex = "0123456789abcdef"
-	buf := make([]byte, 0, FPStringSize+1)
-	for i := 0; i < len(f); i++ {
-		buf = append(buf, hex[f[i]>>4], hex[f[i]&0xf])
-		i++
-		buf = append(buf, hex[f[i]>>4], hex[f[i]&0xf], ':')
+	ks.sign, ks.public.sign, err = scheme.Sign.DeriveKey(signSeed)
+	if err != nil {
+		return
 	}
-	return string(buf[:len(buf)-1])
+	ks.kem, ks.public.kem, err = scheme.KEM.DeriveKey(kemSeed)
+	if err != nil {
+		return
+	}
+	ks.fpPart = fpPart{
+		Scheme: scheme,
+		Cert:   certSeed,
+		Sign:   signSeed,
+		KEM:    kemSeed,
+	}
+	ks.public = newPublicKeyset(scheme, ks.public.cert, ks.public.sign, ks.public.kem)
+	return
+}
+
+type privateKeyset struct {
+	public publicKeyset
+	cert   sign.PrivateKey
+	sign   sign.PrivateKey
+	kem    kem.PrivateKey
+
+	fpPart `msgpack:",inline"`
+}
+
+func (p *privateKeyset) DecodeMsgpack(dec *pack.Decoder) error {
+	err := dec.Decode(&p.fpPart)
+	if err != nil {
+		return err
+	}
+
+	p.cert, p.public.cert, err = p.Scheme.Cert.DeriveKey(p.Cert)
+	if err != nil {
+		return err
+	}
+	p.sign, p.public.sign, err = p.Scheme.Sign.DeriveKey(p.Sign)
+	if err != nil {
+		return err
+	}
+	p.kem, p.public.kem, err = p.Scheme.KEM.DeriveKey(p.KEM)
+	if err != nil {
+		return err
+	}
+	p.public = newPublicKeyset(p.Scheme, p.public.cert, p.public.sign, p.public.kem)
+	return err
+}
+
+func newPublicKeyset(scheme Scheme, certKey, signKey sign.PublicKey, kemKey kem.PublicKey) publicKeyset {
+	raw := fpPart{
+		Scheme: scheme,
+		Cert:   certKey.Bytes(),
+		Sign:   signKey.Bytes(),
+		KEM:    kemKey.Bytes(),
+	}
+	fp := raw.fp()
+	return publicKeyset{
+		id:     fp.ID(),
+		fp:     fp,
+		cert:   certKey,
+		sign:   signKey,
+		kem:    kemKey,
+		fpPart: raw,
+	}
+}
+
+type publicKeyset struct {
+	id   ID
+	fp   Fingerprint
+	cert sign.PublicKey
+	sign sign.PublicKey
+	kem  kem.PublicKey
+
+	fpPart `msgpack:",inline"`
+}
+
+func (p *publicKeyset) DecodeMsgpack(dec *pack.Decoder) error {
+	err := dec.Decode(&p.fpPart)
+	if err != nil {
+		return err
+	}
+
+	p.fp = p.fpPart.fp()
+	p.id = p.fp.ID()
+	p.cert, err = p.Scheme.Cert.UnpackPublic(p.Cert)
+	if err != nil {
+		return err
+	}
+	p.sign, err = p.Scheme.Sign.UnpackPublic(p.Sign)
+	if err != nil {
+		return err
+	}
+	p.kem, err = p.Scheme.KEM.UnpackPublic(p.KEM)
+	return err
 }
