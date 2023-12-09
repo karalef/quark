@@ -12,15 +12,15 @@ const (
 	// InvalidApproach represents an invalid AE approach.
 	InvalidApproach Approach = iota
 
-	// EncryptThanMAC is an Encrypt-than-MAC approach.
-	EncryptThanMAC
+	// EncryptThenMAC is an Encrypt-then-MAC approach.
+	EncryptThenMAC
 
 	// EncryptAndMAC is an Encrypt-and-MAC approach.
 	EncryptAndMAC
 )
 
 // String returns the string representation of the approach.
-// If the value is not a valid approach it will be considered as EncryptThanMAC.
+// If the value is not a valid approach it will be considered as EncryptThenMAC.
 func (a Approach) String() string {
 	switch a {
 	default:
@@ -35,7 +35,7 @@ func (a Approach) String() string {
 func ApproachFromString(str string) Approach {
 	switch strings.ToUpper(str) {
 	case "ETM":
-		return EncryptThanMAC
+		return EncryptThenMAC
 	case "EAM":
 		return EncryptAndMAC
 	}
@@ -46,28 +46,28 @@ func ApproachFromString(str string) Approach {
 var ErrUnknownApproach = errors.New("unknown authenticated encryption approach")
 
 // NewEncrypter returns AE in encryption mode.
-func (a Approach) NewEncrypter(s Scheme, sharedSecret []byte, iv []byte) (AE, error) {
-	switch a {
-	case EncryptThanMAC:
-		return newEtM(s, sharedSecret, iv, encryptEtM)
+func NewEncrypter(s Scheme, sharedSecret []byte, iv []byte) (AE, error) {
+	switch s.Approach() {
+	case EncryptThenMAC:
+		return newEtM(s, sharedSecret, iv, false)
 	case EncryptAndMAC:
-		return newEaM(s, sharedSecret, iv, encryptEaM)
+		return newEaM(s, sharedSecret, iv, false)
 	}
 	return nil, ErrUnknownApproach
 }
 
 // NewDecrypter returns AE in decryption mode.
-func (a Approach) NewDecrypter(s Scheme, sharedSecret []byte, iv []byte) (AE, error) {
-	switch a {
-	case EncryptThanMAC:
-		return newEtM(s, sharedSecret, iv, decryptEtM)
+func NewDecrypter(s Scheme, sharedSecret []byte, iv []byte) (AE, error) {
+	switch s.Approach() {
+	case EncryptThenMAC:
+		return newEtM(s, sharedSecret, iv, true)
 	case EncryptAndMAC:
-		return newEaM(s, sharedSecret, iv, decryptEaM)
+		return newEaM(s, sharedSecret, iv, true)
 	}
 	return nil, ErrUnknownApproach
 }
 
-func newEtM(s Scheme, sharedSecret, iv []byte, crypt func(*baseAE, []byte, []byte)) (AE, error) {
+func newEtM(s Scheme, sharedSecret, iv []byte, decrypt bool) (AE, error) {
 	cipherKey := make([]byte, s.Cipher().KeySize())
 	macKey := make([]byte, s.MAC().KeySize())
 
@@ -76,33 +76,30 @@ func newEtM(s Scheme, sharedSecret, iv []byte, crypt func(*baseAE, []byte, []byt
 	xof.Read(cipherKey)
 	xof.Read(macKey)
 
-	return newAE(s, cipherKey, macKey, iv, crypt)
+	if decrypt {
+		return newAE(s, cipherKey, macKey, iv, macThenCrypt)
+	}
+	return newAE(s, cipherKey, macKey, iv, cryptThenMac)
 }
 
-func encryptEtM(ae *baseAE, dst, src []byte) {
-	ae.cipher.XORKeyStream(dst, src)
-	ae.mac.Write(dst)
-}
-
-func decryptEtM(ae *baseAE, dst, src []byte) {
-	ae.mac.Write(src)
-	ae.cipher.XORKeyStream(dst, src)
-}
-
-func newEaM(s Scheme, sharedSecret, iv []byte, crypt func(*baseAE, []byte, []byte)) (AE, error) {
+func newEaM(s Scheme, sharedSecret, iv []byte, decrypt bool) (AE, error) {
 	key := make([]byte, s.Cipher().KeySize())
 	xof := s.XOF().New()
 	xof.Write(sharedSecret)
 	xof.Read(key)
-	return newAE(s, key, key, iv, crypt)
+
+	if decrypt {
+		return newAE(s, key, key, iv, cryptThenMac)
+	}
+	return newAE(s, key, key, iv, macThenCrypt)
 }
 
-func encryptEaM(ae *baseAE, dst, src []byte) {
-	ae.mac.Write(src)
-	ae.cipher.XORKeyStream(dst, src)
-}
-
-func decryptEaM(ae *baseAE, dst, src []byte) {
+func cryptThenMac(ae *baseAE, dst, src []byte) {
 	ae.cipher.XORKeyStream(dst, src)
 	ae.mac.Write(dst)
+}
+
+func macThenCrypt(ae *baseAE, dst, src []byte) {
+	ae.mac.Write(src)
+	ae.cipher.XORKeyStream(dst, src)
 }

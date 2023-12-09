@@ -67,9 +67,7 @@ var (
 var schemes = make(internal.Schemes[Scheme])
 
 func init() {
-	Register(AESCTR128)
 	Register(AESCTR256)
-	Register(AESOFB128)
 	Register(AESOFB256)
 	Register(ChaCha20)
 	Register(XChaCha20)

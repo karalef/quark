@@ -16,7 +16,7 @@ import (
 func TestPassword(t *testing.T) {
 	noncryptoRand := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
 	testScheme := Build(
-		ae.Build(ae.EncryptThanMAC, cipher.AESCTR128, mac.BLAKE2b128, xof.Shake128),
+		ae.Build(ae.EncryptThenMAC, cipher.AESCTR256, mac.BLAKE2b128, xof.Shake128),
 		kdf.Argon2i,
 	)
 	testPassword := "password"

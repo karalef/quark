@@ -13,7 +13,7 @@ import (
 
 func TestPassword(t *testing.T) {
 	noncryptoRand := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
-	testScheme := Build(EncryptThanMAC, cipher.AESCTR128, mac.BLAKE2b128, xof.Shake128)
+	testScheme := Build(EncryptThenMAC, cipher.AESCTR256, mac.BLAKE2b128, xof.Shake128)
 	testData := []byte("testing data")
 	testSecret, _ := crypto.RandRead(noncryptoRand, 32)
 	testIV, _ := crypto.RandRead(noncryptoRand, testScheme.Cipher().IVSize())

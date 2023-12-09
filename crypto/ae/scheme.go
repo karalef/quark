@@ -34,10 +34,5 @@ func (s *scheme) Cipher() cipher.Scheme { return s.cipher }
 func (s *scheme) MAC() mac.Scheme       { return s.mac }
 func (s *scheme) XOF() xof.XOF          { return s.xof }
 
-func (s *scheme) Encrypter(sharedSecret, iv []byte) (AE, error) {
-	return s.approach.NewEncrypter(s, sharedSecret, iv)
-}
-
-func (s *scheme) Decrypter(sharedSecret, iv []byte) (AE, error) {
-	return s.approach.NewDecrypter(s, sharedSecret, iv)
-}
+func (s *scheme) Encrypter(ss, iv []byte) (AE, error) { return NewEncrypter(s, ss, iv) }
+func (s *scheme) Decrypter(ss, iv []byte) (AE, error) { return NewDecrypter(s, ss, iv) }
