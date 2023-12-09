@@ -18,12 +18,20 @@ func Pack(out io.Writer, v Packable) error {
 	})
 }
 
-// TypedDecoder represents the decoder with the packet tag.
-type TypedDecoder = Packet[*Decoder]
+// Unpack decodes the packet and unpacks the binary formatted object.
+// If the binary object cannot be unpacked, returns the *RawPacket with ErrUnknownTag error.
+func Unpack(in io.Reader) (Packable, error) {
+	p, err := DecodePacket(in)
+	if err != nil {
+		return p, err
+	}
 
-// DecodePacket decodes the packet from binary format.
-// Returns the decoded packet even if the tag is unknown (with ErrUnknownTag error).
-func DecodePacket(in io.Reader) (*TypedDecoder, error) {
+	return UnpackObject(p)
+}
+
+// DecodePacket decodes the packet header from binary format.
+// Returns RawPacket even if the tag is unknown (with ErrUnknownTag error).
+func DecodePacket(in io.Reader) (*RawPacket, error) {
 	dec := GetDecoder(in)
 
 	p := new(Packet[rawObject])
@@ -33,36 +41,27 @@ func DecodePacket(in io.Reader) (*TypedDecoder, error) {
 	}
 
 	_, err = p.Tag.Type()
-	return &TypedDecoder{
+	return &RawPacket{
 		Tag:    p.Tag,
 		Object: p.Object.Decoder,
 	}, err
 }
 
-var _ CustomDecoder = (*rawObject)(nil)
-
-type rawObject struct {
-	*Decoder
-}
-
-func (r *rawObject) DecodeMsgpack(dec *Decoder) error {
-	r.Decoder = dec
-	return nil
-}
-
-// Unpack unpacks the binary formatted object from the packet.
-// Puts the decoder to the pool if the error is not ErrMismatchType.
-// Panics if one of the arguments is nil.
-func Unpack(p *TypedDecoder, v Packable) error {
-	if p == nil || v == nil {
+// UnpackObject unpacks the binary formatted object from the decoded packet.
+// Puts the decoder to the pool if the error is not ErrUnknownTag.
+// Panics if r is nil.
+func UnpackObject(r *RawPacket) (Packable, error) {
+	if r == nil {
 		panic("pack.Unpack: nil argument")
 	}
-	if p.Tag != v.PacketTag() {
-		return ErrMismatchType{Expected: p.Tag, Got: v.PacketTag()}
+
+	typ, err := r.Tag.Type()
+	if err != nil {
+		return nil, ErrUnknownTag
 	}
 
-	defer PutDecoder(p.Object)
-	return p.Object.Decode(v)
+	v := typ.new()
+	return v, r.Unpack(v)
 }
 
 // ErrMismatchType is returned when the object type mismatches the expected one.
@@ -75,18 +74,29 @@ func (e ErrMismatchType) Error() string {
 	return fmt.Sprintf("object type mismatches the expected %s (got %s)", e.Expected.String(), e.Got.String())
 }
 
-// UnpackExact decodes the packet and unpacks the binary formatted object.
-// If the tag does not match the tag of the provided object, returns ErrMismatchType.
-// It always puts the decoder to the pool.
-func UnpackExact(in io.Reader, v Packable) error {
-	p, err := DecodePacket(in)
-	if err != nil && err != ErrUnknownTag {
-		return err
+var _ Packable = RawPacket{}
+
+// RawPacket represents a not unpacked binary packet.
+type RawPacket Packet[*Decoder]
+
+// PacketTag implements pack.Packable interface.
+func (p RawPacket) PacketTag() Tag { return p.Tag }
+
+// Unpack unpacks the binary object.
+func (p RawPacket) Unpack(v Packable) error {
+	if p.Tag != v.PacketTag() {
+		return ErrMismatchType{Expected: p.Tag, Got: v.PacketTag()}
 	}
 
-	err = Unpack(p, v)
-	if _, ok := err.(ErrMismatchType); ok {
-		PutDecoder(p.Object)
-	}
-	return err
+	defer PutDecoder(p.Object)
+	return p.Object.Decode(v)
+}
+
+var _ CustomDecoder = (*rawObject)(nil)
+
+type rawObject struct{ *Decoder }
+
+func (r *rawObject) DecodeMsgpack(dec *Decoder) error {
+	r.Decoder = dec
+	return nil
 }

@@ -47,13 +47,16 @@ func TestPacking(t *testing.T) {
 		t.Fatal("unexpected armor block")
 	}
 
-	v := new(testPack)
-	err = UnpackExact(in, v)
+	v, err := Unpack(in)
 	if err != nil {
 		t.Fatal(err)
 	}
+	val, ok := v.(*testPack)
+	if !ok {
+		t.Fatal("wrong type")
+	}
 
-	if v.Test != "test" {
+	if val.Test != "test" {
 		t.Fatal("unexpected data")
 	}
 }

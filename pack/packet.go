@@ -60,6 +60,9 @@ func RegisterPacketType(typ PacketType) {
 	if typ.Tag == TagInvalid {
 		panic("tag cannot be zero")
 	}
+	if !reflect.PointerTo(typ.Type).Implements(packableType) {
+		panic("type does not implement Packable")
+	}
 	if typ.Name == "" {
 		panic("name cannot be empty")
 	}
@@ -77,10 +80,12 @@ func RegisterPacketType(typ PacketType) {
 var tagToType = make(map[Tag]PacketType)
 
 // NewType creates a new packet type.
+// v must be a pointer.
 // Even if v is a typed nil pointer it must be able to return the packet tag.
 func NewType(v Packable, name, blockType string) PacketType {
 	return PacketType{
 		Tag:       v.PacketTag(),
+		Type:      reflect.TypeOf(v).Elem(),
 		Name:      name,
 		BlockType: blockType,
 	}
@@ -89,6 +94,11 @@ func NewType(v Packable, name, blockType string) PacketType {
 // PacketType represents a binary packet type.
 type PacketType struct {
 	Tag       Tag
+	Type      reflect.Type
 	Name      string
 	BlockType string
+}
+
+func (t PacketType) new() Packable {
+	return reflect.New(t.Type).Interface().(Packable)
 }
