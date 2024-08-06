@@ -5,6 +5,11 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
+func init() {
+	Register(BLAKE2xb)
+	Register(BLAKE3x)
+}
+
 // blake xofs.
 var (
 	BLAKE2xb = New("BLAKE2xb", NewBLAKE2xb)

@@ -8,6 +8,14 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
+func init() {
+	Register(SHA256)
+	Register(SHA3_256)
+	Register(BLAKE2b128)
+	Register(BLAKE2b256)
+	Register(BLAKE3)
+}
+
 var _ MAC = hmac{}
 
 type hmac struct {

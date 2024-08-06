@@ -6,6 +6,11 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
+func init() {
+	Register(Argon2i)
+	Register(Argon2id)
+}
+
 // Argon2i KDF.
 var Argon2i = New("argon2i", argon2i)
 

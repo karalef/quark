@@ -48,13 +48,6 @@ func (s scheme) New() State   { return s.new() }
 
 var xofs = make(internal.Schemes[XOF])
 
-func init() {
-	Register(BLAKE2xb)
-	Register(BLAKE3x)
-	Register(Shake128)
-	Register(Shake256)
-}
-
 // Register registers a XOF.
 func Register(xof XOF) { xofs.Register(xof) }
 

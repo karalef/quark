@@ -2,6 +2,10 @@ package kdf
 
 import "golang.org/x/crypto/scrypt"
 
+func init() {
+	Register(Scrypt)
+}
+
 // Scrypt is a scrypt KDF.
 var Scrypt KDF = New("scrypt", deriveScrypt)
 

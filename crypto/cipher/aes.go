@@ -5,6 +5,11 @@ import (
 	stdcipher "crypto/cipher"
 )
 
+func init() {
+	Register(AESCTR256)
+	Register(AESOFB256)
+}
+
 // aes variants.
 var (
 	AESCTR256 = New("AES_CTR256", 32, aes.BlockSize, newAESCTR)

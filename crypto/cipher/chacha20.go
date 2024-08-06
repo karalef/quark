@@ -4,6 +4,11 @@ import (
 	"golang.org/x/crypto/chacha20"
 )
 
+func init() {
+	Register(ChaCha20)
+	Register(XChaCha20)
+}
+
 // ChaCha20 scheme.
 var ChaCha20 = New("CHACHA20", chacha20.KeySize, chacha20.NonceSize, newChaCha20)
 

@@ -8,6 +8,13 @@ import (
 	"github.com/cloudflare/circl/kem/kyber/kyber768"
 )
 
+func init() {
+	Register(Kyber512)
+	Register(Kyber768)
+	Register(Kyber1024)
+	Register(Frodo640Shake)
+}
+
 // kem schemes.
 var (
 	Kyber512      = circlScheme{kyber512.Scheme(), "Kyber512"}

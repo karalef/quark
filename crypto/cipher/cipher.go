@@ -66,13 +66,6 @@ var (
 
 var schemes = make(internal.Schemes[Scheme])
 
-func init() {
-	Register(AESCTR256)
-	Register(AESOFB256)
-	Register(ChaCha20)
-	Register(XChaCha20)
-}
-
 // Register registers a cipher scheme.
 func Register(scheme Scheme) { schemes.Register(scheme) }
 

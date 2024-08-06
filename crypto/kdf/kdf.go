@@ -87,12 +87,6 @@ func (kdf baseKDF[T]) Derive(password, salt []byte, size int, params Params) ([]
 
 var kdfs = make(internal.Schemes[KDF])
 
-func init() {
-	Register(Argon2i)
-	Register(Argon2id)
-	Register(Scrypt)
-}
-
 // Register registers a KDF.
 func Register(kdf KDF) { kdfs.Register(kdf) }
 

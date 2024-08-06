@@ -88,13 +88,6 @@ var (
 
 var schemes = make(internal.Schemes[Scheme])
 
-func init() {
-	Register(Kyber512)
-	Register(Kyber768)
-	Register(Kyber1024)
-	Register(Frodo640Shake)
-}
-
 // Register registers a KEM scheme.
 func Register(scheme Scheme) { schemes.Register(scheme) }
 
