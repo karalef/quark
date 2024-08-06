@@ -5,7 +5,9 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
-	"github.com/karalef/quark/cmd/keyring"
+	"github.com/karalef/quark/cmd/keystore"
+	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/sign"
 	"github.com/urfave/cli/v2"
 )
 
@@ -59,31 +61,28 @@ func generate(ctx *cli.Context) error {
 		return cli.Exit("keyset cannot be created without owner name", 1)
 	}
 
-	ks, err := quark.Generate(identity, scheme)
+	key, err := quark.Generate(identity, scheme, 0)
 	if err != nil {
 		return err
 	}
 
-	err = keyring.ImportPrivate(ks)
+	ks := ctx.Context.Value(keystore.ContextKey).(keystore.Keystore)
+
+	err = ks.ImportPrivate(key)
 	if err != nil {
 		return err
 	}
 
-	if ok, err := keyring.IsDefaultExists(); err != nil {
-		return cli.Exit("default keyset: "+err.Error(), 1)
-	} else if !ok {
-		err = keyring.SetDefaultByID(ks.ID().String())
-		if err != nil {
-			return err
-		}
-	}
-	cmdio.Status("generated keyset", ks.ID())
+	// TODO: set default
+
+	cmdio.Status("generated key", key.ID())
 	return nil
 }
 
 var defaultScheme = quark.Scheme{
-	Sign: quark.Dilithium3ED448.Scheme(),
-	KEM:  quark.Kyber768XChaCha20Poly1305.Scheme(),
+	Cert: sign.Dilithium3,
+	Sign: sign.Dilithium3,
+	KEM:  kem.Kyber768,
 }
 
 var listCMD = &cli.Command{
@@ -97,7 +96,7 @@ func printSchemes(*cli.Context) error {
 	cmdio.Status("All available algorithms")
 
 	cmdio.Status("\nKEM:")
-	kems := quark.ListKEMAlgorithms()
+	kems := kem.ListAll()
 	sort.Slice(kems, func(i, j int) bool {
 		return kems[i] < kems[j]
 	})
@@ -106,7 +105,7 @@ func printSchemes(*cli.Context) error {
 	}
 
 	cmdio.Status("\nSIGNATURES:")
-	signs := quark.ListSignAlgorithms()
+	signs := sign.ListAll()
 	sort.Slice(signs, func(i, j int) bool {
 		return signs[i] < signs[j]
 	})

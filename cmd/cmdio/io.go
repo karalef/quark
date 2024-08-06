@@ -12,7 +12,6 @@ import (
 
 var (
 	armor      bool
-	compressor pack.Compressor
 	passphrase string
 )
 
@@ -22,7 +21,7 @@ type Input interface {
 	Close() error
 
 	// Read reads the value from input.
-	Read() (pack.Tag, pack.Packable, error)
+	Read() (pack.Packable, error)
 
 	reader() (io.Reader, error)
 }
@@ -59,17 +58,16 @@ func (f file) reader() (io.Reader, error) {
 	return in, err
 }
 
-func (f file) Read() (pack.Tag, pack.Packable, error) {
+func (f file) Read() (pack.Packable, error) {
 	r, err := f.reader()
 	if err != nil {
-		return 0, nil, err
+		return nil, err
 	}
-	return pack.Unpack(r, pack.WithPassphrase(PassphraseFunc("passphrase")))
+	return pack.Unpack(r)
 }
 
 func (f file) Write(v pack.Packable) error {
 	out := io.Writer(f.File)
-	var opts []pack.Option
 	if armor || term.IsTerminal(int(f.File.Fd())) {
 		armored, err := pack.ArmoredEncoder(out, v.PacketTag().BlockType(), nil)
 		if err != nil {
@@ -78,14 +76,8 @@ func (f file) Write(v pack.Packable) error {
 		defer armored.Close()
 		out = armored
 	}
-	if compressor != nil {
-		opts = append(opts, pack.WithCompression(compressor))
-	}
-	if passphrase != "" {
-		opts = append(opts, pack.WithEncryption(passphrase, nil))
-	}
 
-	return pack.Pack(out, v, opts...)
+	return pack.Pack(out, v)
 }
 
 // WithPassphrase requests the passphrase and creates packing option.
@@ -130,22 +122,13 @@ func CustomOutput(path string) (Output, error) {
 	return file{f}, nil
 }
 
-// ReadExact reads the value with specified type from the provided input.
-func ReadExact[T pack.Packable](in Input) (v T, err error) {
-	r, err := in.reader()
-	if err != nil {
-		return
-	}
-	return pack.UnpackExact[T](r, pack.WithPassphrase(PassphraseFunc("passphrase")))
-}
-
 // Write is an alias of GetInput().Write.
 func Write(v pack.Packable) error {
 	return GetOutput().Write(v)
 }
 
 // Read is an alias of GetInput().Read.
-func Read() (pack.Tag, pack.Packable, error) {
+func Read() (pack.Packable, error) {
 	return GetInput().Read()
 }
 

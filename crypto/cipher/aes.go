@@ -11,7 +11,7 @@ var (
 	AESOFB256 = New("AES_OFB256", 32, aes.BlockSize, newAESOFB)
 )
 
-func newAESCTR(key, iv []byte) (Stream, error) {
+func newAESCTR(key, iv []byte) (Cipher, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -19,7 +19,7 @@ func newAESCTR(key, iv []byte) (Stream, error) {
 	return stdcipher.NewCTR(block, iv), nil
 }
 
-func newAESOFB(key, iv []byte) (Stream, error) {
+func newAESOFB(key, iv []byte) (Cipher, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err

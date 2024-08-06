@@ -3,7 +3,7 @@ package kdf
 import (
 	"errors"
 
-	"github.com/karalef/quark/crypto/internal"
+	"github.com/karalef/quark/internal"
 )
 
 // KDF represents the key derivation function.
@@ -19,6 +19,7 @@ type KDF interface {
 }
 
 // Params represents the key derivation function parameters.
+// Params must support msgpack encoding and decoding.
 type Params interface {
 	Validate() error
 }

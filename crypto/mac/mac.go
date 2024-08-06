@@ -5,14 +5,21 @@ import (
 	"errors"
 	"io"
 
-	"github.com/karalef/quark/crypto/internal"
+	"github.com/karalef/quark/internal"
 )
 
 // Scheme represents MAC scheme and provides its parameters.
 type Scheme interface {
 	Name() string
 	Size() int
+	BlockSize() int
+
+	// KeySize returns the key size in bytes.
+	// If the key size is not fixed, it returns 0.
 	KeySize() int
+	// MaxKeySize returns the maximum key size in bytes if the key can be length of 1-MaxKeySize().
+	// Returns 0 if the key size is fixed.
+	MaxKeySize() int
 
 	// New returns a new MAC instance.
 	// Panics if key is not of length KeySize().
@@ -25,12 +32,14 @@ type NewFunc func(key []byte) MAC
 // New creates new MAC scheme.
 // It does not register the scheme.
 // The returned scheme guarantees the correct key length.
-func New(name string, keySize, size int, new NewFunc) Scheme {
+func New(name string, keySize, maxKeySize, size, blockSize int, new NewFunc) Scheme {
 	return baseScheme{
 		new:     new,
 		name:    name,
 		size:    size,
+		block:   blockSize,
 		keySize: keySize,
+		maxSize: maxKeySize,
 	}
 }
 
@@ -38,14 +47,20 @@ type baseScheme struct {
 	new     NewFunc
 	name    string
 	size    int
+	block   int
 	keySize int
+	maxSize int
 }
 
-func (s baseScheme) Name() string { return s.name }
-func (s baseScheme) Size() int    { return s.size }
-func (s baseScheme) KeySize() int { return s.keySize }
+func (s baseScheme) Name() string    { return s.name }
+func (s baseScheme) Size() int       { return s.size }
+func (s baseScheme) BlockSize() int  { return s.block }
+func (s baseScheme) KeySize() int    { return s.keySize }
+func (s baseScheme) MaxKeySize() int { return s.maxSize }
 func (s baseScheme) New(key []byte) MAC {
-	if len(key) != s.keySize {
+	if len(key) == 0 ||
+		s.keySize != 0 && len(key) != s.keySize ||
+		s.maxSize != 0 && len(key) > s.maxSize {
 		panic(ErrKeySize)
 	}
 	return s.new(key)
@@ -82,6 +97,7 @@ func init() {
 	Register(SHA3_256)
 	Register(BLAKE2b128)
 	Register(BLAKE2b256)
+	Register(BLAKE3)
 }
 
 // Register registers a MAC scheme.

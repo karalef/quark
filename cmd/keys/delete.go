@@ -2,7 +2,7 @@ package keys
 
 import (
 	"github.com/karalef/quark/cmd/cmdio"
-	"github.com/karalef/quark/cmd/keyring"
+	"github.com/karalef/quark/cmd/keystore"
 	"github.com/urfave/cli/v2"
 )
 
@@ -22,7 +22,8 @@ func delete(ctx *cli.Context) error {
 	}
 	query := ctx.Args().First()
 
-	id, err := keyring.Delete(query)
+	ks := ctx.Context.Value(keystore.ContextKey).(keystore.Keystore)
+	id, err := keystore.DeleteByString(ks, query)
 	if err != nil {
 		return err
 	}

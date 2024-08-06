@@ -2,7 +2,7 @@ package keys
 
 import (
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/cmd/keyring"
+	"github.com/karalef/quark/cmd/keystore"
 	"github.com/urfave/cli/v2"
 )
 
@@ -38,7 +38,18 @@ func edit(ctx *cli.Context) error {
 	}
 	query := ctx.Args().First()
 
-	pub, err := keyring.Edit(query, quark.Identity{
+	ks := ctx.Context.Value(keystore.ContextKey).(keystore.Keystore)
+
+	key, err := ks.Find(query)
+	if err != nil {
+		return err
+	}
+	priv, err := key.Private()
+	if err != nil {
+		return err
+	}
+
+	err = priv.ChangeIdentity(quark.Identity{
 		Name:    ctx.String("name"),
 		Email:   ctx.String("email"),
 		Comment: ctx.String("comment"),
@@ -47,6 +58,6 @@ func edit(ctx *cli.Context) error {
 		return err
 	}
 
-	printKeyset(pub.Info())
-	return nil
+	printKey(pub)
+	return ks.Store(priv)
 }

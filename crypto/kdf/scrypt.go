@@ -12,11 +12,11 @@ func deriveScrypt(password, salt []byte, size int, params ScryptParams) ([]byte,
 // ScryptParams contains the scrypt parameters.
 type ScryptParams struct {
 	// N parameter
-	N int
+	N int `msgpack:"N"`
 	// r parameter
-	BlockMix int
+	BlockMix int `msgpack:"r"`
 	// p parameter
-	Parallelism int
+	Parallelism int `msgpack:"p"`
 }
 
 // Validate always returns nil.

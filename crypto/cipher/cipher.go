@@ -4,11 +4,11 @@ import (
 	stdcipher "crypto/cipher"
 	"errors"
 
-	"github.com/karalef/quark/crypto/internal"
+	"github.com/karalef/quark/internal"
 )
 
-// Stream represents a stream cipher.
-type Stream = stdcipher.Stream
+// Cipher represents a stream cipher.
+type Cipher = stdcipher.Stream
 
 // Scheme type.
 type Scheme interface {
@@ -17,11 +17,11 @@ type Scheme interface {
 	KeySize() int
 	IVSize() int
 
-	New(key, iv []byte) (Stream, error)
+	New(key, iv []byte) (Cipher, error)
 }
 
 // NewFunc represents the function to create a stream cipher.
-type NewFunc func(key, iv []byte) (Stream, error)
+type NewFunc func(key, iv []byte) (Cipher, error)
 
 // New creates new cipher scheme.
 // It does not register the scheme.
@@ -48,7 +48,7 @@ type baseScheme struct {
 func (s baseScheme) Name() string { return s.name }
 func (s baseScheme) KeySize() int { return s.keySize }
 func (s baseScheme) IVSize() int  { return s.ivSize }
-func (s baseScheme) New(key, iv []byte) (Stream, error) {
+func (s baseScheme) New(key, iv []byte) (Cipher, error) {
 	if len(key) != s.keySize {
 		return nil, ErrKeySize
 	}

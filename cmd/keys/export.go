@@ -2,7 +2,7 @@ package keys
 
 import (
 	"github.com/karalef/quark/cmd/cmdio"
-	"github.com/karalef/quark/cmd/keyring"
+	"github.com/karalef/quark/cmd/keystore"
 	"github.com/urfave/cli/v2"
 )
 
@@ -36,20 +36,26 @@ func export(ctx *cli.Context) (err error) {
 		}
 	}
 
+	ks := ctx.Context.Value(keystore.ContextKey).(keystore.Keystore)
+
 	query := ctx.Args().First()
 	if ctx.Bool("secret") {
-		return expSecret(output, query)
+		return expSecret(ks, output, query)
 	}
 
-	ks, err := keyring.Find(query)
+	key, err := ks.Find(query)
 	if err != nil {
 		return err
 	}
-	return output.Write(ks)
+	pub, err := key.Public()
+	if err != nil {
+		return err
+	}
+	return output.Write(pub)
 }
 
-func expSecret(output cmdio.Output, query string) error {
-	ks, err := keyring.FindPrivate(query)
+func expSecret(ks keystore.Keystore, output cmdio.Output, query string) error {
+	key, err := ks.Find(query)
 	if err != nil {
 		return err
 	}
@@ -58,5 +64,9 @@ func expSecret(output cmdio.Output, query string) error {
 	if err != nil {
 		return err
 	}
-	return output.Write(ks)
+	priv, err := key.Private()
+	if err != nil {
+		return err
+	}
+	return output.Write(priv)
 }

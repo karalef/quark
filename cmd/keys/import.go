@@ -3,7 +3,7 @@ package keys
 import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
-	"github.com/karalef/quark/cmd/keyring"
+	"github.com/karalef/quark/cmd/keystore"
 	"github.com/urfave/cli/v2"
 )
 
@@ -24,20 +24,22 @@ var ImportCMD = &cli.Command{
 			}
 		}
 
-		tag, v, err := input.Read()
+		v, err := input.Read()
 		if err != nil {
 			return err
 		}
 
+		ks := c.Context.Value(keystore.ContextKey).(keystore.Keystore)
+
 		var pub quark.Public
-		switch tag {
+		switch v.PacketTag() {
 		case quark.PacketTagPublicKeyset:
 			pub = v.(quark.Public)
-			err = importPub(pub)
+			err = importPub(ks, pub)
 		case quark.PacketTagPrivateKeyset:
 			priv := v.(quark.Private)
 			pub = priv.Public()
-			err = keyring.ImportPrivate(priv)
+			err = ks.ImportPrivate(priv)
 		default:
 			return cli.Exit("input does not contain a keyset", 1)
 		}
@@ -51,7 +53,7 @@ var ImportCMD = &cli.Command{
 	},
 }
 
-func importPub(pub quark.Public) error {
+func importPub(ks keystore.Keystore, pub quark.Public) error {
 	yes, err := cmdio.YesNo(pub.Fingerprint().String() + "\ndoes the keyset fingerprint match?")
 	if err != nil {
 		return err
@@ -59,5 +61,5 @@ func importPub(pub quark.Public) error {
 	if !yes {
 		return cli.Exit("import cancelled", 1)
 	}
-	return keyring.ImportPublic(pub)
+	return ks.ImportPublic(pub)
 }

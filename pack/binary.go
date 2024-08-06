@@ -18,6 +18,9 @@ type Encoder = msgpack.Encoder
 // Decoder is an alias for msgpack.Decoder.
 type Decoder = msgpack.Decoder
 
+// Raw is an alias for msgpack.RawMessage.
+type Raw = msgpack.RawMessage
+
 // GetEncoder gets the encoder from the pool.
 func GetEncoder(w io.Writer) *Encoder {
 	enc := msgpack.GetEncoder()

@@ -4,36 +4,25 @@ import "github.com/karalef/quark/pack"
 
 // packet tags.
 const (
-	PacketTagMessage       pack.Tag = 0x01
-	PacketTagPublicKeyset  pack.Tag = 0x02
-	PacketTagPrivateKeyset pack.Tag = 0x03
+	PacketTagPrivateKey pack.Tag = 0x01
+	PacketTagIdentity   pack.Tag = 0x02
 )
 
 func init() {
-	pack.RegisterPacketType(packetTypeMessage)
-	pack.RegisterPacketType(packetTypePublicKeyset)
-	pack.RegisterPacketType(packetTypePrivateKeyset)
+	pack.RegisterPacketType(packetTypePrivateKey)
+	pack.RegisterPacketType(packetTypeIdentity)
 }
 
 var (
-	packetTypeMessage = pack.NewType(
-		PacketTagMessage,
-		(*Message)(nil),
-		"message",
-		"QUARK MESSAGE",
+	packetTypePrivateKey = pack.NewType(
+		(*privateKey)(nil),
+		"private key",
+		"QUARK PRIVATE KEY",
 	)
 
-	packetTypePublicKeyset = pack.NewType(
-		PacketTagPublicKeyset,
-		(*public)(nil),
-		"public keyset",
-		"QUARK PUBLIC KEYSET",
-	)
-
-	packetTypePrivateKeyset = pack.NewType(
-		PacketTagPrivateKeyset,
-		(*private)(nil),
-		"private keyset",
-		"QUARK PRIVATE KEYSET",
+	packetTypeIdentity = pack.NewType(
+		(*identity)(nil),
+		"identity",
+		"QUARK IDENTITY",
 	)
 )

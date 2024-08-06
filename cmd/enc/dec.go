@@ -8,6 +8,8 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
+	"github.com/karalef/quark/cmd/keystore"
+	"github.com/karalef/quark/message"
 	"github.com/urfave/cli/v2"
 )
 
@@ -23,18 +25,24 @@ var DecryptCMD = &cli.Command{
 		"\t- '-': does not override standard output.",
 	ArgsUsage: "[input file] [output file]",
 	Flags:     cmdio.IOFlags(),
-	Action: func(c *cli.Context) (err error) {
-		input, output, err := cmdio.CustomIO(c.Args().First(), c.Args().Get(1), func(in string) string {
+	Action: func(ctx *cli.Context) (err error) {
+		input, output, err := cmdio.CustomIO(ctx.Args().First(), c.Args().Get(1), func(in string) string {
 			return strings.TrimSuffix(filepath.Base(in), messageExt)
 		})
 
-		msg, err := cmdio.ReadExact[*quark.Message](input)
+		obj, err := cmdio.Read()
 		if err != nil {
 			return err
 		}
+		if obj.PacketTag() != message.PacketTagMessage {
+			return cli.Exit("input is not a message, but a '"+obj.PacketTag().String()+"'", 1)
+		}
+		msg := obj.(*message.Message)
 
-		if msg.Type().IsEncrypted() {
-			err = decrypt(msg)
+		ks := ctx.Context.Value(keystore.ContextKey).(keystore.Keystore)
+
+		if msg.Header.Encryption != nil {
+			err = decrypt(ks, msg)
 			if err != nil {
 				return err
 			}
@@ -54,14 +62,16 @@ var DecryptCMD = &cli.Command{
 	},
 }
 
-func decrypt(msg *quark.Message) error {
-	if !msg.Encryption.IsValid() {
-		return msg.Encryption
+func decrypt(ks keystore.Keystore, msg *message.Message) error {
+	id := msg.Header.Encryption.ID
+	if !id.IsEmpty() {
+		return cli.Exit("symmetric-only encryption is not supported", 1)
 	}
-	privKS, err := keyring.FindPrivate(msg.Encryption.ID.String())
+	privKS, err := ks.Find(keystore.ByID(id))
 	if err != nil {
 		return err
 	}
+	msg.Decrypt()
 	msg.Data, err = quark.Decrypt(msg.Data[:0], msg.Data, msg.Encryption, privKS)
 	return err
 }

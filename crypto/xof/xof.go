@@ -3,7 +3,7 @@ package xof
 import (
 	"io"
 
-	"github.com/karalef/quark/crypto/internal"
+	"github.com/karalef/quark/internal"
 )
 
 // XOF represents the hash function with arbitrary-length output.

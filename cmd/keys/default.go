@@ -2,7 +2,7 @@ package keys
 
 import (
 	"github.com/karalef/quark/cmd/cmdio"
-	"github.com/karalef/quark/cmd/keyring"
+	"github.com/karalef/quark/cmd/keystore"
 	"github.com/urfave/cli/v2"
 )
 
@@ -19,11 +19,11 @@ var DefaultCMD = &cli.Command{
 }
 
 func defaultKeyset(ctx *cli.Context) error {
-	def, err := keyring.DefaultPublic()
+	def, err := keystore.DefaultPublic()
 	if err != nil {
 		return err
 	}
-	printKeyset(def.Info())
+	printKeyset(def)
 	return nil
 }
 
@@ -37,14 +37,14 @@ var setDefaultCMD = &cli.Command{
 
 func setDefault(ctx *cli.Context) error {
 	if !ctx.Args().Present() {
-		_, err := keyring.SetDefault("")
+		_, err := keystore.SetDefault("")
 		if err != nil {
 			return err
 		}
 		cmdio.Status("default keyset unset")
 		return nil
 	}
-	id, err := keyring.SetDefault(ctx.Args().First())
+	id, err := keystore.SetDefault(ctx.Args().First())
 	if err != nil {
 		return err
 	}
