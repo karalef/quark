@@ -30,10 +30,7 @@ func (s scheme) crypter(password string, iv, salt, ad []byte, params kdf.Params,
 	if err != nil {
 		return nil, err
 	}
-	if decrypt {
-		return s.AEAD().Decrypter(iv, cipherKey, macKey, ad)
-	}
-	return s.AEAD().Encrypter(iv, cipherKey, macKey, ad)
+	return s.AEAD().Crypter(iv, cipherKey, macKey, ad, decrypt)
 }
 
 func (s scheme) Encrypter(password string, iv, salt, ad []byte, params kdf.Params) (aead.Cipher, error) {

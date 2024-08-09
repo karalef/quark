@@ -29,14 +29,14 @@ func TestPassword(t *testing.T) {
 	x.Read(key)
 	x.Read(macKey)
 
-	encrypter, err := testScheme.Encrypter(testIV, key, macKey, testAD)
+	encrypter, err := testScheme.Crypter(testIV, key, macKey, testAD, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	encrypter.Crypt(encryptedBuffer, testData)
 	mac1 := encrypter.Tag(nil)
 
-	decrypter, err := testScheme.Decrypter(testIV, key, macKey, testAD)
+	decrypter, err := testScheme.Crypter(testIV, key, macKey, testAD, true)
 	if err != nil {
 		t.Fatal(err)
 	}

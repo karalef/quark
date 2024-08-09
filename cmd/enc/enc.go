@@ -1,6 +1,7 @@
 package enc
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -10,47 +11,13 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keyring"
+	"github.com/karalef/quark/encaps"
+	"github.com/karalef/quark/message"
+	"github.com/karalef/quark/message/compress"
 	"github.com/urfave/cli/v2"
 )
 
 const messageExt = ".quark"
-
-var str2compression = map[string]func(int) pack.Compressor{
-	"deflate": pack.Deflate,
-	"zstd":    pack.Zstd,
-	"lz4":     func(lvl int) pack.Compressor { return pack.Lz4(lvl) },
-}
-
-// FlagCompression is a compression flag.
-var FlagCompression = &cli.StringFlag{
-	Name:        "compression",
-	Usage:       "compression `ALGORITHM:LVL`",
-	DefaultText: "no compression",
-	Action: func(_ *cli.Context, v string) error {
-		i := strings.Index(v, ":")
-		if i == 0 {
-			return cli.Exit(fmt.Errorf("invalid compression: %s", v), 1)
-		}
-		var alg string
-		var lvl int
-		if i == -1 {
-			alg = v
-		} else {
-			alg = v[:i]
-			lvl, _ = strconv.Atoi(v[i+1:])
-		}
-		c, ok := str2compression[alg]
-		if ok {
-			compressor = c(lvl)
-			return nil
-		}
-		list := make([]string, 0, len(str2compression))
-		for k := range str2compression {
-			list = append(list, k)
-		}
-		return cli.Exit(fmt.Errorf("available compression algorithms: %s", strings.Join(list, ", ")), 1)
-	},
-}
 
 // EncryptCMD is the command to encrypt a message.
 var EncryptCMD = &cli.Command{
@@ -65,8 +32,13 @@ var EncryptCMD = &cli.Command{
 	ArgsUsage: "[input file] [output file]",
 	Flags: append(cmdio.IOFlags(),
 		&cli.StringFlag{
+			Name:        "compression",
+			Usage:       "compression `ALGORITHM{:LVL}`",
+			DefaultText: "no compression",
+		},
+		&cli.StringFlag{
 			Name:    "recipient",
-			Usage:   "encrypt for given `KEYSET` (if not provided, the message will be unencrypted)",
+			Usage:   "encrypt for given `KEY` (if not provided, the message will be unencrypted)",
 			Aliases: []string{"r"},
 		},
 		&cli.BoolFlag{
@@ -81,7 +53,7 @@ var EncryptCMD = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:        "key",
-			Usage:       "sign with given private `KEYSET`",
+			Usage:       "sign with given private `KEY`",
 			Aliases:     []string{"k"},
 			DefaultText: "default keyset",
 		},
@@ -98,6 +70,10 @@ var EncryptCMD = &cli.Command{
 		symmetric := c.Bool("symmetric")
 		if recipient == "" && !c.Bool("clear-sign") {
 			return cli.Exit("omit the recipient is only allowed with the clear-sign flag", 1)
+		}
+		compression, lvl, err := parseCompression(c.String("compression"))
+		if err != nil {
+			return err
 		}
 
 		if symmetric {
@@ -116,8 +92,31 @@ var EncryptCMD = &cli.Command{
 			return err
 		}
 
-		return encrypt(output, data, recipient, !noSign, key)
+		return encrypt(output, data, recipient, !noSign, key, compression, lvl)
 	},
+}
+
+func parseCompression(v string) (compress.Compression, int, error) {
+	if v == "" {
+		return nil, 0, nil
+	}
+	alg, lvlStr, ok := strings.Cut(v, ":")
+	var lvl int
+	var err error
+	if ok {
+		lvl, err = strconv.Atoi(lvlStr)
+		if err != nil {
+			return nil, 0, cli.Exit("invalid compression level", 1)
+		}
+	}
+
+	c := compress.ByName(alg)
+	if c == nil {
+		return nil, 0, cli.Exit(fmt.Errorf("unknown compression algorithm: %s\navailable^ %s",
+			alg, strings.Join(compress.ListAll(), ", ")), 1)
+	}
+
+	return c, lvl, nil
 }
 
 func findPrivate(query string) (quark.Private, error) {
@@ -127,7 +126,7 @@ func findPrivate(query string) (quark.Private, error) {
 	return keyring.FindPrivate(query)
 }
 
-func encrypt(out cmdio.Output, data []byte, recipient string, sign bool, signWith string) (err error) {
+func encrypt(out cmdio.Output, data []byte, recipient string, sign bool, signWith string, comp compress.Compression, lvl int) (err error) {
 	var privKS quark.Private
 	if sign {
 		privKS, err = findPrivate(signWith)
@@ -136,7 +135,7 @@ func encrypt(out cmdio.Output, data []byte, recipient string, sign bool, signWit
 		}
 	}
 
-	var pubKS quark.Public
+	var pk encaps.PublicKey
 	if recipient != "" {
 		pubKS, err = keyring.Find(recipient)
 		if err != nil {
@@ -144,10 +143,17 @@ func encrypt(out cmdio.Output, data []byte, recipient string, sign bool, signWit
 		}
 	}
 
-	msg, err := quark.NewMessage(data, pubKS, privKS)
+	opts := []message.Opt{
+		message.WithCompression(comp, uint(lvl)),
+		message.WithEncryption(pk),
+	}
+	if sign {
+		opts = append(opts, message.WithSignature(sk))
+	}
+	msg, err := message.New(bytes.NewReader(data), opts...)
 	if err != nil {
 		return err
 	}
 
-	return out.Write(&msg)
+	return out.Write(msg)
 }

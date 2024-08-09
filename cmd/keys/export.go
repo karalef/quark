@@ -39,34 +39,10 @@ func export(ctx *cli.Context) (err error) {
 	ks := ctx.Context.Value(keystore.ContextKey).(keystore.Keystore)
 
 	query := ctx.Args().First()
-	if ctx.Bool("secret") {
-		return expSecret(ks, output, query)
-	}
 
-	key, err := ks.Find(query)
+	id, err := ks.Find(query)
 	if err != nil {
 		return err
 	}
-	pub, err := key.Public()
-	if err != nil {
-		return err
-	}
-	return output.Write(pub)
-}
-
-func expSecret(ks keystore.Keystore, output cmdio.Output, query string) error {
-	key, err := ks.Find(query)
-	if err != nil {
-		return err
-	}
-	cmdio.Status("private key backup requires a passphrase")
-	err = cmdio.WithPassphrase("keyset backup passphrase")
-	if err != nil {
-		return err
-	}
-	priv, err := key.Private()
-	if err != nil {
-		return err
-	}
-	return output.Write(priv)
+	return output.Write(id)
 }

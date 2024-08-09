@@ -8,6 +8,7 @@ import (
 
 // Scheme represents an authenticated encryption scheme based on XOF.
 type Scheme interface {
+	// If AEAD's MAC has not fixed key size, the mac key size will be min(len(cipherKey), MaxKeySize()).
 	AEAD() aead.Scheme
 	XOF() xof.XOF
 
@@ -22,8 +23,12 @@ type Scheme interface {
 
 // DeriveKeys derives cipher and MAC keys from an IV and shared secret.
 func DeriveKeys(s Scheme, iv, sharedSecret []byte) ([]byte, []byte, error) {
-	key := make([]byte, s.AEAD().Cipher().KeySize())
-	macKey := make([]byte, s.AEAD().MAC().KeySize())
+	cipherSize, macSize := s.AEAD().Cipher().KeySize(), s.AEAD().MAC().KeySize()
+	if macSize == 0 {
+		macSize = min(s.AEAD().MAC().MaxKeySize(), cipherSize)
+	}
+	key := make([]byte, cipherSize)
+	macKey := make([]byte, macSize)
 	xof := s.XOF().New()
 	xof.Write(sharedSecret)
 	xof.Write(iv)

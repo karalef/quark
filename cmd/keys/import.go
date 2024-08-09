@@ -10,7 +10,7 @@ import (
 // ImportCMD is the command to import a keyset.
 var ImportCMD = &cli.Command{
 	Name:        "import",
-	Usage:       "import a keyset",
+	Usage:       "import an identity",
 	Category:    "key management",
 	Aliases:     []string{"imp"},
 	ArgsUsage:   "[file]",
@@ -31,35 +31,36 @@ var ImportCMD = &cli.Command{
 
 		ks := c.Context.Value(keystore.ContextKey).(keystore.Keystore)
 
-		var pub quark.Public
+		var fp quark.Fingerprint
 		switch v.PacketTag() {
-		case quark.PacketTagPublicKeyset:
-			pub = v.(quark.Public)
-			err = importPub(ks, pub)
-		case quark.PacketTagPrivateKeyset:
-			priv := v.(quark.Private)
-			pub = priv.Public()
+		case quark.PacketTagIdentity:
+			ident := v.(quark.Identity)
+			fp = ident.Fingerprint()
+			err = importPub(ks, ident)
+		case quark.PacketTagPrivateKey:
+			priv := v.(quark.PrivateKey)
+			fp = priv.Fingerprint()
 			err = ks.ImportPrivate(priv)
 		default:
-			return cli.Exit("input does not contain a keyset", 1)
+			return cli.Exit("input does not contain a key", 1)
 		}
 
 		if err != nil {
 			return err
 		}
 
-		cmdio.Status("imported", pub.ID())
+		cmdio.Status("imported", fp.String())
 		return err
 	},
 }
 
-func importPub(ks keystore.Keystore, pub quark.Public) error {
-	yes, err := cmdio.YesNo(pub.Fingerprint().String() + "\ndoes the keyset fingerprint match?")
+func importPub(ks keystore.Keystore, identity quark.Identity) error {
+	yes, err := cmdio.YesNo(identity.Fingerprint().String() + "\ndoes the key fingerprint match?")
 	if err != nil {
 		return err
 	}
 	if !yes {
 		return cli.Exit("import cancelled", 1)
 	}
-	return ks.ImportPublic(pub)
+	return ks.Import(identity, nil)
 }

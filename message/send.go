@@ -136,17 +136,8 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 		}
 	}
 
-	if comp := messageOpts.compression; comp != nil {
-		msg.Header.Compression = &Compression{comp}
-		var err error
-		msg.Data.Reader, err = internal.ReverseWriter(msg.Data.Reader, func(w io.Writer) (io.WriteCloser, error) {
-			return comp.Compress(w, messageOpts.lvl, messageOpts.compressOpts)
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-
+	mw := &messageWriter{}
+	var msgWriter io.WriteCloser = mw
 	if recipient := messageOpts.recipient; recipient != nil {
 		if messageOpts.scheme == nil {
 			messageOpts.scheme = DefaultSecretScheme
@@ -156,13 +147,13 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 			return nil, err
 		}
 		msg.Header.Encryption = enc
-		msg.Data.Reader = messageEncrypter{
+		msgWriter = internal.ChainCloser(msgWriter, messageEncrypter{
 			msg: msg,
-			r: aead.Reader{
+			Writer: aead.Writer{
 				AEAD: cipher,
-				R:    msg.Data.Reader,
+				W:    msgWriter,
 			},
-		}
+		})
 	} else if messageOpts.password != "" {
 		if messageOpts.passwordScheme == nil {
 			messageOpts.passwordScheme = DefaultPasswordScheme
@@ -172,14 +163,28 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 			return nil, err
 		}
 		msg.Header.Encryption = enc
-		msg.Data.Reader = messageEncrypter{
+		msgWriter = internal.ChainCloser(msgWriter, messageEncrypter{
 			msg: msg,
-			r: aead.Reader{
+			Writer: aead.Writer{
 				AEAD: cipher,
-				R:    msg.Data.Reader,
+				W:    msgWriter,
 			},
-		}
+		})
 	}
+
+	if comp := messageOpts.compression; comp != nil {
+		msg.Header.Compression = &Compression{comp}
+		compressed, err := comp.Compress(msgWriter, messageOpts.lvl, messageOpts.compressOpts)
+		if err != nil {
+			return nil, err
+		}
+		msgWriter = internal.ChainCloser(msgWriter, compressed)
+	}
+
+	msg.Data.WrapWriter(func(wc io.WriteCloser) io.WriteCloser {
+		mw.WriteCloser = wc
+		return msgWriter
+	})
 
 	return msg, nil
 }
@@ -195,17 +200,18 @@ func signMessage(sender quark.PrivateKey, msg *Message, expiry int64) error {
 	return nil
 }
 
-type messageEncrypter struct {
-	msg *Message
-	r   aead.Reader
+type messageWriter struct {
+	io.WriteCloser
 }
 
-func (e messageEncrypter) Read(p []byte) (n int, err error) {
-	n, err = e.r.Read(p)
-	if err == io.EOF {
-		e.msg.Auth.Tag = e.r.AEAD.Tag(nil)
-	}
-	return n, err
+type messageEncrypter struct {
+	msg *Message
+	aead.Writer
+}
+
+func (e messageEncrypter) Close() error {
+	e.msg.Auth.Tag = e.Writer.AEAD.Tag(nil)
+	return nil
 }
 
 type messageSigner struct {

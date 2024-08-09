@@ -19,8 +19,8 @@ import (
 // enough information to allow the receiver to begin decryption
 // and calculation authentication tag.
 type Symmetric struct {
-	Password Password `msgpack:"password,omitempty"`
-	XOF      XOF      `msgpack:"xof,omitempty"`
+	Password *Password `msgpack:"password,omitempty"`
+	XOF      *XOF      `msgpack:"xof,omitempty"`
 
 	IV     []byte       `msgpack:"iv"`
 	Scheme StreamScheme `msgpack:"scheme"`
@@ -64,13 +64,30 @@ type Password struct {
 
 // EncodeMsgpack implements the pack.CustomEncoder interface.
 func (p Password) EncodeMsgpack(enc *pack.Encoder) error {
-	//panic("unimplemented")
-	return nil
+	return enc.EncodeMap(map[string]interface{}{
+		"kdf":    p.KDF.Name(),
+		"params": p.Params.Encode(),
+		"salt":   p.Salt,
+	})
 }
 
 // DecodeMsgpack implements the pack.CustomDecoder interface.
 func (p *Password) DecodeMsgpack(dec *pack.Decoder) error {
-	//panic("unimplemented")
+	m, err := dec.DecodeMap()
+	if err != nil {
+		return err
+	}
+
+	p.KDF = kdf.ByName(m["kdf"].(string))
+	if p.KDF == nil {
+		return errInvalidSymmetricScheme
+	}
+	p.Params = p.KDF.NewParams()
+	if err := p.Params.Decode(m["params"].([]byte)); err != nil {
+		return err
+	}
+	p.Salt = m["salt"].([]byte)
+
 	return nil
 }
 
@@ -93,13 +110,13 @@ func (s StreamScheme) EncodeMsgpack(enc *pack.Encoder) error {
 
 // Parse parses a symmetric encryption scheme.
 func (s *StreamScheme) Parse(str string) error {
-	delim := strings.IndexByte(str, '-')
-	if delim == -1 {
+	cipherAlg, macAlg, ok := strings.Cut(str, "-")
+	if !ok {
 		return errInvalidSymmetricScheme
 	}
 
-	cipher := cipher.ByName(str[:delim])
-	mac := mac.ByName(str[delim+1:])
+	cipher := cipher.ByName(cipherAlg)
+	mac := mac.ByName(macAlg)
 	if cipher == nil || mac == nil {
 		return errInvalidSymmetricScheme
 	}
@@ -127,7 +144,7 @@ func Encrypt(scheme secret.Scheme, sharedSecret, associatedData []byte) (aead.Ci
 
 	return aead, &Encryption{
 		Symmetric: Symmetric{
-			XOF:    XOF{scheme.XOF()},
+			XOF:    &XOF{scheme.XOF()},
 			IV:     iv,
 			Scheme: StreamScheme{scheme.AEAD()},
 		},
@@ -146,7 +163,7 @@ func PasswordEncrypt(scheme password.Scheme, passphrase string, associatedData [
 
 	return aead, &Encryption{
 		Symmetric: Symmetric{
-			Password: Password{
+			Password: &Password{
 				KDF:    scheme.KDF(),
 				Params: params,
 				Salt:   salt,

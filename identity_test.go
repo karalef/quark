@@ -12,7 +12,7 @@ func TestIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := id.Verify(); err != nil {
+	if err := id.Verify(id, id.SelfSignature()); err != nil {
 		t.Fatal(err)
 	}
 

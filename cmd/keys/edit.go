@@ -1,5 +1,6 @@
 package keys
 
+/*
 import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/keystore"
@@ -61,3 +62,4 @@ func edit(ctx *cli.Context) error {
 	printKey(pub)
 	return ks.Store(priv)
 }
+*/

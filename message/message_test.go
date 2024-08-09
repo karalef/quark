@@ -6,31 +6,44 @@ import (
 	"time"
 
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encaps"
+	"github.com/karalef/quark/message/compress"
 	"github.com/karalef/quark/pack"
 )
 
 func TestMessage(t *testing.T) {
-	_, sk, _, _, err := test_create("karalef", sign.EDDilithium3, kem.Kyber768)
+	_, sk, _, _, err := test_create(sign.EDDilithium3, kem.Kyber768)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, _, ksk2, kpk2, err := test_create("test", sign.EDDilithium2, kem.Kyber1024)
+	_, _, _, _, err = test_create(sign.EDDilithium2, kem.Kyber1024)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	plaintext := bytes.NewReader([]byte("some message"))
-	sent, err := New(plaintext, WithEncryption(kpk2), WithSignature(sk))
+	sent, err := New(plaintext,
+		WithSignature(sk),
+		WithCompression(compress.LZ4, 0, compress.LZ4Opts{Threads: 4}),
+		WithPassword("password", &kdf.Argon2Params{
+			Rounds:  2,
+			Memory:  64 * 1024,
+			Threads: 4,
+		}))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	buf := new(bytes.Buffer)
 	out, err := pack.ArmoredEncoder(buf, sent.PacketTag().BlockType(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stock, encoded := len("some message"), buf.Len()
 	err = pack.Pack(out, sent)
 	if err != nil {
 		t.Fatal(err)
@@ -57,21 +70,25 @@ func TestMessage(t *testing.T) {
 	received := unpacked.(*Message)
 
 	receivedPlaintext := new(bytes.Buffer)
-	err = received.Decrypt(receivedPlaintext, ksk2, sk.Public())
+	//err = received.Decrypt(receivedPlaintext, ksk2, sk.Public())
+	received.PasswordDecrypt(receivedPlaintext, sk.Public(), "password")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log("kem:", ksk2.Scheme().Name())
-	t.Log("symmetric:", received.Header.Encryption.Symmetric.Scheme.String())
+	//t.Log("kem:", ksk2.Scheme().Name())
+	t.Log("password ecnryption:", received.Header.Encryption.Symmetric.Scheme.String(), "with", received.Header.Encryption.Symmetric.Password.KDF.Name())
+	//t.Log("symmetric:", received.Header.Encryption.Symmetric.Scheme.String())
 	issuer := received.Auth.Signature.Issuer
 	t.Log("signed with:", sk.Scheme().Name(), issuer)
 	t.Log("signature verified:", issuer.ID(), "=", received.Header.Sender, time.Unix(received.Header.Time, 0))
 	t.Log("message integrity verified")
+	t.Log("compression:", received.Header.Compression.Name())
+	t.Log("size overhead (%):", float64(encoded)/float64(stock)*100)
 	t.Log(receivedPlaintext.String())
 }
 
-func test_create(name string, scheme sign.Scheme, kem kem.Scheme) (quark.Identity, quark.PrivateKey, encaps.PrivateKey, encaps.PublicKey, error) {
+func test_create(scheme sign.Scheme, kem kem.Scheme) (quark.Identity, quark.PrivateKey, encaps.PrivateKey, encaps.PublicKey, error) {
 	id, sk, err := quark.Generate(scheme, 0)
 	if err != nil {
 		return id, sk, nil, nil, err

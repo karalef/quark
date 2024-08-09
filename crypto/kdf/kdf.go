@@ -19,9 +19,12 @@ type KDF interface {
 }
 
 // Params represents the key derivation function parameters.
-// Params must support msgpack encoding and decoding.
 type Params interface {
 	Validate() error
+	Encode() []byte
+	Decode([]byte) error
+
+	new() Params
 }
 
 // ErrPassword is returned when the password is empty.
@@ -57,8 +60,8 @@ type baseKDF[T Params] struct {
 }
 
 func (kdf baseKDF[T]) NewParams() Params {
-	var p T
-	return p
+	var a T
+	return a.new()
 }
 
 func (kdf baseKDF[T]) Name() string { return kdf.name }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/karalef/quark/crypto/hash"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/pkg/crockford"
 )
 
@@ -211,67 +210,4 @@ func (p publicKey) Equal(other PublicKey) bool {
 
 func (p publicKey) Raw() sign.PublicKey {
 	return p.PublicKey
-}
-
-var _ pack.CustomEncoder = (*privateKey)(nil)
-var _ pack.CustomDecoder = (*privateKey)(nil)
-
-type privateKey struct {
-	sign.PrivateKey
-	*publicKey
-}
-
-func (p privateKey) Equal(other PrivateKey) bool {
-	if other, ok := other.(*privateKey); ok {
-		return p.PrivateKey.Equal(other.PrivateKey)
-	}
-	return false
-}
-
-func (p *privateKey) Raw() sign.PrivateKey {
-	return p.PrivateKey
-}
-
-func (p *privateKey) Public() PublicKey {
-	return p.publicKey
-}
-
-// PacketTag implements pack.Packable interface.
-func (*privateKey) PacketTag() pack.Tag { return PacketTagPrivateKey }
-
-// EncodeMsgpack implements pack.CustomEncoder interface.
-func (p *privateKey) EncodeMsgpack(enc *pack.Encoder) error {
-	m := KeyModel{
-		Algorithm: p.Raw().Scheme().Name(),
-		Key:       p.Raw().Pack(),
-	}
-	return enc.Encode(m)
-}
-
-// DecodeMsgpack implements pack.CustomDecoder interface.
-func (p *privateKey) DecodeMsgpack(dec *pack.Decoder) error {
-	m := new(KeyModel)
-	err := dec.Decode(m)
-	if err != nil {
-		return err
-	}
-
-	scheme := sign.ByName(m.Algorithm)
-	if scheme == nil {
-		return UnpackError("scheme not found: " + m.Algorithm)
-	}
-	if len(m.Key) != scheme.PrivateKeySize() {
-		return UnpackError("invalid private key size")
-	}
-
-	sk, err := scheme.UnpackPrivate(m.Key)
-	if err != nil {
-		return UnpackError("invalid private key: " + err.Error())
-	}
-
-	p.PrivateKey = sk
-	p.publicKey = &publicKey{
-		PublicKey: sk.Public(),
-	}
-	return nil
 }

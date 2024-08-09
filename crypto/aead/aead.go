@@ -25,9 +25,11 @@ func New(s Scheme, iv, cipherKey, macKey, associatedData []byte, decrypt bool) (
 		return nil, err
 	}
 
-	if len(macKey) != s.MAC().KeySize() {
-		return nil, mac.ErrKeySize
+	err = mac.CheckKeySize(s.MAC(), len(macKey))
+	if err != nil {
+		return nil, err
 	}
+
 	mac := s.MAC().New(macKey)
 	mac.Write(iv)
 	mac.Write(associatedData)

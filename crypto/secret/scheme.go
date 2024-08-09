@@ -30,10 +30,7 @@ func (s scheme) crypter(iv, sharedSecret, associatedData []byte, decrypt bool) (
 	if err != nil {
 		return nil, err
 	}
-	if decrypt {
-		return s.AEAD().Decrypter(iv, cipherKey, macKey, associatedData)
-	}
-	return s.AEAD().Encrypter(iv, cipherKey, macKey, associatedData)
+	return s.AEAD().Crypter(iv, cipherKey, macKey, associatedData, decrypt)
 }
 
 func (s scheme) Encrypter(iv, sharedSecret, associatedData []byte) (aead.Cipher, error) {

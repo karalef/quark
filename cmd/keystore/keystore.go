@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/encaps"
 )
 
 type contextKey struct{}
@@ -13,13 +14,17 @@ var ContextKey = contextKey{}
 
 // Keystore represents a keys storage.
 type Keystore interface {
-	ByID(quark.ID) (Key, error)
-	Find(string) (Key, error)
-	List(filter string) ([]Key, error)
+	ByID(quark.ID) (quark.Identity, error)
+	Find(string) (quark.Identity, error)
+	KeyByID(quark.ID) (quark.PublicKey, error)
+	PrivKeyByID(quark.ID) (quark.PrivateKey, error)
+	EncryptionKeyByID(quark.ID) (encaps.PublicKey, error)
+	PrivEncryptionKeyByID(quark.ID) (encaps.PrivateKey, error)
+	List(filter string) ([]quark.Identity, error)
 	Delete(quark.ID) error
-	Store(quark.Keyset) error
-	ImportPublic(quark.Public) error
-	ImportPrivate(quark.Private) error
+	Store(quark.Identity) error
+	Import(quark.Identity, quark.PrivateKey) error
+	ImportPrivate(quark.PrivateKey) error
 }
 
 // ErrExists is returned if the key already exists.
@@ -27,17 +32,6 @@ var ErrExists = errors.New("key already exists")
 
 // ErrNotFound is returned when a key is not found.
 var ErrNotFound = errors.New("key not found")
-
-// Key represents an interface for an existing key.
-type Key interface {
-	ID() quark.ID
-	Fingerprint() quark.Fingerprint
-	Identity() quark.Identity
-	Scheme() quark.Scheme
-	IsPrivateExists() bool
-	Public() (quark.Public, error)
-	Private() (quark.Private, error)
-}
 
 // Passphrase represents a function that called to request a passphrase.
 type Passphrase func() (string, error)

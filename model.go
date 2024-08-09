@@ -7,8 +7,8 @@ type KeyModel struct {
 }
 
 type idModel struct {
-	Public  *KeyModel `msgpack:"public,omitempty"`
-	Private *KeyModel `msgpack:"private,omitempty"`
+	Public  *KeyModel     `msgpack:"public,omitempty"`
+	Private *EncryptedKey `msgpack:"private,omitempty"`
 
 	Bindings       []Binding   `msgpack:"bindings,omitempty"`
 	Certifications []Signature `msgpack:"certifications"`
@@ -20,5 +20,5 @@ type idModel struct {
 type UnpackError string
 
 func (e UnpackError) Error() string {
-	return "identity key unpacking error: " + string(e)
+	return "identity unpacking error: " + string(e)
 }

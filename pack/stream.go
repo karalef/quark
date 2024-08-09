@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/karalef/quark/internal"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -16,16 +17,36 @@ type Stream struct {
 
 	// Writer represents the decoded data output.
 	Writer io.Writer
+
+	writerWrapper func(io.WriteCloser) io.WriteCloser
+	readerWrapper func(io.Reader) io.Reader
+}
+
+// WrapWriter wraps the encoder's writer.
+func (s *Stream) WrapWriter(f func(io.WriteCloser) io.WriteCloser) {
+	s.writerWrapper = f
+}
+
+// WrapReader wraps the decoder's reader.
+func (s *Stream) WrapReader(f func(io.Reader) io.Reader) {
+	s.readerWrapper = f
 }
 
 // EncodeMsgpack implements msgpack.CustomEncoder.
 func (s Stream) EncodeMsgpack(enc *msgpack.Encoder) error {
-	sw := newStreamWriter(enc.Writer())
+	w := internal.NopCloser(enc.Writer())
+	if s.writerWrapper != nil {
+		w = s.writerWrapper(w)
+	}
+	sw := newStreamWriter(w)
 	_, err := io.Copy(sw, s.Reader)
 	if err != nil {
 		return err
 	}
-	return sw.Close()
+	if err := sw.Close(); err != nil {
+		return errors.Join(err, w.Close())
+	}
+	return w.Close()
 }
 
 // DecodeMsgpack implements msgpack.CustomDecoder.
@@ -33,7 +54,11 @@ func (s *Stream) DecodeMsgpack(dec *msgpack.Decoder) error {
 	if s.Writer == nil {
 		return errors.New("pack: Stream.Writer is nil")
 	}
-	_, err := io.Copy(s.Writer, newStreamReader(dec.Buffered()))
+	r := dec.Buffered()
+	if s.readerWrapper != nil {
+		r = s.readerWrapper(r)
+	}
+	_, err := io.Copy(s.Writer, newStreamReader(r))
 	return err
 }
 

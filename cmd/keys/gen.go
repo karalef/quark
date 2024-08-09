@@ -4,20 +4,20 @@ import (
 	"sort"
 
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/bind"
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keystore"
-	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/urfave/cli/v2"
 )
 
-// GenerateCMD is the command to generate a new keyset.
+// GenerateCMD is the command to generate a new identity.
 var GenerateCMD = &cli.Command{
 	Name:      "generate",
-	Usage:     "generate a new keyset",
+	Usage:     "generate a new identity",
 	Category:  "key management",
 	Aliases:   []string{"gen"},
-	ArgsUsage: "<scheme>",
+	ArgsUsage: "{algorithm}",
 	Subcommands: []*cli.Command{
 		listCMD,
 	},
@@ -32,11 +32,6 @@ var GenerateCMD = &cli.Command{
 			Usage:   "owner email",
 			Aliases: []string{"e"},
 		},
-		&cli.StringFlag{
-			Name:    "comment",
-			Usage:   "comment",
-			Aliases: []string{"c"},
-		},
 	},
 	Action: generate,
 }
@@ -44,46 +39,42 @@ var GenerateCMD = &cli.Command{
 func generate(ctx *cli.Context) error {
 	scheme := defaultScheme
 	if strScheme := ctx.Args().First(); strScheme != "" {
-		sch, err := quark.ParseScheme(strScheme)
-		if err != nil {
-			return err
+		sch := sign.ByName(strScheme)
+		if sch == nil {
+			return printSchemes(ctx)
 		}
 		scheme = sch
 	}
 
-	identity := quark.Identity{
-		Name:    ctx.String("name"),
-		Email:   ctx.String("email"),
-		Comment: ctx.String("comment"),
-	}
-
-	if identity.Name == "" {
-		return cli.Exit("keyset cannot be created without owner name", 1)
-	}
-
-	key, err := quark.Generate(identity, scheme, 0)
+	identity, sk, err := quark.Generate(scheme, 0)
 	if err != nil {
 		return err
+	}
+	if name := ctx.String("name"); name != "" {
+		_, err := bind.Ident(identity, sk, bind.TypeName, "", name, 0)
+		if err != nil {
+			return err
+		}
+	}
+	if email := ctx.String("email"); email != "" {
+		_, err := bind.Ident(identity, sk, bind.TypeEmail, "", email, 0)
+		if err != nil {
+			return err
+		}
 	}
 
 	ks := ctx.Context.Value(keystore.ContextKey).(keystore.Keystore)
 
-	err = ks.ImportPrivate(key)
+	err = ks.Import(identity, sk)
 	if err != nil {
 		return err
 	}
 
-	// TODO: set default
-
-	cmdio.Status("generated key", key.ID())
+	cmdio.Status("generated identity", identity.ID())
 	return nil
 }
 
-var defaultScheme = quark.Scheme{
-	Cert: sign.Dilithium3,
-	Sign: sign.Dilithium3,
-	KEM:  kem.Kyber768,
-}
+var defaultScheme = sign.Scheme(sign.EDDilithium3)
 
 var listCMD = &cli.Command{
 	Name:    "list",
@@ -94,17 +85,6 @@ var listCMD = &cli.Command{
 
 func printSchemes(*cli.Context) error {
 	cmdio.Status("All available algorithms")
-
-	cmdio.Status("\nKEM:")
-	kems := kem.ListAll()
-	sort.Slice(kems, func(i, j int) bool {
-		return kems[i] < kems[j]
-	})
-	for _, k := range kems {
-		cmdio.Status(k)
-	}
-
-	cmdio.Status("\nSIGNATURES:")
 	signs := sign.ListAll()
 	sort.Slice(signs, func(i, j int) bool {
 		return signs[i] < signs[j]

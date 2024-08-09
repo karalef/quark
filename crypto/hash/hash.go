@@ -54,6 +54,10 @@ var (
 	SHA512     = New("SHA512", sha512.Size, sha512.BlockSize, sha512.New)
 	SHA3_256   = New("SHA3_256", 32, 136, sha3.New256)
 	SHA3_512   = New("SHA3_512", 64, 72, sha3.New512)
+	BLAKE2B128 = New("BLAKE2B_128", 16, blake2b.BlockSize, func() Hash {
+		h, _ := blake2b.New(16, nil)
+		return h
+	})
 	BLAKE2B256 = New("BLAKE2B_256", blake2b.Size256, blake2b.BlockSize, func() Hash {
 		h, _ := blake2b.New256(nil)
 		return h
@@ -74,6 +78,7 @@ func init() {
 	Register(SHA512)
 	Register(SHA3_256)
 	Register(SHA3_512)
+	Register(BLAKE2B128)
 	Register(BLAKE2B256)
 	Register(BLAKE2B512)
 	Register(BLAKE3)

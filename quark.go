@@ -15,7 +15,7 @@ func init() {
 
 var (
 	packetTypePrivateKey = pack.NewType(
-		(*privateKey)(nil),
+		(*EncryptedKey)(nil),
 		"private key",
 		"QUARK PRIVATE KEY",
 	)

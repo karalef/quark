@@ -7,7 +7,6 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
-	"github.com/karalef/quark/cmd/keyring"
 	"github.com/karalef/quark/cmd/keystore"
 	"github.com/karalef/quark/message"
 	"github.com/urfave/cli/v2"

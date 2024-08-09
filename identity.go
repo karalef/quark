@@ -40,16 +40,15 @@ func Derive(scheme sign.Scheme, expires int64, seed []byte) (Identity, PrivateKe
 type Identity interface {
 	pack.Packable
 
-	ID() ID
-	Fingerprint() Fingerprint
+	KeyID
 	Key() PublicKey
 
 	// Validity returns the creation time and self signature validity.
 	Validity() (int64, Validity)
 	// ChangeExpiry changes the expiration time.
-	ChangeExpiry(expires int64, pk PrivateKey) error
+	ChangeExpiry(expires int64, sk PrivateKey) error
 	// Revoke revokes the identity.
-	Revoke(reason string, pk PrivateKey) error
+	Revoke(reason string, sk PrivateKey) error
 
 	// Bindings returns identity bindings.
 	Bindings() []Binding
@@ -66,11 +65,13 @@ type Identity interface {
 
 	// SelfSignature returns identity self signature.
 	SelfSignature() Signature
-	// Verify verifies the identity self signature.
-	Verify() error
-
+	// Certifications returns certifications by other identities.
 	Certifications() []Signature
+	// Certify signs the identity.
 	Certify(with PrivateKey, expires int64) error
+	// Verify verifies the identity signature.
+	// It also accepts the self signature.
+	Verify(Identity, Signature) error
 }
 
 // ErrSignature is returned if the public key signature is invalid.
@@ -92,6 +93,7 @@ var _ pack.CustomDecoder = (*identity)(nil)
 
 type identity struct {
 	PublicKey
+	sk             *privateKey
 	bindings       map[BindID]*Binding
 	certifications []Signature
 	self           Signature
@@ -105,27 +107,21 @@ func (p *identity) Validity() (int64, Validity) {
 	return p.created, p.self.Validity
 }
 
-func (p *identity) Verify() error {
-	verifier := VerifyStream(p.PublicKey)
+func (p *identity) Verify(id Identity, sig Signature) error {
+	if id.Fingerprint() != sig.Issuer {
+		return errors.New("wrong issuer")
+	}
+	verifier := VerifyStream(id.Key())
 	err := p.signEncode(verifier)
 	if err != nil {
-		return ErrSignature{
-			err:          err,
-			verification: true,
-		}
+		return err
 	}
-	ok, err := verifier.Verify(p.self)
+	ok, err := verifier.Verify(sig)
 	if err != nil {
-		return ErrSignature{
-			err:          err,
-			verification: true,
-		}
+		return err
 	}
 	if !ok {
-		return ErrSignature{
-			err:          errors.New("wrong signature"),
-			verification: true,
-		}
+		return errors.New("wrong signature")
 	}
 	return nil
 }
@@ -181,6 +177,9 @@ func (p *identity) signBinding(sk PrivateKey, b *Binding, v Validity) error {
 }
 
 func (p *identity) Bind(sk PrivateKey, b BindingData, expires int64) (Binding, error) {
+	if !p.CorrespondsTo(sk) {
+		return Binding{}, ErrKeyNotCorrespond
+	}
 	bind := NewBinding(p.PublicKey, b)
 	if p.bindings == nil {
 		p.bindings = make(map[BindID]*Binding)
@@ -197,6 +196,9 @@ func (p *identity) Bind(sk PrivateKey, b BindingData, expires int64) (Binding, e
 }
 
 func (p *identity) Rebind(id BindID, sk PrivateKey, group string, expires int64) (Binding, error) {
+	if !p.CorrespondsTo(sk) {
+		return Binding{}, ErrKeyNotCorrespond
+	}
 	bind, err := p.getBinding(id)
 	if err != nil {
 		return Binding{}, err
@@ -217,6 +219,9 @@ func (p *identity) Rebind(id BindID, sk PrivateKey, group string, expires int64)
 }
 
 func (p *identity) Unbind(id BindID, sk PrivateKey, reason string) (Binding, error) {
+	if !p.CorrespondsTo(sk) {
+		return Binding{}, ErrKeyNotCorrespond
+	}
 	b, err := p.getBinding(id)
 	if err != nil {
 		return Binding{}, err
@@ -235,7 +240,7 @@ func (p *identity) Certifications() []Signature {
 }
 
 func (p *identity) Certify(with PrivateKey, expires int64) error {
-	if p.Fingerprint() == with.Fingerprint() {
+	if p.CorrespondsTo(with) {
 		return errors.New("the key cannot certify itself")
 	}
 	signer := SignStream(with)
@@ -251,30 +256,28 @@ func (p *identity) Certify(with PrivateKey, expires int64) error {
 	return nil
 }
 
-func (p *identity) ChangeExpiry(expiry int64, pk PrivateKey) error {
-	if pk.Fingerprint() != p.Fingerprint() {
-		return errors.New("the public key does not match the private key")
+func (p *identity) ChangeExpiry(expiry int64, sk PrivateKey) error {
+	if !p.CorrespondsTo(sk) {
+		return ErrKeyNotCorrespond
 	}
-	return p.selfSign(pk, NewValidity(time.Now().Unix(), expiry))
+	return p.selfSign(sk, NewValidity(time.Now().Unix(), expiry))
 }
 
-func (p *identity) Revoke(reason string, pk PrivateKey) error {
+func (p *identity) Revoke(reason string, sk PrivateKey) error {
+	if !p.CorrespondsTo(sk) {
+		return ErrKeyNotCorrespond
+	}
 	if p.self.Validity.Revoked != 0 {
 		return errors.New("the key is already revoked")
 	}
 	now := time.Now().Unix()
-	return p.selfSign(pk, Validity{
+	return p.selfSign(sk, Validity{
 		Created: now,
 		Expires: 0,
 		Revoked: now,
 		Reason:  reason,
 	})
 }
-
-func (p *identity) pub() *identity { return p }
-
-// PacketTag implements pack.Packable interface.
-func (*identity) PacketTag() pack.Tag { return PacketTagIdentity }
 
 func (p *identity) signEncode(w io.Writer) error {
 	key := p.Raw()
@@ -302,6 +305,9 @@ func (p *identity) selfSign(issuer PrivateKey, v Validity) error {
 	}
 	return err
 }
+
+// PacketTag implements pack.Packable interface.
+func (*identity) PacketTag() pack.Tag { return PacketTagIdentity }
 
 // EncodeMsgpack implements pack.CustomEncoder interface.
 func (p identity) EncodeMsgpack(enc *pack.Encoder) error {

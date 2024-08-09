@@ -17,13 +17,20 @@ type Scheme interface {
 	// KeySize returns the key size in bytes.
 	// If the key size is not fixed, it returns 0.
 	KeySize() int
-	// MaxKeySize returns the maximum key size in bytes if the key can be length of 1-MaxKeySize().
+	// MaxKeySize returns the maximum key size in bytes if the key can be length of [1, MaxKeySize()].
 	// Returns 0 if the key size is fixed.
 	MaxKeySize() int
 
 	// New returns a new MAC instance.
 	// Panics if key is not of length KeySize().
 	New(key []byte) MAC
+}
+
+// Fixed represents a scheme that can fix the key size.
+type Fixed interface {
+	// Fixed returns the copy of the scheme but with fixed key size.
+	// Panics if keySize is invalid.
+	Fixed(keySize int) Scheme
 }
 
 // NewFunc represents the function to create a MAC.
@@ -58,12 +65,18 @@ func (s baseScheme) BlockSize() int  { return s.block }
 func (s baseScheme) KeySize() int    { return s.keySize }
 func (s baseScheme) MaxKeySize() int { return s.maxSize }
 func (s baseScheme) New(key []byte) MAC {
-	if len(key) == 0 ||
-		s.keySize != 0 && len(key) != s.keySize ||
-		s.maxSize != 0 && len(key) > s.maxSize {
-		panic(ErrKeySize)
+	if err := CheckKeySize(s, len(key)); err != nil {
+		panic(err)
 	}
 	return s.new(key)
+}
+func (s baseScheme) Fixed(keySize int) Scheme {
+	if err := CheckKeySize(s, keySize); err != nil {
+		panic(err)
+	}
+	s.maxSize = 0
+	s.keySize = keySize
+	return s
 }
 
 // MAC represent MAC state.
@@ -82,6 +95,23 @@ type MAC interface {
 // Equal compares two MACs for equality without leaking timing information.
 func Equal(tag1, tag2 []byte) bool {
 	return subtle.ConstantTimeCompare(tag1, tag2) == 1
+}
+
+// CheckKeySize checks the key size.
+func CheckKeySize(s Scheme, size int) error {
+	fixed, max := s.KeySize(), s.MaxKeySize()
+	switch {
+	case fixed == 0 && max == 0:
+	case fixed != 0:
+		if size != fixed {
+			return errors.Join(ErrKeySize, errors.New("does not match fixed key size"))
+		}
+	default:
+		if size > max {
+			return errors.Join(ErrKeySize, errors.New("exceeds maximum key size"))
+		}
+	}
+	return nil
 }
 
 // ErrKeySize is returned when the key size is invalid.

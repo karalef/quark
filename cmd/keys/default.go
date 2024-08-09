@@ -1,5 +1,6 @@
 package keys
 
+/*
 import (
 	"github.com/karalef/quark/cmd/cmdio"
 	"github.com/karalef/quark/cmd/keystore"
@@ -50,4 +51,4 @@ func setDefault(ctx *cli.Context) error {
 	}
 	cmdio.Status("default keyset set:", id)
 	return nil
-}
+}*/

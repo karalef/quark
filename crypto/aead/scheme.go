@@ -10,16 +10,12 @@ type Scheme interface {
 	Cipher() cipher.Scheme
 	MAC() mac.Scheme
 
-	// Encrypter returns Cipher in encryption mode.
+	// Encrypter returns Cipher in de/encryption mode.
 	// Panics if iv is not of length Cipher().IVSize().
-	Encrypter(iv, key, macKey, associatedData []byte) (Cipher, error)
-
-	// Decrypter returns Cipher in decryption mode.
-	// Panics if iv is not of length Cipher().IVSize().
-	Decrypter(iv, key, macKey, associatedData []byte) (Cipher, error)
+	Crypter(iv, key, macKey, associatedData []byte, decrypt bool) (Cipher, error)
 }
 
-// Build creates an AEAD scheme with the given approach.
+// Build creates an AEAD scheme.
 // Panics if one of the arguments is nil.
 func Build(cipher cipher.Scheme, mac mac.Scheme) Scheme {
 	if cipher == nil || mac == nil {
@@ -41,9 +37,6 @@ type scheme struct {
 func (s *scheme) Cipher() cipher.Scheme { return s.cipher }
 func (s *scheme) MAC() mac.Scheme       { return s.mac }
 
-func (s *scheme) Encrypter(iv, key, macKey, associatedData []byte) (Cipher, error) {
-	return New(s, iv, key, macKey, associatedData, false)
-}
-func (s *scheme) Decrypter(iv, key, macKey, associatedData []byte) (Cipher, error) {
-	return New(s, iv, key, macKey, associatedData, true)
+func (s *scheme) Crypter(iv, key, macKey, associatedData []byte, decrypt bool) (Cipher, error) {
+	return New(s, iv, key, macKey, associatedData, decrypt)
 }
