@@ -65,7 +65,7 @@ func generate(ctx *cli.Context) error {
 
 	ks := ctx.Context.Value(keystore.ContextKey).(keystore.Keystore)
 
-	err = ks.Import(identity, sk)
+	err = ks.ImportPrivate(identity, sk)
 	if err != nil {
 		return err
 	}

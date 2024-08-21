@@ -16,30 +16,30 @@ func TestIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := id.Verify(); err != nil {
+	if err := id.Verify(id, id.SelfSignature()); err != nil {
 		t.Fatal(err)
 	}
 
-	spk, _ := func() (quark.PublicKey, quark.PrivateKey) {
+	spk, _ := func() (*quark.PublicKey, *quark.PrivateKey) {
 		sk, pk, err := sign.Generate(sign.EDDilithium2, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		return quark.Keys(pk, sk)
 	}()
-	b, err := Key(id, sk, "", spk, time.Now().Add(time.Hour).Unix())
+	b, err := Key(id, sk, nil, spk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	kpk, _ := func() (encaps.PublicKey, encaps.PrivateKey) {
+	kpk, _ := func() (*encaps.PublicKey, *encaps.PrivateKey) {
 		pk, sk, err := encaps.Generate(kem.Kyber768)
 		if err != nil {
 			t.Fatal(err)
 		}
 		return pk, sk
 	}()
-	b, err = KEM(id, sk, "", kpk, time.Now().Add(time.Hour).Unix())
+	b, err = KEM(id, sk, nil, kpk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func printBindings(binds []Binding, t *testing.T) {
 			data = pack.Raw(pk.Fingerprint().String())
 		}
 		bindid := bind.ID.String()
-		t.Logf("binding %s...%s: %s %s %s", bindid[:4], bindid[len(bindid)-4:], bind.Group, bind.Type, string(data))
+		t.Logf("binding %s...%s: %s %v %s", bindid[:4], bindid[len(bindid)-4:], bind.Type, bind.Metadata, string(data))
 		if bind.Signature.Validity.Revoked != 0 {
 			t.Logf("revoked at %s because %s", time.Unix(bind.Signature.Validity.Revoked, 0), bind.Signature.Validity.Reason)
 		} else {

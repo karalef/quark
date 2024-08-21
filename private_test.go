@@ -43,7 +43,7 @@ func TestPrivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !sk.Equal(sk2) {
+	if !sk.Raw().Equal(sk2.Raw()) {
 		t.Fatal("sk != sk2")
 	}
 }

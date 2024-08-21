@@ -3,14 +3,13 @@ package enc
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/cmd/cmdio"
-	"github.com/karalef/quark/cmd/keyring"
+	"github.com/karalef/quark/cmd/keystore"
 	"github.com/karalef/quark/encaps"
 	"github.com/karalef/quark/message"
 	"github.com/karalef/quark/message/compress"
@@ -68,8 +67,18 @@ var EncryptCMD = &cli.Command{
 		noSign := c.Bool("no-sign")
 		key := c.String("key")
 		symmetric := c.Bool("symmetric")
-		if recipient == "" && !c.Bool("clear-sign") {
+		clearSign := c.Bool("clear-sign")
+		if clearSign && (noSign || recipient != "" || symmetric) {
+			return cli.Exit("the clear-sign flag is incompatible with other encryption/sign flags", 1)
+		}
+		if symmetric && recipient != "" {
+			return cli.Exit("cannot use both passphrase encryption with key encapsulation", 1)
+		}
+		if recipient == "" && !clearSign {
 			return cli.Exit("omit the recipient is only allowed with the clear-sign flag", 1)
+		}
+		if key != "" && (!clearSign || noSign) {
+			return cli.Exit("key is provided but the signing is disabled", 1)
 		}
 		compression, lvl, err := parseCompression(c.String("compression"))
 		if err != nil {
@@ -87,12 +96,7 @@ var EncryptCMD = &cli.Command{
 			return filepath.Base(in) + messageExt
 		})
 
-		data, err := io.ReadAll(input.Raw())
-		if err != nil {
-			return err
-		}
-
-		return encrypt(output, data, recipient, !noSign, key, compression, lvl)
+		return encrypt(c, output, input, recipient, key, compression, lvl)
 	},
 }
 
@@ -119,25 +123,26 @@ func parseCompression(v string) (compress.Compression, int, error) {
 	return c, lvl, nil
 }
 
-func findPrivate(query string) (quark.Private, error) {
-	if query == "" {
-		return keyring.Default()
-	}
-	return keyring.FindPrivate(query)
-}
+func encrypt(c *cli.Context,
+	out cmdio.Output,
+	data cmdio.Input,
+	recipient string,
+	key string,
+	comp compress.Compression,
+	lvl int) (err error) {
 
-func encrypt(out cmdio.Output, data []byte, recipient string, sign bool, signWith string, comp compress.Compression, lvl int) (err error) {
-	var privKS quark.Private
-	if sign {
-		privKS, err = findPrivate(signWith)
+	ks := keystore.FromContext(c)
+	var sk *quark.PrivateKey
+	if key != "" {
+		sk, err = ks.FindPriv(key)
 		if err != nil {
 			return err
 		}
 	}
 
-	var pk encaps.PublicKey
+	var pk *encaps.PublicKey
 	if recipient != "" {
-		pubKS, err = keyring.Find(recipient)
+		pk, err = ks.E(recipient)
 		if err != nil {
 			return err
 		}

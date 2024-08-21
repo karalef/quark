@@ -5,6 +5,6 @@ import (
 )
 
 // Encapsulate generates and encapsulates a shared secret.
-func Encapsulate(recipient PublicKey) (encapsed, secret []byte, err error) {
+func Encapsulate(recipient *PublicKey) (encapsed, secret []byte, err error) {
 	return recipient.Encapsulate(crypto.Rand(recipient.Scheme().EncapsulationSeedSize()))
 }

@@ -26,7 +26,7 @@ type messageReader struct {
 }
 
 // Decrypt decrypts a message.
-func (msg *Message) Decrypt(plaintext io.Writer, recipient encaps.PrivateKey, sender quark.PublicKey) error {
+func (msg *Message) Decrypt(plaintext io.Writer, recipient *encaps.PrivateKey, sender *quark.PublicKey) error {
 	closer := internal.NopCloser(plaintext)
 	if !msg.Header.Sender.IsEmpty() {
 		closer = internal.ChainCloser(closer, messageVerifier{
@@ -80,7 +80,7 @@ func (msg *Message) Decrypt(plaintext io.Writer, recipient encaps.PrivateKey, se
 	return closer.Close()
 }
 
-func (msg *Message) PasswordDecrypt(plaintext io.Writer, sender quark.PublicKey, passphrase string) error {
+func (msg *Message) PasswordDecrypt(plaintext io.Writer, sender *quark.PublicKey, passphrase string) error {
 	closer := internal.NopCloser(plaintext)
 	if !msg.Header.Sender.IsEmpty() {
 		closer = internal.ChainCloser(closer, messageVerifier{

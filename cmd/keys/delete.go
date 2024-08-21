@@ -12,7 +12,7 @@ var DeleteCMD = &cli.Command{
 	Usage:     "delete a keyset",
 	Category:  "key management",
 	Aliases:   []string{"del"},
-	ArgsUsage: "<keyset>",
+	ArgsUsage: "<id|string>",
 	Action:    delete,
 }
 

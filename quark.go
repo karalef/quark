@@ -21,7 +21,7 @@ var (
 	)
 
 	packetTypeIdentity = pack.NewType(
-		(*identity)(nil),
+		(*Identity)(nil),
 		"identity",
 		"QUARK IDENTITY",
 	)

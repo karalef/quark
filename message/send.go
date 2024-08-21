@@ -24,7 +24,7 @@ type Opt func(*messageOpts)
 
 // WithEncryption enables encryption based on key encapsulation mechanism.
 // Panics if recipient is nil.
-func WithEncryption(recipient encaps.PublicKey, scheme ...secret.Scheme) Opt {
+func WithEncryption(recipient *encaps.PublicKey, scheme ...secret.Scheme) Opt {
 	if recipient == nil {
 		panic("nil recipient")
 	}
@@ -54,7 +54,7 @@ func WithPassword(passwd string, params kdf.Params, scheme ...password.Scheme) O
 
 // WithSignature enables message signature.
 // Panics if sender is nil.
-func WithSignature(sender quark.PrivateKey, expiry ...int64) Opt {
+func WithSignature(sender *quark.PrivateKey, expiry ...int64) Opt {
 	if sender == nil {
 		panic("nil sender")
 	}
@@ -85,10 +85,10 @@ func WithFileInfo(fi FileInfo) Opt {
 }
 
 type messageOpts struct {
-	sender quark.PrivateKey
+	sender *quark.PrivateKey
 	expiry int64
 
-	recipient encaps.PublicKey
+	recipient *encaps.PublicKey
 	scheme    secret.Scheme
 
 	password       string
@@ -189,7 +189,7 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 	return msg, nil
 }
 
-func signMessage(sender quark.PrivateKey, msg *Message, expiry int64) error {
+func signMessage(sender *quark.PrivateKey, msg *Message, expiry int64) error {
 	msg.Header.Sender = sender.ID()
 	msg.Data.Reader = messageSigner{
 		r:      msg.Data.Reader,

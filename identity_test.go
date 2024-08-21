@@ -17,18 +17,16 @@ func TestIdentity(t *testing.T) {
 	}
 
 	_, err = id.Bind(sk, BindingData{
-		Type:  BindTypeGroupID.Add("nickname"),
-		Group: string(BindTypeGroupID),
-		Data:  []byte("karalef"),
+		Type: "id.nickname",
+		Data: []byte("karalef"),
 	}, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	b, err := id.Bind(sk, BindingData{
-		Type:  BindTypeGroupQuark,
-		Group: string(BindTypeGroupID),
-		Data:  []byte("trash"),
+		Type: BindTypeGroupQuark,
+		Data: []byte("trash"),
 	}, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +39,7 @@ func TestIdentity(t *testing.T) {
 
 	binds := id.Bindings()
 	for _, bind := range binds {
-		t.Logf("binding %s: %s %s %s", bind.ID, bind.Type, bind.Group, string(bind.Data))
+		t.Logf("binding %s: %s %v %s", bind.ID, bind.Type, bind.Metadata, string(bind.Data))
 		if bind.Signature.Validity.Revoked != 0 {
 			t.Logf("revoked at %s because %s", time.Unix(bind.Signature.Validity.Revoked, 0), bind.Signature.Validity.Reason)
 		} else {

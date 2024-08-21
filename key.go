@@ -75,7 +75,8 @@ func (f Fingerprint) ID() ID { return ID(f[FPSize-IDSize:]) }
 func (f Fingerprint) Bytes() []byte { return f[:] }
 
 func (f Fingerprint) String() string {
-	enc := crockford.Upper.AppendEncode(nil, f[:])
+	enc := make([]byte, crockford.Upper.EncodedLen(len(f)))
+	crockford.Upper.Encode(enc, f[:])
 	buf := make([]byte, 0, len(enc)+len(enc)/2)
 	for i := 0; i < len(enc); i += 4 {
 		buf = append(buf, enc[i:i+4]...)
@@ -96,42 +97,34 @@ func CalculateFingerprint(scheme string, publicKey []byte) (fp Fingerprint) {
 
 // DeriveKey creates a new private and public key from the given scheme and seed.
 // Panics if the scheme is nil.
-func DeriveKey(scheme sign.Scheme, seed []byte) (PublicKey, PrivateKey, error) {
+func DeriveKey(scheme sign.Scheme, seed []byte) (*PublicKey, *PrivateKey, error) {
 	sk, pk, err := scheme.DeriveKey(seed)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	pub := &publicKey{
-		PublicKey: pk,
-	}
-
-	priv := &privateKey{
-		publicKey:  pub,
-		PrivateKey: sk,
-	}
-
+	pub, priv := Keys(pk, sk)
 	return pub, priv, nil
 }
 
 // Keys upgrades the given public and private keys.
 // If the public key is nil, it will be given from the private key.
-func Keys(pk sign.PublicKey, sk sign.PrivateKey) (PublicKey, PrivateKey) {
+func Keys(pk sign.PublicKey, sk sign.PrivateKey) (*PublicKey, *PrivateKey) {
 	if pk == nil {
 		if sk == nil {
 			return nil, nil
 		}
 		pk = sk.Public()
 	}
-	pub := &publicKey{PublicKey: pk}
+	pub := &PublicKey{pk: pk}
 	if sk == nil {
 		return pub, nil
 	}
-	return pub, &privateKey{publicKey: pub, PrivateKey: sk}
+	return pub, &PrivateKey{pk: pub, sk: sk}
 }
 
 // Pub upgrades the given public key.
-func Pub(pk sign.PublicKey) PublicKey {
+func Pub(pk sign.PublicKey) *PublicKey {
 	pub, _ := Keys(pk, nil)
 	return pub
 }
@@ -150,64 +143,38 @@ var (
 )
 
 // PublicKey represents a signing public key.
-type PublicKey interface {
-	KeyID
-	Scheme() sign.Scheme
-	Equal(PublicKey) bool
-	CorrespondsTo(PrivateKey) bool
-	Verify(message []byte, signature []byte) (bool, error)
-
-	Raw() sign.PublicKey
-}
-
-// PrivateKey represents a signing private key.
-type PrivateKey interface {
-	KeyID
-	Public() PublicKey
-	Scheme() sign.Scheme
-	Equal(PrivateKey) bool
-	Sign([]byte) []byte
-
-	Raw() sign.PrivateKey
-}
-
-var _ PublicKey = (*publicKey)(nil)
-var _ PrivateKey = (*privateKey)(nil)
-
-type publicKey struct {
-	sign.PublicKey
+type PublicKey struct {
+	pk sign.PublicKey
 	fp Fingerprint
 	id ID
 }
 
-func (p *publicKey) ID() ID {
+func (p *PublicKey) ID() ID {
 	if p.id.IsEmpty() {
 		p.id = p.Fingerprint().ID()
 	}
 	return p.id
 }
 
-func (p *publicKey) Fingerprint() Fingerprint {
+func (p *PublicKey) Fingerprint() Fingerprint {
 	if p.fp.IsEmpty() {
-		p.fp = CalculateFingerprint(p.Scheme().Name(), p.Pack())
+		p.fp = CalculateFingerprint(p.Scheme().Name(), p.pk.Pack())
 	}
 	return p.fp
 }
 
-func (p *publicKey) CorrespondsTo(sk PrivateKey) bool {
-	if sk, ok := sk.(*privateKey); ok {
-		return p == sk.publicKey
-	}
-	return p.Fingerprint() == sk.Fingerprint()
+func (p *PublicKey) Scheme() sign.Scheme {
+	return p.pk.Scheme()
 }
 
-func (p publicKey) Equal(other PublicKey) bool {
-	if other, ok := other.(*publicKey); ok {
-		return p.PublicKey.Equal(other.PublicKey)
-	}
-	return false
+func (p *PublicKey) CorrespondsTo(sk *PrivateKey) bool {
+	return p == sk.pk || p.Fingerprint() == sk.Fingerprint()
 }
 
-func (p publicKey) Raw() sign.PublicKey {
-	return p.PublicKey
+func (p *PublicKey) Verify(message, signature []byte) (bool, error) {
+	return p.pk.Verify(message, signature)
+}
+
+func (p PublicKey) Raw() sign.PublicKey {
+	return p.pk
 }

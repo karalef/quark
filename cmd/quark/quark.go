@@ -28,8 +28,6 @@ func main() {
 			keys.ImportCMD,
 			keys.ExportCMD,
 			keys.DeleteCMD,
-			keys.DefaultCMD,
-			keys.EditCMD,
 			enc.EncryptCMD,
 			enc.DecryptCMD,
 		},

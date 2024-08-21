@@ -18,38 +18,29 @@ const (
 	TypeKEMKey        Type = TypeGroupQuarkKey + ".kem"
 )
 
-// GroupKeys is the default keys group name.
-const GroupKeys = "keys"
-
 // NewKey returns a new key binding data.
-// If group is empty, it will be set to GroupKeys.
-func NewKey(key quark.PublicKey, group string) (BindingData, error) {
+func NewKey(key *quark.PublicKey, md Metadata) (BindingData, error) {
 	if key == nil {
 		return BindingData{}, errors.New("nil key")
 	}
 	return newKey(quark.KeyModel{
 		Algorithm: key.Scheme().Name(),
 		Key:       key.Raw().Pack(),
-	}, TypeSignKey, group)
+	}, TypeSignKey, md)
 }
 
 // NewKEM returns a new KEM key binding data.
-// If group is empty, it will be set to GroupKeys.
-func NewKEM(key encaps.PublicKey, group string) (BindingData, error) {
+func NewKEM(key *encaps.PublicKey, md Metadata) (BindingData, error) {
 	if key == nil {
 		return BindingData{}, errors.New("nil key")
 	}
 	return newKey(quark.KeyModel{
 		Algorithm: key.Scheme().Name(),
 		Key:       key.Raw().Pack(),
-	}, TypeKEMKey, group)
+	}, TypeKEMKey, md)
 }
 
-func newKey(m quark.KeyModel, typ Type, group string) (BindingData, error) {
-	if group == "" {
-		group = GroupKeys
-	}
-
+func newKey(m quark.KeyModel, typ Type, md Metadata) (BindingData, error) {
 	b := bytes.NewBuffer(nil)
 	err := pack.EncodeBinary(b, m)
 	if err != nil {
@@ -57,16 +48,15 @@ func newKey(m quark.KeyModel, typ Type, group string) (BindingData, error) {
 	}
 
 	return BindingData{
-		Type:  typ,
-		Group: group,
-		Data:  b.Bytes(),
+		Type:     typ,
+		Metadata: md,
+		Data:     b.Bytes(),
 	}, nil
 }
 
 // Key binds a key to the identity.
-// If group is empty, it will be set to GroupKeys.
-func Key(id quark.Identity, sk quark.PrivateKey, group string, key quark.PublicKey, expires int64) (Binding, error) {
-	bd, err := NewKey(key, group)
+func Key(id *quark.Identity, sk *quark.PrivateKey, md Metadata, key *quark.PublicKey, expires int64) (Binding, error) {
+	bd, err := NewKey(key, md)
 	if err != nil {
 		return Binding{}, err
 	}
@@ -74,9 +64,8 @@ func Key(id quark.Identity, sk quark.PrivateKey, group string, key quark.PublicK
 }
 
 // KEM binds a KEM key to the identity.
-// If group is empty, it will be set to GroupKeys.
-func KEM(id quark.Identity, sk quark.PrivateKey, group string, key encaps.PublicKey, expires int64) (Binding, error) {
-	bd, err := NewKEM(key, group)
+func KEM(id *quark.Identity, sk *quark.PrivateKey, md Metadata, key *encaps.PublicKey, expires int64) (Binding, error) {
+	bd, err := NewKEM(key, md)
 	if err != nil {
 		return Binding{}, err
 	}
@@ -91,7 +80,7 @@ func decodeKey(b Binding, typ Type) (*quark.KeyModel, error) {
 }
 
 // DecodeKey decodes a key from the binding.
-func DecodeKey(b Binding) (quark.PublicKey, error) {
+func DecodeKey(b Binding) (*quark.PublicKey, error) {
 	m, err := decodeKey(b, TypeSignKey)
 	if err != nil {
 		return nil, err
@@ -108,7 +97,7 @@ func DecodeKey(b Binding) (quark.PublicKey, error) {
 }
 
 // DecodeKEM decodes a KEM key from the binding.
-func DecodeKEM(b Binding) (encaps.PublicKey, error) {
+func DecodeKEM(b Binding) (*encaps.PublicKey, error) {
 	m, err := decodeKey(b, TypeKEMKey)
 	if err != nil {
 		return nil, err

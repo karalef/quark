@@ -11,9 +11,6 @@ import (
 // BindTypeGroupQuark is the types group for the quark types.
 const BindTypeGroupQuark BindType = "quark"
 
-// BindTypeGroupID is the global ID types group.
-const BindTypeGroupID BindType = "id"
-
 // BindType represents a binding object type.
 type BindType string
 
@@ -46,11 +43,11 @@ func (b BindID) IsEmpty() bool { return b == BindID{} }
 func (b BindID) String() string { return crockford.Upper.EncodeToString(b[:]) }
 
 // NewBinding returns a new binding.
-func NewBinding(key PublicKey, d BindingData) Binding {
+func NewBinding(key *PublicKey, d BindingData) Binding {
 	b := Binding{
-		Type:  d.Type,
-		Group: d.Group,
-		Data:  d.Data,
+		Type:     d.Type,
+		Metadata: d.Metadata.Copy(),
+		Data:     internal.Copy(d.Data),
 	}
 	b.ID = b.calcID(key)
 	return b
@@ -59,23 +56,33 @@ func NewBinding(key PublicKey, d BindingData) Binding {
 // ShortBinding represents a part of the binding.
 // It is used for listing bindings without signature and data copying.
 type ShortBinding struct {
-	ID    BindID
-	Type  BindType
-	Group string
+	ID   BindID
+	Type BindType
 }
 
 // BindingData represents a binding data.
 type BindingData struct {
-	Type  BindType
-	Group string
-	Data  []byte
+	Type     BindType
+	Metadata Metadata
+	Data     []byte
+}
+
+// Metadata contains the binding metadata.
+type Metadata map[string][]byte
+
+func (md Metadata) Copy() Metadata {
+	md2 := make(Metadata, len(md))
+	for k, v := range md {
+		md2[k] = internal.Copy(v)
+	}
+	return md2
 }
 
 // Binding represents an identity binding.
 type Binding struct {
 	ID        BindID    `msgpack:"id"`
 	Type      BindType  `msgpack:"type"`
-	Group     string    `msgpack:"group,omitempty"`
+	Metadata  Metadata  `msgpack:"md,omitempty"`
 	Data      []byte    `msgpack:"data"`
 	Signature Signature `msgpack:"sig"`
 }
@@ -83,18 +90,17 @@ type Binding struct {
 // Short returns a short version of the binding.
 func (b Binding) Short() ShortBinding {
 	return ShortBinding{
-		ID:    b.ID,
-		Type:  b.Type,
-		Group: b.Group,
+		ID:   b.ID,
+		Type: b.Type,
 	}
 }
 
 // BindingData returns a copy of the binding data.
 func (b Binding) BindingData() BindingData {
 	return BindingData{
-		Type:  b.Type,
-		Group: b.Group,
-		Data:  internal.Copy(b.Data),
+		Type:     b.Type,
+		Metadata: b.Metadata.Copy(),
+		Data:     internal.Copy(b.Data),
 	}
 }
 
@@ -106,24 +112,30 @@ func (b Binding) Copy() Binding {
 }
 
 // CheckIntegrity validates the binding integrity.
-func (b Binding) CheckIntegrity(pk PublicKey) bool {
+func (b Binding) CheckIntegrity(pk *PublicKey) bool {
 	return b.ID == b.calcID(pk)
 }
 
-func (b Binding) calcID(pk PublicKey) (id BindID) {
+func (b Binding) calcID(pk *PublicKey) (id BindID) {
 	h := hash.SHA3_256.New()
 	h.Write(pk.Fingerprint().Bytes())
-	h.Write([]byte(b.Group))
 	h.Write([]byte(b.Type))
+	for k, v := range b.Metadata {
+		h.Write([]byte(k))
+		h.Write(v)
+	}
 	h.Write(b.Data)
 	return BindID(h.Sum(id[:0]))
 }
 
-func (b *Binding) sign(sk PrivateKey, v Validity) error {
+func (b *Binding) sign(sk *PrivateKey, v Validity) error {
 	signer := SignStream(sk)
 	signer.Write(b.ID[:])
-	signer.Write([]byte(b.Group))
 	signer.Write([]byte(b.Type))
+	for k, v := range b.Metadata {
+		signer.Write([]byte(k))
+		signer.Write(v)
+	}
 	signer.Write(b.Data)
 	sig, err := signer.Sign(v)
 	if err != nil {

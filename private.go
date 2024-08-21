@@ -14,7 +14,7 @@ import (
 	"github.com/karalef/quark/pack"
 )
 
-func EncryptKey(p PrivateKey, passphrase string, scheme password.Scheme, kdfParams kdf.Params) (*EncryptedKey, error) {
+func EncryptKey(p *PrivateKey, passphrase string, scheme password.Scheme, kdfParams kdf.Params) (*EncryptedKey, error) {
 	if p == nil || scheme == nil || kdfParams == nil || passphrase == "" {
 		return nil, errors.New("invalid parameters")
 	}
@@ -31,13 +31,14 @@ func EncryptKey(p PrivateKey, passphrase string, scheme password.Scheme, kdfPara
 	cipher.Crypt(key, key)
 
 	return &EncryptedKey{
-		Scheme:     p.Scheme(),
-		Key:        key,
-		IV:         iv,
-		Salt:       salt,
-		Tag:        cipher.Tag(nil),
-		PassScheme: scheme,
-		KDFParams:  kdfParams,
+		Fingerprint: p.Fingerprint(),
+		Scheme:      p.Scheme(),
+		Key:         key,
+		IV:          iv,
+		Salt:        salt,
+		Tag:         cipher.Tag(nil),
+		PassScheme:  scheme,
+		KDFParams:   kdfParams,
 	}, nil
 }
 
@@ -46,8 +47,9 @@ var _ pack.CustomDecoder = (*EncryptedKey)(nil)
 
 // EncryptedKey is used to store the private key encrypted with passphrase.
 type EncryptedKey struct {
-	Scheme sign.Scheme
-	Key    []byte
+	Fingerprint Fingerprint
+	Scheme      sign.Scheme
+	Key         []byte
 
 	IV         []byte
 	Salt       []byte
@@ -65,6 +67,7 @@ func (p *EncryptedKey) EncodeMsgpack(enc *pack.Encoder) error {
 		return errors.New("invalid key")
 	}
 	return enc.EncodeMap(map[string]interface{}{
+		"fp":         p.Fingerprint,
 		"algorithm":  p.Scheme.Name(),
 		"key":        p.Key,
 		"iv":         p.IV,
@@ -82,6 +85,7 @@ func (p *EncryptedKey) DecodeMsgpack(dec *pack.Decoder) error {
 		return err
 	}
 
+	p.Fingerprint = m["fp"].(Fingerprint)
 	p.Scheme = sign.ByName(m["algorithm"].(string))
 	p.Key = m["key"].([]byte)
 	p.IV = m["iv"].([]byte)
@@ -101,7 +105,7 @@ func (p *EncryptedKey) DecodeMsgpack(dec *pack.Decoder) error {
 	return nil
 }
 
-func (p *EncryptedKey) Decrypt(passphrase string) (PrivateKey, error) {
+func (p *EncryptedKey) Decrypt(passphrase string) (*PrivateKey, error) {
 	cipher, err := p.PassScheme.Decrypter(passphrase, p.IV, p.Salt, []byte(p.Scheme.Name()), p.KDFParams)
 	if err != nil {
 		return nil, err
@@ -118,33 +122,28 @@ func (p *EncryptedKey) Decrypt(passphrase string) (PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &privateKey{
-		PrivateKey: priv,
-		publicKey: &publicKey{
-			PublicKey: priv.Public(),
+	return &PrivateKey{
+		sk: priv,
+		pk: &PublicKey{
+			pk: priv.Public(),
 		},
 	}, nil
 }
 
-type privateKey struct {
-	sign.PrivateKey
-	*publicKey
+type PrivateKey struct {
+	sk sign.PrivateKey
+	pk *PublicKey
 }
 
-func (p privateKey) Equal(other PrivateKey) bool {
-	if other, ok := other.(*privateKey); ok {
-		return p.PrivateKey.Equal(other.PrivateKey)
+func (p *PrivateKey) ID() ID                   { return p.Public().ID() }
+func (p *PrivateKey) Fingerprint() Fingerprint { return p.Public().Fingerprint() }
+func (p *PrivateKey) Scheme() sign.Scheme      { return p.sk.Scheme() }
+func (p *PrivateKey) Sign(data []byte) []byte  { return p.sk.Sign(data) }
+func (p *PrivateKey) Raw() sign.PrivateKey     { return p.sk }
+
+func (p *PrivateKey) Public() *PublicKey {
+	if p.pk == nil {
+		p.pk = &PublicKey{pk: p.sk.Public()}
 	}
-	return false
-}
-
-func (p *privateKey) Raw() sign.PrivateKey {
-	return p.PrivateKey
-}
-
-func (p *privateKey) Public() PublicKey {
-	if p.publicKey == nil {
-		p.publicKey = &publicKey{PublicKey: p.PrivateKey.Public()}
-	}
-	return p.publicKey
+	return p.pk
 }

@@ -34,13 +34,11 @@ var ImportCMD = &cli.Command{
 		var fp quark.Fingerprint
 		switch v.PacketTag() {
 		case quark.PacketTagIdentity:
-			ident := v.(quark.Identity)
-			fp = ident.Fingerprint()
-			err = importPub(ks, ident)
+			ident := v.(*quark.Identity)
+			fp, err = importIdentity(ks, ident)
 		case quark.PacketTagPrivateKey:
-			priv := v.(quark.PrivateKey)
-			fp = priv.Fingerprint()
-			err = ks.ImportPrivate(priv)
+			priv := v.(*quark.EncryptedKey)
+			fp, err = importPrivate(ks, priv)
 		default:
 			return cli.Exit("input does not contain a key", 1)
 		}
@@ -54,13 +52,17 @@ var ImportCMD = &cli.Command{
 	},
 }
 
-func importPub(ks keystore.Keystore, identity quark.Identity) error {
+func importIdentity(ks keystore.Keystore, identity *quark.Identity) (fp quark.Fingerprint, err error) {
 	yes, err := cmdio.YesNo(identity.Fingerprint().String() + "\ndoes the key fingerprint match?")
 	if err != nil {
-		return err
+		return fp, err
 	}
 	if !yes {
-		return cli.Exit("import cancelled", 1)
+		return fp, cli.Exit("import cancelled", 1)
 	}
-	return ks.Import(identity, nil)
+	return identity.Fingerprint(), ks.Import(identity)
+}
+
+func importPrivate(ks keystore.Keystore, esk *quark.EncryptedKey) (quark.Fingerprint, error) {
+	panic("unimplemented")
 }

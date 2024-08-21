@@ -29,7 +29,7 @@ var ListCMD = &cli.Command{
 	},
 }
 
-func printIdent(id quark.Identity) {
+func printIdent(id *quark.Identity) {
 	created, v := id.Validity()
 	cmdio.Statusf("%s %s\n%s\n%s\t", id.ID(), id.Key().Scheme().Name(), id.Fingerprint(), time.Unix(created, 0))
 	if v.Revoked != 0 {
