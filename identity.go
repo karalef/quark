@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/karalef/quark/crypto"
-	"github.com/karalef/quark/crypto/sign"
+	"github.com/karalef/quark/keys"
+	"github.com/karalef/quark/keys/sign"
 	"github.com/karalef/quark/pack"
 )
 
@@ -18,7 +19,7 @@ func Generate(scheme sign.Scheme, expires int64) (*Identity, *PrivateKey, error)
 
 // Derive deterministically creates a new key and an identity.
 func Derive(scheme sign.Scheme, expires int64, seed []byte) (*Identity, *PrivateKey, error) {
-	pk, sk, err := DeriveKey(scheme, seed)
+	pk, sk, err := sign.DeriveKey(scheme, seed)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -294,7 +295,7 @@ func (*Identity) PacketTag() pack.Tag { return PacketTagIdentity }
 // EncodeMsgpack implements pack.CustomEncoder interface.
 func (p Identity) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.Encode(idModel{
-		Public: &KeyModel{
+		Public: &keys.Model{
 			Algorithm: p.Key().Raw().Scheme().Name(),
 			Key:       p.Key().Raw().Pack(),
 		},
@@ -315,18 +316,11 @@ func (p *Identity) DecodeMsgpack(dec *pack.Decoder) (err error) {
 	if m.Public == nil {
 		return UnpackError("object does not contain public key")
 	}
-	scheme := sign.ByName(m.Public.Algorithm)
-	if scheme == nil {
-		return UnpackError("scheme not found: " + m.Public.Algorithm)
-	}
-	if len(m.Public.Key) != scheme.PublicKeySize() {
-		return UnpackError("invalid public key size")
-	}
-	key, err := scheme.UnpackPublic(m.Public.Key)
+	pub, err := sign.UnpackModelPublic(*m.Public)
 	if err != nil {
-		return UnpackError("invalid public key: " + err.Error())
+		return UnpackError(err.Error())
 	}
-	p.pk = Pub(key)
+	p.pk = pub
 	p.esk = m.Private
 	p.created = m.Created
 	p.self = m.Self

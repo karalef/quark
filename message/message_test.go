@@ -7,20 +7,20 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/kdf"
-	"github.com/karalef/quark/crypto/kem"
+	cryptokem "github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/encaps"
+	"github.com/karalef/quark/keys/kem"
 	"github.com/karalef/quark/message/compress"
 	"github.com/karalef/quark/pack"
 )
 
 func TestMessage(t *testing.T) {
-	_, sk, _, _, err := test_create(sign.EDDilithium3, kem.Kyber768)
+	_, sk, _, _, err := test_create(sign.EDDilithium3, cryptokem.Kyber768)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, _, _, _, err = test_create(sign.EDDilithium2, kem.Kyber1024)
+	_, _, _, _, err = test_create(sign.EDDilithium2, cryptokem.Kyber1024)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,13 +88,13 @@ func TestMessage(t *testing.T) {
 	t.Log(receivedPlaintext.String())
 }
 
-func test_create(scheme sign.Scheme, kem kem.Scheme) (*quark.Identity, *quark.PrivateKey, *encaps.PrivateKey, *encaps.PublicKey, error) {
+func test_create(scheme sign.Scheme, kemScheme kem.Scheme) (*quark.Identity, *quark.PrivateKey, *kem.PrivateKey, *kem.PublicKey, error) {
 	id, sk, err := quark.Generate(scheme, 0)
 	if err != nil {
 		return id, sk, nil, nil, err
 	}
 
-	kpk, ksk, err := encaps.Generate(kem)
+	kpk, ksk, err := kem.Generate(kemScheme)
 	if err != nil {
 		return id, sk, nil, nil, err
 	}

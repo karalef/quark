@@ -51,21 +51,3 @@ func (c chainedCloser) Close() error {
 	}
 	return c.c.Close()
 }
-
-func ReverseWriter(r io.Reader, f func(io.Writer) (io.WriteCloser, error)) (io.Reader, error) {
-	pr, pw := io.Pipe()
-	w, err := f(pw)
-	if err != nil {
-		return nil, err
-	}
-	go func(r io.Reader) {
-		_, _ = io.Copy(w, r)
-		_ = w.Close()
-		_ = pw.Close()
-	}(r)
-	return pr, nil
-}
-
-func ReverseReader(w io.WriteCloser, f func(io.Reader) (io.Reader, error)) (io.WriteCloser, error) {
-	panic("unimplemented")
-}

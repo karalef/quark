@@ -3,7 +3,6 @@ package message
 import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/message/compress"
-	"github.com/karalef/quark/message/encryption"
 	"github.com/karalef/quark/pack"
 )
 
@@ -28,7 +27,7 @@ type Header struct {
 	Time int64 `msgpack:"time,omitempty"`
 
 	// If not nil, message is encrypted.
-	Encryption *encryption.Encryption `msgpack:"encryption,omitempty"`
+	Encryption *Encryption `msgpack:"encryption,omitempty"`
 
 	// If not nil, message is compressed.
 	Compression *Compression `msgpack:"compression,omitempty"`

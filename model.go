@@ -1,14 +1,13 @@
 package quark
 
-// KeyModel contains packed immutable parts of the key.
-type KeyModel struct {
-	Algorithm string `msgpack:"algorithm"`
-	Key       []byte `msgpack:"key"`
-}
+import (
+	"github.com/karalef/quark/keys"
+	"github.com/karalef/quark/keys/sign"
+)
 
 type idModel struct {
-	Public  *KeyModel     `msgpack:"public,omitempty"`
-	Private *EncryptedKey `msgpack:"private,omitempty"`
+	Public  *keys.Model     `msgpack:"public,omitempty"`
+	Private *sign.Encrypted `msgpack:"private,omitempty"`
 
 	Bindings       []Binding   `msgpack:"bindings,omitempty"`
 	Certifications []Signature `msgpack:"certifications"`

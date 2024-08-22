@@ -12,10 +12,9 @@ import (
 	"github.com/karalef/quark/crypto/password"
 	"github.com/karalef/quark/crypto/secret"
 	"github.com/karalef/quark/crypto/xof"
-	"github.com/karalef/quark/encaps"
 	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/keys/kem"
 	"github.com/karalef/quark/message/compress"
-	"github.com/karalef/quark/message/encryption"
 	"github.com/karalef/quark/pack"
 )
 
@@ -24,7 +23,7 @@ type Opt func(*messageOpts)
 
 // WithEncryption enables encryption based on key encapsulation mechanism.
 // Panics if recipient is nil.
-func WithEncryption(recipient *encaps.PublicKey, scheme ...secret.Scheme) Opt {
+func WithEncryption(recipient *kem.PublicKey, scheme ...secret.Scheme) Opt {
 	if recipient == nil {
 		panic("nil recipient")
 	}
@@ -88,7 +87,7 @@ type messageOpts struct {
 	sender *quark.PrivateKey
 	expiry int64
 
-	recipient *encaps.PublicKey
+	recipient *kem.PublicKey
 	scheme    secret.Scheme
 
 	password       string
@@ -142,7 +141,7 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 		if messageOpts.scheme == nil {
 			messageOpts.scheme = DefaultSecretScheme
 		}
-		cipher, enc, err := encryption.Encapsulate(messageOpts.scheme, recipient, nil)
+		cipher, enc, err := Encapsulate(messageOpts.scheme, recipient, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +157,7 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 		if messageOpts.passwordScheme == nil {
 			messageOpts.passwordScheme = DefaultPasswordScheme
 		}
-		cipher, enc, err := encryption.PasswordEncrypt(messageOpts.passwordScheme, messageOpts.password, nil, messageOpts.KDFParams)
+		cipher, enc, err := Password(messageOpts.passwordScheme, messageOpts.password, nil, messageOpts.KDFParams)
 		if err != nil {
 			return nil, err
 		}

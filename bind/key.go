@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/crypto/kem"
-	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/encaps"
+	"github.com/karalef/quark/keys"
+	"github.com/karalef/quark/keys/kem"
+	"github.com/karalef/quark/keys/sign"
 	"github.com/karalef/quark/pack"
 )
 
@@ -19,28 +19,28 @@ const (
 )
 
 // NewKey returns a new key binding data.
-func NewKey(key *quark.PublicKey, md Metadata) (BindingData, error) {
+func NewKey(key *sign.PublicKey, md Metadata) (BindingData, error) {
 	if key == nil {
 		return BindingData{}, errors.New("nil key")
 	}
-	return newKey(quark.KeyModel{
+	return newKey(keys.Model{
 		Algorithm: key.Scheme().Name(),
 		Key:       key.Raw().Pack(),
 	}, TypeSignKey, md)
 }
 
 // NewKEM returns a new KEM key binding data.
-func NewKEM(key *encaps.PublicKey, md Metadata) (BindingData, error) {
+func NewKEM(key *kem.PublicKey, md Metadata) (BindingData, error) {
 	if key == nil {
 		return BindingData{}, errors.New("nil key")
 	}
-	return newKey(quark.KeyModel{
+	return newKey(keys.Model{
 		Algorithm: key.Scheme().Name(),
 		Key:       key.Raw().Pack(),
 	}, TypeKEMKey, md)
 }
 
-func newKey(m quark.KeyModel, typ Type, md Metadata) (BindingData, error) {
+func newKey(m keys.Model, typ Type, md Metadata) (BindingData, error) {
 	b := bytes.NewBuffer(nil)
 	err := pack.EncodeBinary(b, m)
 	if err != nil {
@@ -55,7 +55,7 @@ func newKey(m quark.KeyModel, typ Type, md Metadata) (BindingData, error) {
 }
 
 // Key binds a key to the identity.
-func Key(id *quark.Identity, sk *quark.PrivateKey, md Metadata, key *quark.PublicKey, expires int64) (Binding, error) {
+func Key(id *quark.Identity, sk *sign.PrivateKey, md Metadata, key *sign.PublicKey, expires int64) (Binding, error) {
 	bd, err := NewKey(key, md)
 	if err != nil {
 		return Binding{}, err
@@ -64,7 +64,7 @@ func Key(id *quark.Identity, sk *quark.PrivateKey, md Metadata, key *quark.Publi
 }
 
 // KEM binds a KEM key to the identity.
-func KEM(id *quark.Identity, sk *quark.PrivateKey, md Metadata, key *encaps.PublicKey, expires int64) (Binding, error) {
+func KEM(id *quark.Identity, sk *sign.PrivateKey, md Metadata, key *kem.PublicKey, expires int64) (Binding, error) {
 	bd, err := NewKEM(key, md)
 	if err != nil {
 		return Binding{}, err
@@ -72,15 +72,15 @@ func KEM(id *quark.Identity, sk *quark.PrivateKey, md Metadata, key *encaps.Publ
 	return id.Bind(sk, bd, expires)
 }
 
-func decodeKey(b Binding, typ Type) (*quark.KeyModel, error) {
+func decodeKey(b Binding, typ Type) (*keys.Model, error) {
 	if b.Type != typ {
 		return nil, errors.New("invalid type")
 	}
-	return pack.DecodeBinaryNew[quark.KeyModel](bytes.NewReader(b.Data))
+	return pack.DecodeBinaryNew[keys.Model](bytes.NewReader(b.Data))
 }
 
 // DecodeKey decodes a key from the binding.
-func DecodeKey(b Binding) (*quark.PublicKey, error) {
+func DecodeKey(b Binding) (*sign.PublicKey, error) {
 	m, err := decodeKey(b, TypeSignKey)
 	if err != nil {
 		return nil, err
@@ -93,11 +93,11 @@ func DecodeKey(b Binding) (*quark.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return quark.Pub(key), nil
+	return sign.Pub(key), nil
 }
 
 // DecodeKEM decodes a KEM key from the binding.
-func DecodeKEM(b Binding) (*encaps.PublicKey, error) {
+func DecodeKEM(b Binding) (*kem.PublicKey, error) {
 	m, err := decodeKey(b, TypeKEMKey)
 	if err != nil {
 		return nil, err
@@ -110,5 +110,5 @@ func DecodeKEM(b Binding) (*encaps.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return encaps.Pub(key), nil
+	return kem.Pub(key), nil
 }

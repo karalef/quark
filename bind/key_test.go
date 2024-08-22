@@ -5,14 +5,15 @@ import (
 	"time"
 
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/crypto/kem"
-	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/encaps"
+	cryptokem "github.com/karalef/quark/crypto/kem"
+	cryptosign "github.com/karalef/quark/crypto/sign"
+	"github.com/karalef/quark/keys/kem"
+	"github.com/karalef/quark/keys/sign"
 	"github.com/karalef/quark/pack"
 )
 
 func TestIdentity(t *testing.T) {
-	id, sk, err := quark.Generate(sign.EDDilithium3, time.Now().Add(1000*time.Hour).Unix())
+	id, sk, err := quark.Generate(cryptosign.EDDilithium3, time.Now().Add(1000*time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,25 +21,19 @@ func TestIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	spk, _ := func() (*quark.PublicKey, *quark.PrivateKey) {
-		sk, pk, err := sign.Generate(sign.EDDilithium2, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return quark.Keys(pk, sk)
-	}()
+	spk, _, err := sign.Generate(cryptosign.EDDilithium2)
+	if err != nil {
+		t.Fatal(err)
+	}
 	b, err := Key(id, sk, nil, spk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	kpk, _ := func() (*encaps.PublicKey, *encaps.PrivateKey) {
-		pk, sk, err := encaps.Generate(kem.Kyber768)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return pk, sk
-	}()
+	kpk, _, err := kem.Generate(cryptokem.Kyber768)
+	if err != nil {
+		t.Fatal(err)
+	}
 	b, err = KEM(id, sk, nil, kpk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)

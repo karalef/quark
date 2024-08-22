@@ -2,11 +2,14 @@ package internal
 
 import "strings"
 
+// Scheme interface.
+type Scheme interface {
+	Name() string
+}
+
 // Schemes is a base type for schemes map.
 // Names are stored in uppercase.
-type Schemes[T interface {
-	Name() string
-}] map[string]T
+type Schemes[T Scheme] map[string]T
 
 func (schemes Schemes[T]) Register(scheme T) {
 	name := strings.ToUpper(scheme.Name())
