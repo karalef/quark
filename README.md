@@ -1,25 +1,30 @@
 # Quark
 
-Quark is a post-quantum cryptography tool inspired by GnuPG with a modern cli interface.
+Quark is a post-quantum crypto-secure identity.
 
 ## Why?
 
 *"Imagine that it's fifteen years from now. Somebody announces that he's built a large quantum computer. RSA is dead. DSA is dead. Elliptic curves, hyperelliptic curves, class groups, whatever, dead, dead, dead. So users are going to run around screaming and say 'Oh my God, what do we do?'..."* - https://pqcrypto.org
 
-## Installation
+## Usage
 
 ### [Using go](https://pkg.go.dev/cmd/go#hdr-Compile_and_install_packages_and_dependencies)
 ```sh
-go install github.com/karalef/quark/cmd/quark@v0.2.0
+go get github.com/karalef/quark
 ```
 
-### Clone & build
-```sh
-git clone https://github.com/karalef/quark
+```go
+package main
 
-cd quark
+import (
+    "time"
 
-git checkout v0.2.0
+    "github.com/karalef/quark"
+    "github.com/karalef/quark/crypto/sign"
+)
 
-go build -o path/to/binary ./cmd/quark
+func main() {
+    identity, err := quark.Generate(sign.EDDilithium3, 365*24*time.Hour)
+    ...
+}
 ```
