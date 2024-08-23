@@ -37,7 +37,8 @@ func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 		return nil, nil, ErrSeedSize
 	}
 	pub, priv := s.Scheme.DeriveKeyPair(seed)
-	return &circlPrivKey{priv, s}, &circlPubKey{pub, s}, nil
+	pk, sk := newKeys(&circlPubKey{pub, s}, &circlPrivKey{priv, s})
+	return sk, pk, nil
 }
 
 func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
@@ -48,10 +49,7 @@ func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &circlPubKey{
-		sch: s,
-		pk:  pub,
-	}, nil
+	return newPub(&circlPubKey{sch: s, pk: pub}), nil
 }
 
 func (s circlScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
@@ -62,15 +60,13 @@ func (s circlScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &circlPrivKey{
-		sch: s,
-		sk:  priv,
-	}, nil
+	_, sk := newKeys(nil, &circlPrivKey{priv, s})
+	return sk, nil
 }
 
 func (s circlScheme) SharedSecretSize() int { return s.Scheme.SharedKeySize() }
 
-var _ PrivateKey = &circlPrivKey{}
+var _ rawPrivateKey = &circlPrivKey{}
 
 type circlPrivKey struct {
 	sk  circlkem.PrivateKey
@@ -79,7 +75,7 @@ type circlPrivKey struct {
 
 func (priv *circlPrivKey) Scheme() Scheme { return priv.sch }
 
-func (priv *circlPrivKey) Public() PublicKey {
+func (priv *circlPrivKey) Public() rawPublicKey {
 	return &circlPubKey{priv.sk.Public(), priv.sch}
 }
 
@@ -88,7 +84,7 @@ func (priv *circlPrivKey) Pack() []byte {
 	return b
 }
 
-func (priv *circlPrivKey) Equal(p PrivateKey) bool {
+func (priv *circlPrivKey) Equal(p rawPrivateKey) bool {
 	pk, ok := p.(*circlPrivKey)
 	return ok && priv.sk.Equal(pk.sk)
 }
@@ -100,7 +96,7 @@ func (priv *circlPrivKey) Decapsulate(ciphertext []byte) ([]byte, error) {
 	return priv.sch.Decapsulate(priv.sk, ciphertext)
 }
 
-var _ PublicKey = &circlPubKey{}
+var _ rawPublicKey = &circlPubKey{}
 
 type circlPubKey struct {
 	pk  circlkem.PublicKey
@@ -114,7 +110,7 @@ func (pub *circlPubKey) Pack() []byte {
 	return b
 }
 
-func (pub *circlPubKey) Equal(p PublicKey) bool {
+func (pub *circlPubKey) Equal(p rawPublicKey) bool {
 	pk, ok := p.(*circlPubKey)
 	if !ok {
 		return false

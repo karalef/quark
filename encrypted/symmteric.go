@@ -2,6 +2,7 @@ package encrypted
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
@@ -28,9 +29,7 @@ func Encrypt(scheme secret.Scheme, sharedSecret, ad []byte) (aead.Cipher, *Symme
 	}
 
 	iv := crypto.Rand(scheme.AEAD().Cipher().IVSize())
-
-	sch := Scheme{scheme.AEAD()}
-	ad = append(ad[:len(ad):len(ad)], []byte(sch.String()+"-"+scheme.XOF().Name())...)
+	ad = append(ad[:len(ad):len(ad)], []byte(strings.ToUpper(scheme.Name()))...)
 
 	aead, err := scheme.Encrypter(iv, sharedSecret, ad)
 	if err != nil {
@@ -40,7 +39,7 @@ func Encrypt(scheme secret.Scheme, sharedSecret, ad []byte) (aead.Cipher, *Symme
 	return aead, &Symmetric{
 		XOF:    &XOF{scheme.XOF()},
 		IV:     iv,
-		Scheme: sch,
+		Scheme: Scheme{scheme.AEAD()},
 	}, nil
 }
 
@@ -57,8 +56,7 @@ func PasswordEncrypt(scheme password.Scheme, passphrase string, saltSize int, ad
 	iv := crypto.Rand(scheme.AEAD().Cipher().IVSize())
 	salt := crypto.Rand(saltSize)
 
-	sch := Scheme{scheme.AEAD()}
-	ad = append(ad[:len(ad):len(ad)], []byte(sch.String()+"-"+scheme.KDF().Name())...)
+	ad = append(ad[:len(ad):len(ad)], []byte(strings.ToUpper(scheme.Name()))...)
 
 	aead, err := scheme.Encrypter(passphrase, iv, salt, ad, params)
 	if err != nil {
@@ -72,22 +70,23 @@ func PasswordEncrypt(scheme password.Scheme, passphrase string, saltSize int, ad
 			Salt:   salt,
 		},
 		IV:     iv,
-		Scheme: sch,
+		Scheme: Scheme{scheme.AEAD()},
 	}, nil
 }
 
 // Decrypt creates a new AEAD cipher using shared secret.
 // It automatically appends the scheme to the additional data.
 func (s Symmetric) Decrypt(sharedSecret, ad []byte) (aead.Cipher, error) {
-	ad = append(ad[:len(ad):len(ad)], []byte(s.Scheme.String()+"-"+s.XOF.Name())...)
-	return secret.Build(s.Scheme, s.XOF.XOF).Decrypter(s.IV, sharedSecret, ad)
+	scheme := secret.Build(s.Scheme, s.XOF.XOF)
+	ad = append(ad[:len(ad):len(ad)], []byte(strings.ToUpper(scheme.Name()))...)
+	return scheme.Decrypter(s.IV, sharedSecret, ad)
 }
 
 // PasswordDecrypt creates a new AEAD cipher using passphrase.
 // It automatically appends the scheme to the additional data.
 func (s Symmetric) PasswordDecrypt(passphrase string, ad []byte) (aead.Cipher, error) {
 	scheme := password.Build(s.Scheme, s.Password.KDF)
-	ad = append(ad[:len(ad):len(ad)], []byte(s.Scheme.String()+"-"+s.Password.KDF.Name())...)
+	ad = append(ad[:len(ad):len(ad)], []byte(strings.ToUpper(scheme.Name()))...)
 	return scheme.Decrypter(passphrase, s.IV, s.Password.Salt, ad, s.Password.Params)
 }
 

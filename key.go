@@ -1,30 +1,20 @@
 package quark
 
 import (
-	"errors"
-
+	"github.com/karalef/quark/crypto"
+	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/keys"
-	"github.com/karalef/quark/keys/sign"
-)
-
-// id sizes.
-const (
-	IDSize       = keys.IDSize
-	IDStringSize = keys.IDStringSize
-	FPSize       = keys.FPSize
-	FPStringSize = keys.FPStringSize
 )
 
 type (
-	ID          = keys.ID
-	Fingerprint = keys.Fingerprint
+	ID          = crypto.ID
+	Fingerprint = crypto.Fingerprint
 
 	PublicKey    = sign.PublicKey
 	PrivateKey   = sign.PrivateKey
-	EncryptedKey = sign.Encrypted
+	EncryptedKey = keys.EncryptedSign
 )
 
-// key errors.
 var (
-	ErrKeyNotCorrespond = errors.New("the public key does not correspond to the private key")
+	ErrKeyNotCorrespond = crypto.ErrKeyNotCorrespond
 )

@@ -7,20 +7,19 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/kdf"
-	cryptokem "github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/keys/kem"
 	"github.com/karalef/quark/message/compress"
 	"github.com/karalef/quark/pack"
 )
 
 func TestMessage(t *testing.T) {
-	_, sk, _, _, err := test_create(sign.EDDilithium3, cryptokem.Kyber768)
+	_, sk, _, _, err := test_create(sign.EDDilithium3, kem.Kyber768)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, _, _, _, err = test_create(sign.EDDilithium2, cryptokem.Kyber1024)
+	_, _, _, _, err = test_create(sign.EDDilithium2, kem.Kyber1024)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +76,7 @@ func TestMessage(t *testing.T) {
 	}
 
 	//t.Log("kem:", ksk2.Scheme().Name())
-	t.Log("password ecnryption:", received.Header.Encryption.Symmetric.Scheme.String(), "with", received.Header.Encryption.Symmetric.Password.KDF.Name())
+	t.Log("password ecnryption:", received.Header.Encryption.Symmetric.Scheme.Name(), "with", received.Header.Encryption.Symmetric.Password.KDF.Name())
 	//t.Log("symmetric:", received.Header.Encryption.Symmetric.Scheme.String())
 	issuer := received.Auth.Signature.Issuer
 	t.Log("signed with:", sk.Scheme().Name(), issuer)
@@ -88,13 +87,13 @@ func TestMessage(t *testing.T) {
 	t.Log(receivedPlaintext.String())
 }
 
-func test_create(scheme sign.Scheme, kemScheme kem.Scheme) (*quark.Identity, *quark.PrivateKey, *kem.PrivateKey, *kem.PublicKey, error) {
+func test_create(scheme sign.Scheme, kemScheme kem.Scheme) (*quark.Identity, quark.PrivateKey, kem.PrivateKey, kem.PublicKey, error) {
 	id, sk, err := quark.Generate(scheme, 0)
 	if err != nil {
 		return id, sk, nil, nil, err
 	}
 
-	kpk, ksk, err := kem.Generate(kemScheme)
+	ksk, kpk, err := kem.Generate(kemScheme, nil)
 	if err != nil {
 		return id, sk, nil, nil, err
 	}

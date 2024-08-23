@@ -12,24 +12,6 @@ import (
 	"github.com/karalef/quark/pack"
 )
 
-func schemeToString(subSchemes ...internal.Scheme) string {
-	l := 0
-	for _, s := range subSchemes {
-		l += len(s.Name())
-	}
-	b := strings.Builder{}
-	b.Grow(l + len(subSchemes) - 1)
-
-	for i, s := range subSchemes {
-		b.WriteString(strings.ToUpper(s.Name()))
-		if i < len(subSchemes)-1 {
-			b.WriteByte('-')
-		}
-	}
-
-	return b.String()
-}
-
 var _ pack.CustomEncoder = (*XOF)(nil)
 var _ pack.CustomDecoder = (*XOF)(nil)
 
@@ -103,24 +85,20 @@ type Scheme struct {
 	aead.Scheme
 }
 
-func (s Scheme) String() string {
-	return schemeToString(s.Cipher(), s.MAC())
-}
-
 // EncodeMsgpack implements pack.CustomEncoder.
 func (s Scheme) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.EncodeString(s.String())
+	return enc.EncodeString(s.Name())
 }
 
 // Parse parses a symmetric encryption scheme.
 func (s *Scheme) Parse(str string) error {
-	cipherAlg, macAlg, ok := strings.Cut(str, "-")
-	if !ok {
+	scheme := internal.SplitSchemeName(str)
+	if len(scheme) != 2 {
 		return ErrInvalidScheme
 	}
 
-	cipher := cipher.ByName(cipherAlg)
-	mac := mac.ByName(macAlg)
+	cipher := cipher.ByName(scheme[0])
+	mac := mac.ByName(scheme[1])
 	if cipher == nil || mac == nil {
 		return ErrInvalidScheme
 	}

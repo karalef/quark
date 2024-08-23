@@ -7,6 +7,30 @@ type Scheme interface {
 	Name() string
 }
 
+// CompleteSchemeName combines scheme names.
+func CompleteSchemeName(subSchemes ...Scheme) string {
+	l := 0
+	for _, s := range subSchemes {
+		l += len(s.Name())
+	}
+	b := strings.Builder{}
+	b.Grow(l + len(subSchemes) - 1)
+
+	for i, s := range subSchemes {
+		b.WriteString(strings.ToUpper(s.Name()))
+		if i < len(subSchemes)-1 {
+			b.WriteByte('-')
+		}
+	}
+
+	return b.String()
+}
+
+// SplitSchemeName splits scheme names.
+func SplitSchemeName(scheme string) []string {
+	return strings.Split(scheme, "-")
+}
+
 // Schemes is a base type for schemes map.
 // Names are stored in uppercase.
 type Schemes[T Scheme] map[string]T

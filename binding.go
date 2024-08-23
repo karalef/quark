@@ -43,7 +43,7 @@ func (b BindID) IsEmpty() bool { return b == BindID{} }
 func (b BindID) String() string { return crockford.Upper.EncodeToString(b[:]) }
 
 // NewBinding returns a new binding.
-func NewBinding(key *PublicKey, d BindingData) Binding {
+func NewBinding(key PublicKey, d BindingData) Binding {
 	b := Binding{
 		Type:     d.Type,
 		Metadata: d.Metadata.Copy(),
@@ -112,11 +112,11 @@ func (b Binding) Copy() Binding {
 }
 
 // CheckIntegrity validates the binding integrity.
-func (b Binding) CheckIntegrity(pk *PublicKey) bool {
+func (b Binding) CheckIntegrity(pk PublicKey) bool {
 	return b.ID == b.calcID(pk)
 }
 
-func (b Binding) calcID(pk *PublicKey) (id BindID) {
+func (b Binding) calcID(pk PublicKey) (id BindID) {
 	h := hash.SHA3_256.New()
 	h.Write(pk.Fingerprint().Bytes())
 	h.Write([]byte(b.Type))
@@ -128,7 +128,7 @@ func (b Binding) calcID(pk *PublicKey) (id BindID) {
 	return BindID(h.Sum(id[:0]))
 }
 
-func (b *Binding) sign(sk *PrivateKey, v Validity) error {
+func (b *Binding) sign(sk PrivateKey, v Validity) error {
 	signer := SignStream(sk)
 	signer.Write(b.ID[:])
 	signer.Write([]byte(b.Type))

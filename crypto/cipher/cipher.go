@@ -12,7 +12,7 @@ type Cipher = stdcipher.Stream
 
 // Scheme type.
 type Scheme interface {
-	Name() string
+	internal.Scheme
 
 	KeySize() int
 	IVSize() int

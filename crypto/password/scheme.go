@@ -3,6 +3,7 @@ package password
 import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kdf"
+	"github.com/karalef/quark/internal"
 )
 
 // Build creates a password-based authenticated encryption scheme.
@@ -12,16 +13,19 @@ func Build(aead aead.Scheme, kdf kdf.KDF) Scheme {
 		panic("password.Build: nil scheme part")
 	}
 	return &scheme{
+		name: internal.CompleteSchemeName(aead, kdf),
 		aead: aead,
 		kdf:  kdf,
 	}
 }
 
 type scheme struct {
+	name string
 	aead aead.Scheme
 	kdf  kdf.KDF
 }
 
+func (s scheme) Name() string      { return s.name }
 func (s scheme) AEAD() aead.Scheme { return s.aead }
 func (s scheme) KDF() kdf.KDF      { return s.kdf }
 

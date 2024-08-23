@@ -7,7 +7,7 @@ import (
 )
 
 // PacketTagMessage is a message packet tag.
-const PacketTagMessage = 0x03
+const PacketTagMessage = 0x04
 
 func init() {
 	pack.RegisterPacketType(pack.NewType(

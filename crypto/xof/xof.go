@@ -8,7 +8,7 @@ import (
 
 // XOF represents the hash function with arbitrary-length output.
 type XOF interface {
-	Name() string
+	internal.Scheme
 	New() State
 }
 

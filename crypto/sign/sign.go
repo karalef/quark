@@ -21,7 +21,7 @@ func Generate(s Scheme, rand io.Reader) (PrivateKey, PublicKey, error) {
 
 // Scheme represents signature scheme.
 type Scheme interface {
-	Name() string
+	crypto.Scheme
 
 	// DeriveKey derives a key-pair from a seed.
 	DeriveKey(seed []byte) (PrivateKey, PublicKey, error)
@@ -32,79 +32,26 @@ type Scheme interface {
 	// Unpacks a PrivateKey from the provided bytes.
 	UnpackPrivate(key []byte) (PrivateKey, error)
 
-	// Size of packed public keys.
-	PublicKeySize() int
-
-	// Size of packed private keys.
-	PrivateKeySize() int
-
 	// Size of signatures.
 	SignatureSize() int
-
-	// Size of seed.
-	SeedSize() int
-}
-
-// Signer represents a signature state.
-type Signer interface {
-	io.Writer
-
-	// Reset resets the Signer.
-	Reset()
-
-	// Sign signs the written message and returns the signature.
-	Sign() []byte
-}
-
-// Verifier represents a signature verification state.
-type Verifier interface {
-	io.Writer
-
-	// Reset resets the Verifier.
-	Reset()
-
-	// Verify checks whether the given signature is a valid signature set by
-	// the private key corresponding to the specified public key on the
-	// written message.
-	// Returns an error if the signature does not match the scheme.
-	Verify(signature []byte) (bool, error)
 }
 
 // PrivateKey represents a signing private key.
 type PrivateKey interface {
-	Scheme() Scheme
+	crypto.Key[Scheme]
 	Public() PublicKey
 	Equal(PrivateKey) bool
-
-	// Pack allocates a new slice of bytes with Scheme().PrivateKeySize() length
-	// and writes the private key to it.
-	Pack() []byte
 
 	Sign([]byte) []byte
 }
 
 // PublicKey represents a signing public key.
 type PublicKey interface {
-	Scheme() Scheme
+	crypto.Key[Scheme]
+	CorrespondsTo(PrivateKey) bool
 	Equal(PublicKey) bool
 
-	// Pack allocates a new slice of bytes with Scheme().PublicKeySize() length
-	// and writes the public key to it.
-	Pack() []byte
-
 	Verify(message, signature []byte) (bool, error)
-}
-
-// StreamPrivateKey represents a private key supporting streaming signatures.
-type StreamPrivateKey interface {
-	PrivateKey
-	Signer() Signer
-}
-
-// StreamPublicKey represents a public key supporting streaming signatures.
-type StreamPublicKey interface {
-	PublicKey
-	Verifier() Verifier
 }
 
 // errors.

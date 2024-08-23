@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/keys"
-	"github.com/karalef/quark/keys/kem"
-	"github.com/karalef/quark/keys/sign"
 	"github.com/karalef/quark/pack"
 )
 
@@ -19,24 +19,24 @@ const (
 )
 
 // NewKey returns a new key binding data.
-func NewKey(key *sign.PublicKey, md Metadata) (BindingData, error) {
+func NewKey(key sign.PublicKey, md Metadata) (BindingData, error) {
 	if key == nil {
 		return BindingData{}, errors.New("nil key")
 	}
 	return newKey(keys.Model{
 		Algorithm: key.Scheme().Name(),
-		Key:       key.Raw().Pack(),
+		Key:       key.Pack(),
 	}, TypeSignKey, md)
 }
 
 // NewKEM returns a new KEM key binding data.
-func NewKEM(key *kem.PublicKey, md Metadata) (BindingData, error) {
+func NewKEM(key kem.PublicKey, md Metadata) (BindingData, error) {
 	if key == nil {
 		return BindingData{}, errors.New("nil key")
 	}
 	return newKey(keys.Model{
 		Algorithm: key.Scheme().Name(),
-		Key:       key.Raw().Pack(),
+		Key:       key.Pack(),
 	}, TypeKEMKey, md)
 }
 
@@ -55,7 +55,7 @@ func newKey(m keys.Model, typ Type, md Metadata) (BindingData, error) {
 }
 
 // Key binds a key to the identity.
-func Key(id *quark.Identity, sk *sign.PrivateKey, md Metadata, key *sign.PublicKey, expires int64) (Binding, error) {
+func Key(id *quark.Identity, sk sign.PrivateKey, md Metadata, key sign.PublicKey, expires int64) (Binding, error) {
 	bd, err := NewKey(key, md)
 	if err != nil {
 		return Binding{}, err
@@ -64,7 +64,7 @@ func Key(id *quark.Identity, sk *sign.PrivateKey, md Metadata, key *sign.PublicK
 }
 
 // KEM binds a KEM key to the identity.
-func KEM(id *quark.Identity, sk *sign.PrivateKey, md Metadata, key *kem.PublicKey, expires int64) (Binding, error) {
+func KEM(id *quark.Identity, sk sign.PrivateKey, md Metadata, key kem.PublicKey, expires int64) (Binding, error) {
 	bd, err := NewKEM(key, md)
 	if err != nil {
 		return Binding{}, err
@@ -80,7 +80,7 @@ func decodeKey(b Binding, typ Type) (*keys.Model, error) {
 }
 
 // DecodeKey decodes a key from the binding.
-func DecodeKey(b Binding) (*sign.PublicKey, error) {
+func DecodeKey(b Binding) (sign.PublicKey, error) {
 	m, err := decodeKey(b, TypeSignKey)
 	if err != nil {
 		return nil, err
@@ -89,15 +89,11 @@ func DecodeKey(b Binding) (*sign.PublicKey, error) {
 	if scheme == nil {
 		return nil, errors.New("unknown scheme")
 	}
-	key, err := scheme.UnpackPublic(m.Key)
-	if err != nil {
-		return nil, err
-	}
-	return sign.Pub(key), nil
+	return scheme.UnpackPublic(m.Key)
 }
 
 // DecodeKEM decodes a KEM key from the binding.
-func DecodeKEM(b Binding) (*kem.PublicKey, error) {
+func DecodeKEM(b Binding) (kem.PublicKey, error) {
 	m, err := decodeKey(b, TypeKEMKey)
 	if err != nil {
 		return nil, err
@@ -106,9 +102,5 @@ func DecodeKEM(b Binding) (*kem.PublicKey, error) {
 	if scheme == nil {
 		return nil, errors.New("unknown scheme")
 	}
-	key, err := scheme.UnpackPublic(m.Key)
-	if err != nil {
-		return nil, err
-	}
-	return kem.Pub(key), nil
+	return scheme.UnpackPublic(m.Key)
 }

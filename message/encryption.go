@@ -6,10 +6,10 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kdf"
+	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/password"
 	"github.com/karalef/quark/crypto/secret"
 	"github.com/karalef/quark/encrypted"
-	"github.com/karalef/quark/keys/kem"
 )
 
 // Encryption contains encapsulated shared secret with symmetric encryption parameters.
@@ -29,7 +29,7 @@ type Encryption struct {
 func (e *Encryption) IsEncapsulated() bool { return !e.ID.IsEmpty() }
 
 // Encapsulate generates and encapsulates a shared secret and creates an authenticated stream cipher.
-func Encapsulate(scheme secret.Scheme, recipient *kem.PublicKey, associatedData []byte) (aead.Cipher, *Encryption, error) {
+func Encapsulate(scheme secret.Scheme, recipient kem.PublicKey, associatedData []byte) (aead.Cipher, *Encryption, error) {
 	ciphertext, secret, err := kem.Encapsulate(recipient)
 	if err != nil {
 		return nil, nil, err
@@ -60,7 +60,7 @@ func Password(scheme password.Scheme, passphrase string, ad []byte, params kdf.P
 }
 
 // Decapsulate creates an authenticated cipher for recipient using encapsulated shared secret.
-func (e *Encryption) Decapsulate(recipient *kem.PrivateKey, ad []byte) (aead.Cipher, error) {
+func (e *Encryption) Decapsulate(recipient kem.PrivateKey, ad []byte) (aead.Cipher, error) {
 	if !e.IsEncapsulated() {
 		return nil, errors.New("there is no encapsulated shared secret")
 	}

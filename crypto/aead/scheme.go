@@ -3,10 +3,12 @@ package aead
 import (
 	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/mac"
+	"github.com/karalef/quark/internal"
 )
 
 // Scheme represents an AEAD scheme.
 type Scheme interface {
+	internal.Scheme
 	Cipher() cipher.Scheme
 	MAC() mac.Scheme
 
@@ -22,6 +24,7 @@ func Build(cipher cipher.Scheme, mac mac.Scheme) Scheme {
 		panic("nil scheme part")
 	}
 	return &scheme{
+		name:   internal.CompleteSchemeName(cipher, mac),
 		cipher: cipher,
 		mac:    mac,
 	}
@@ -30,10 +33,12 @@ func Build(cipher cipher.Scheme, mac mac.Scheme) Scheme {
 var _ Scheme = (*scheme)(nil)
 
 type scheme struct {
+	name   string
 	cipher cipher.Scheme
 	mac    mac.Scheme
 }
 
+func (s *scheme) Name() string          { return s.name }
 func (s *scheme) Cipher() cipher.Scheme { return s.cipher }
 func (s *scheme) MAC() mac.Scheme       { return s.mac }
 

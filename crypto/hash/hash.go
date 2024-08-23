@@ -16,7 +16,7 @@ type Hash = hash.Hash
 
 // Scheme represents a hash scheme and provides its parameters.
 type Scheme interface {
-	Name() string
+	internal.Scheme
 	Size() int
 	BlockSize() int
 	New() Hash

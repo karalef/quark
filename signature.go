@@ -10,15 +10,15 @@ import (
 )
 
 // Sign signs the message.
-func Sign(sk *PrivateKey, v Validity, message []byte) (Signature, error) {
+func Sign(sk PrivateKey, v Validity, message []byte) (Signature, error) {
 	signer := SignStream(sk)
 	signer.Write(message)
 	return signer.Sign(v)
 }
 
 // SignStream creates a Signer.
-func SignStream(sk *PrivateKey) *Signer {
-	signer := sign.StreamSigner(sk.Raw(), nil)
+func SignStream(sk PrivateKey) *Signer {
+	signer := sign.StreamSigner(sk, nil)
 	signer.Write(sk.Fingerprint().Bytes())
 
 	return &Signer{
@@ -88,7 +88,7 @@ func (s Signature) IsCorrect() error {
 }
 
 // Verify verifies the signature.
-func (s Signature) Verify(pk *PublicKey, message []byte) (bool, error) {
+func (s Signature) Verify(pk PublicKey, message []byte) (bool, error) {
 	verifier := VerifyStream(pk)
 	verifier.Write(message)
 	return verifier.Verify(s)
@@ -96,8 +96,8 @@ func (s Signature) Verify(pk *PublicKey, message []byte) (bool, error) {
 
 // VerifyStream creates a Verifier.
 // It is used if the signature is not available before the message is read.
-func VerifyStream(pk *PublicKey) *Verifier {
-	verifier := sign.StreamVerifier(pk.Raw(), nil)
+func VerifyStream(pk PublicKey) *Verifier {
+	verifier := sign.StreamVerifier(pk, nil)
 	fp := pk.Fingerprint()
 	verifier.Write(fp[:])
 	return &Verifier{verifier}

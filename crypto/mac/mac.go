@@ -10,7 +10,7 @@ import (
 
 // Scheme represents MAC scheme and provides its parameters.
 type Scheme interface {
-	Name() string
+	internal.Scheme
 	Size() int
 	BlockSize() int
 

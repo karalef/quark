@@ -8,12 +8,12 @@ import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/kdf"
+	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/mac"
 	"github.com/karalef/quark/crypto/password"
 	"github.com/karalef/quark/crypto/secret"
 	"github.com/karalef/quark/crypto/xof"
 	"github.com/karalef/quark/internal"
-	"github.com/karalef/quark/keys/kem"
 	"github.com/karalef/quark/message/compress"
 	"github.com/karalef/quark/pack"
 )
@@ -23,7 +23,7 @@ type Opt func(*messageOpts)
 
 // WithEncryption enables encryption based on key encapsulation mechanism.
 // Panics if recipient is nil.
-func WithEncryption(recipient *kem.PublicKey, scheme ...secret.Scheme) Opt {
+func WithEncryption(recipient kem.PublicKey, scheme ...secret.Scheme) Opt {
 	if recipient == nil {
 		panic("nil recipient")
 	}
@@ -53,7 +53,7 @@ func WithPassword(passwd string, params kdf.Params, scheme ...password.Scheme) O
 
 // WithSignature enables message signature.
 // Panics if sender is nil.
-func WithSignature(sender *quark.PrivateKey, expiry ...int64) Opt {
+func WithSignature(sender quark.PrivateKey, expiry ...int64) Opt {
 	if sender == nil {
 		panic("nil sender")
 	}
@@ -84,10 +84,10 @@ func WithFileInfo(fi FileInfo) Opt {
 }
 
 type messageOpts struct {
-	sender *quark.PrivateKey
+	sender quark.PrivateKey
 	expiry int64
 
-	recipient *kem.PublicKey
+	recipient kem.PublicKey
 	scheme    secret.Scheme
 
 	password       string
@@ -188,7 +188,7 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 	return msg, nil
 }
 
-func signMessage(sender *quark.PrivateKey, msg *Message, expiry int64) error {
+func signMessage(sender quark.PrivateKey, msg *Message, expiry int64) error {
 	msg.Header.Sender = sender.ID()
 	msg.Data.Reader = messageSigner{
 		r:      msg.Data.Reader,

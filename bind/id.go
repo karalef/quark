@@ -10,7 +10,7 @@ const (
 )
 
 // Key binds a key to the identity.
-func Ident(id *quark.Identity, sk *quark.PrivateKey, typ Type, md Metadata, data string, expires int64) (Binding, error) {
+func Ident(id *quark.Identity, sk quark.PrivateKey, typ Type, md Metadata, data string, expires int64) (Binding, error) {
 	return id.Bind(sk, quark.BindingData{
 		Type:     typ,
 		Metadata: md,

@@ -32,7 +32,8 @@ func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 		return nil, nil, ErrSeedSize
 	}
 	pub, priv := s.Scheme.DeriveKey(seed)
-	return &circlPrivKey{priv, s}, &circlPubKey{pub, s}, nil
+	pk, sk := newKeys(&circlPubKey{pub, s}, &circlPrivKey{priv, s})
+	return sk, pk, nil
 }
 
 func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
@@ -43,7 +44,7 @@ func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &circlPubKey{pub, s}, nil
+	return newPub(&circlPubKey{pub, s}), nil
 }
 
 func (s circlScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
@@ -54,10 +55,11 @@ func (s circlScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &circlPrivKey{priv, s}, nil
+	_, sk := newKeys(nil, &circlPrivKey{priv, s})
+	return sk, nil
 }
 
-var _ PrivateKey = &circlPrivKey{}
+var _ rawPrivateKey = &circlPrivKey{}
 
 type circlPrivKey struct {
 	circlsign.PrivateKey
@@ -66,11 +68,11 @@ type circlPrivKey struct {
 
 func (priv *circlPrivKey) Scheme() Scheme { return priv.scheme }
 
-func (priv *circlPrivKey) Public() PublicKey {
+func (priv *circlPrivKey) Public() rawPublicKey {
 	return &circlPubKey{priv.PrivateKey.Public().(circlsign.PublicKey), priv.scheme}
 }
 
-func (priv *circlPrivKey) Equal(p PrivateKey) bool {
+func (priv *circlPrivKey) Equal(p rawPrivateKey) bool {
 	if p, ok := p.(*circlPrivKey); ok {
 		return priv.PrivateKey.Equal(p.PrivateKey)
 	}
@@ -86,7 +88,7 @@ func (priv *circlPrivKey) Sign(data []byte) []byte {
 	return priv.scheme.Sign(priv.PrivateKey, data, nil)
 }
 
-var _ PublicKey = &circlPubKey{}
+var _ rawPublicKey = &circlPubKey{}
 
 type circlPubKey struct {
 	circlsign.PublicKey
@@ -95,7 +97,7 @@ type circlPubKey struct {
 
 func (pub *circlPubKey) Scheme() Scheme { return pub.scheme }
 
-func (pub *circlPubKey) Equal(p PublicKey) bool {
+func (pub *circlPubKey) Equal(p rawPublicKey) bool {
 	if p, ok := p.(*circlPubKey); ok {
 		return pub.PublicKey.Equal(p.PublicKey)
 	}

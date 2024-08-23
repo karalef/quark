@@ -6,9 +6,9 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/aead"
+	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/mac"
 	"github.com/karalef/quark/internal"
-	"github.com/karalef/quark/keys/kem"
 	"github.com/karalef/quark/pack"
 )
 
@@ -26,7 +26,7 @@ type messageReader struct {
 }
 
 // Decrypt decrypts a message.
-func (msg *Message) Decrypt(plaintext io.Writer, recipient *kem.PrivateKey, sender *quark.PublicKey) error {
+func (msg *Message) Decrypt(plaintext io.Writer, recipient kem.PrivateKey, sender quark.PublicKey) error {
 	closer := internal.NopCloser(plaintext)
 	if !msg.Header.Sender.IsEmpty() {
 		closer = internal.ChainCloser(closer, messageVerifier{
@@ -80,7 +80,7 @@ func (msg *Message) Decrypt(plaintext io.Writer, recipient *kem.PrivateKey, send
 	return closer.Close()
 }
 
-func (msg *Message) PasswordDecrypt(plaintext io.Writer, sender *quark.PublicKey, passphrase string) error {
+func (msg *Message) PasswordDecrypt(plaintext io.Writer, sender quark.PublicKey, passphrase string) error {
 	closer := internal.NopCloser(plaintext)
 	if !msg.Header.Sender.IsEmpty() {
 		closer = internal.ChainCloser(closer, messageVerifier{

@@ -19,9 +19,14 @@ func Generate(s Scheme, rand io.Reader) (PrivateKey, PublicKey, error) {
 	return s.DeriveKey(seed)
 }
 
+// Encapsulate is wrapper for PublicKey.Encapsulate with random seed.
+func Encapsulate(p PublicKey) (ciphertext []byte, secret []byte, err error) {
+	return p.Encapsulate(crypto.Rand(p.Scheme().EncapsulationSeedSize()))
+}
+
 // Scheme represents a KEM scheme.
 type Scheme interface {
-	Name() string
+	crypto.Scheme
 
 	// DeriveKey derives a key-pair from a seed.
 	DeriveKey(seed []byte) (PrivateKey, PublicKey, error)
@@ -32,12 +37,6 @@ type Scheme interface {
 	// Unpacks a PrivateKey from the provided bytes.
 	UnpackPrivate(key []byte) (PrivateKey, error)
 
-	// Size of packed public keys.
-	PublicKeySize() int
-
-	// Size of packed private keys.
-	PrivateKeySize() int
-
 	// Size of encapsulated shared secret.
 	CiphertextSize() int
 
@@ -46,20 +45,13 @@ type Scheme interface {
 
 	// Size of encapsulation seed.
 	EncapsulationSeedSize() int
-
-	// Size of seed.
-	SeedSize() int
 }
 
 // PrivateKey represents a KEM private key.
 type PrivateKey interface {
-	Scheme() Scheme
+	crypto.Key[Scheme]
 	Public() PublicKey
 	Equal(PrivateKey) bool
-
-	// Pack allocates a new slice of bytes with Scheme().PrivateKeySize() length
-	// and writes the private key to it.
-	Pack() []byte
 
 	// Decapsulate decapsulates the shared secret from the provided ciphertext.
 	Decapsulate(ciphertext []byte) ([]byte, error)
@@ -67,12 +59,9 @@ type PrivateKey interface {
 
 // PublicKey represents a KEM public key.
 type PublicKey interface {
-	Scheme() Scheme
+	crypto.Key[Scheme]
+	CorrespondsTo(PrivateKey) bool
 	Equal(PublicKey) bool
-
-	// Pack allocates a new slice of bytes with Scheme().PublicKeySize() length
-	// and writes the public key to it.
-	Pack() []byte
 
 	// Encapsulate encapsulates a shared secret generated from provided seed.
 	Encapsulate(seed []byte) (ciphertext, secret []byte, err error)

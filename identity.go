@@ -6,20 +6,20 @@ import (
 	"time"
 
 	"github.com/karalef/quark/crypto"
+	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/keys"
-	"github.com/karalef/quark/keys/sign"
 	"github.com/karalef/quark/pack"
 )
 
 // Generate generates a new key using crypto/rand and creates an identity.
-func Generate(scheme sign.Scheme, expires int64) (*Identity, *PrivateKey, error) {
+func Generate(scheme sign.Scheme, expires int64) (*Identity, PrivateKey, error) {
 	seed := crypto.Rand(scheme.SeedSize())
 	return Derive(scheme, expires, seed)
 }
 
 // Derive deterministically creates a new key and an identity.
-func Derive(scheme sign.Scheme, expires int64, seed []byte) (*Identity, *PrivateKey, error) {
-	pk, sk, err := sign.DeriveKey(scheme, seed)
+func Derive(scheme sign.Scheme, expires int64, seed []byte) (*Identity, PrivateKey, error) {
+	sk, pk, err := scheme.DeriveKey(seed)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -55,7 +55,7 @@ var _ pack.CustomEncoder = (*Identity)(nil)
 var _ pack.CustomDecoder = (*Identity)(nil)
 
 type Identity struct {
-	pk             *PublicKey
+	pk             PublicKey
 	esk            *EncryptedKey
 	bindings       map[BindID]*Binding
 	certifications []Signature
@@ -63,12 +63,12 @@ type Identity struct {
 	created        int64
 }
 
-func (p *Identity) ID() ID                            { return p.pk.ID() }
-func (p *Identity) Fingerprint() Fingerprint          { return p.pk.Fingerprint() }
-func (p *Identity) Key() *PublicKey                   { return p.pk }
-func (p *Identity) CorrespondsTo(sk *PrivateKey) bool { return p.pk.CorrespondsTo(sk) }
-func (p *Identity) SelfSignature() Signature          { return p.self.Copy() }
-func (p *Identity) WithPrivateKey(sk *EncryptedKey)   { p.esk = sk }
+func (p *Identity) ID() ID                           { return p.pk.ID() }
+func (p *Identity) Fingerprint() Fingerprint         { return p.pk.Fingerprint() }
+func (p *Identity) Key() PublicKey                   { return p.pk }
+func (p *Identity) CorrespondsTo(sk PrivateKey) bool { return p.pk.CorrespondsTo(sk) }
+func (p *Identity) SelfSignature() Signature         { return p.self.Copy() }
+func (p *Identity) WithPrivateKey(sk *EncryptedKey)  { p.esk = sk }
 
 // PrivateKey returns the private key if it is available.
 // This function returns the available key only one time.
@@ -141,7 +141,7 @@ func (p *Identity) GetBinding(id BindID) (Binding, error) {
 	return bind.Copy(), nil
 }
 
-func (p *Identity) signBinding(sk *PrivateKey, b *Binding, v Validity) error {
+func (p *Identity) signBinding(sk PrivateKey, b *Binding, v Validity) error {
 	if !p.CorrespondsTo(sk) {
 		return ErrKeyNotCorrespond
 	}
@@ -151,7 +151,7 @@ func (p *Identity) signBinding(sk *PrivateKey, b *Binding, v Validity) error {
 	return b.sign(sk, v)
 }
 
-func (p *Identity) Bind(sk *PrivateKey, b BindingData, expires int64) (Binding, error) {
+func (p *Identity) Bind(sk PrivateKey, b BindingData, expires int64) (Binding, error) {
 	if !p.CorrespondsTo(sk) {
 		return Binding{}, ErrKeyNotCorrespond
 	}
@@ -170,7 +170,7 @@ func (p *Identity) Bind(sk *PrivateKey, b BindingData, expires int64) (Binding, 
 	return bind.Copy(), nil
 }
 
-func (p *Identity) Rebind(id BindID, sk *PrivateKey, expires int64) (Binding, error) {
+func (p *Identity) Rebind(id BindID, sk PrivateKey, expires int64) (Binding, error) {
 	if !p.CorrespondsTo(sk) {
 		return Binding{}, ErrKeyNotCorrespond
 	}
@@ -182,7 +182,7 @@ func (p *Identity) Rebind(id BindID, sk *PrivateKey, expires int64) (Binding, er
 	return bind.Copy(), err
 }
 
-func (p *Identity) ChangeBinding(id BindID, sk *PrivateKey, md Metadata) (Binding, error) {
+func (p *Identity) ChangeBinding(id BindID, sk PrivateKey, md Metadata) (Binding, error) {
 	if !p.CorrespondsTo(sk) {
 		return Binding{}, ErrKeyNotCorrespond
 	}
@@ -201,7 +201,7 @@ func (p *Identity) ChangeBinding(id BindID, sk *PrivateKey, md Metadata) (Bindin
 	return cpy, err
 }
 
-func (p *Identity) Unbind(id BindID, sk *PrivateKey, reason string) (Binding, error) {
+func (p *Identity) Unbind(id BindID, sk PrivateKey, reason string) (Binding, error) {
 	if !p.CorrespondsTo(sk) {
 		return Binding{}, ErrKeyNotCorrespond
 	}
@@ -222,7 +222,7 @@ func (p *Identity) Certifications() []Signature {
 	return certs
 }
 
-func (p *Identity) Certify(with *PrivateKey, expires int64) error {
+func (p *Identity) Certify(with PrivateKey, expires int64) error {
 	if p.CorrespondsTo(with) {
 		return errors.New("the key cannot certify itself")
 	}
@@ -239,14 +239,14 @@ func (p *Identity) Certify(with *PrivateKey, expires int64) error {
 	return nil
 }
 
-func (p *Identity) ChangeExpiry(expiry int64, sk *PrivateKey) error {
+func (p *Identity) ChangeExpiry(expiry int64, sk PrivateKey) error {
 	if !p.CorrespondsTo(sk) {
 		return ErrKeyNotCorrespond
 	}
 	return p.selfSign(sk, NewValidity(time.Now().Unix(), expiry))
 }
 
-func (p *Identity) Revoke(reason string, sk *PrivateKey) error {
+func (p *Identity) Revoke(reason string, sk PrivateKey) error {
 	if !p.CorrespondsTo(sk) {
 		return ErrKeyNotCorrespond
 	}
@@ -263,7 +263,7 @@ func (p *Identity) Revoke(reason string, sk *PrivateKey) error {
 }
 
 func (p *Identity) signEncode(w io.Writer) error {
-	key := p.Key().Raw()
+	key := p.Key()
 	_, err := w.Write([]byte(key.Scheme().Name()))
 	if err != nil {
 		return err
@@ -276,7 +276,7 @@ func (p *Identity) signEncode(w io.Writer) error {
 	return err
 }
 
-func (p *Identity) selfSign(issuer *PrivateKey, v Validity) error {
+func (p *Identity) selfSign(issuer PrivateKey, v Validity) error {
 	signer := SignStream(issuer)
 	err := p.signEncode(signer)
 	if err != nil {
@@ -296,8 +296,8 @@ func (*Identity) PacketTag() pack.Tag { return PacketTagIdentity }
 func (p Identity) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.Encode(idModel{
 		Public: &keys.Model{
-			Algorithm: p.Key().Raw().Scheme().Name(),
-			Key:       p.Key().Raw().Pack(),
+			Algorithm: p.Key().Scheme().Name(),
+			Key:       p.Key().Pack(),
 		},
 		Created:        p.created,
 		Self:           p.self,
@@ -313,14 +313,11 @@ func (p *Identity) DecodeMsgpack(dec *pack.Decoder) (err error) {
 		return err
 	}
 
-	if m.Public == nil {
-		return UnpackError("object does not contain public key")
-	}
-	pub, err := sign.UnpackModelPublic(*m.Public)
+	key, err := m.UnpackKey()
 	if err != nil {
-		return UnpackError(err.Error())
+		return err
 	}
-	p.pk = pub
+	p.pk = key
 	p.esk = m.Private
 	p.created = m.Created
 	p.self = m.Self

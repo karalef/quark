@@ -32,7 +32,8 @@ func (s falconScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return &falconPrivKey{priv, pub}, (*falconPubKey)(&pub), nil
+	pk, sk := newKeys(&falconPubKey{pub, s}, &falconPrivKey{priv, s})
+	return sk, pk, nil
 }
 
 func (s falconScheme) UnpackPublic(key []byte) (PublicKey, error) {
@@ -41,7 +42,7 @@ func (s falconScheme) UnpackPublic(key []byte) (PublicKey, error) {
 	}
 	pub := new(falconPubKey)
 	copy(pub[:], key)
-	return pub, nil
+	return newPub(pub), nil
 }
 
 func (s falconScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
@@ -51,7 +52,8 @@ func (s falconScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
 	priv := new(falconPrivKey)
 	copy(priv.PrivateKey[:], key[:falcon.PrivateKeySize])
 	copy(priv.PublicKey[:], key[falcon.PrivateKeySize:])
-	return priv, nil
+	_, sk := newKeys(nil, priv)
+	return sk, nil
 }
 
 func (falconScheme) PublicKeySize() int  { return falcon.PublicKeySize }
@@ -59,8 +61,8 @@ func (falconScheme) PrivateKeySize() int { return privateKeySize }
 func (falconScheme) SignatureSize() int  { return falcon.CTSignatureSize }
 func (falconScheme) SeedSize() int       { return falconSeedSize }
 
-var _ PrivateKey = &falconPrivKey{}
-var _ PublicKey = &falconPubKey{}
+var _ rawPrivateKey = &falconPrivKey{}
+var _ rawPublicKey = &falconPubKey{}
 
 type falconPrivKey struct {
 	falcon.PrivateKey
@@ -69,11 +71,11 @@ type falconPrivKey struct {
 
 func (*falconPrivKey) Scheme() Scheme { return falconScheme{} }
 
-func (priv *falconPrivKey) Public() PublicKey {
+func (priv *falconPrivKey) Public() rawPublicKey {
 	return (*falconPubKey)(&priv.PublicKey)
 }
 
-func (priv *falconPrivKey) Equal(p PrivateKey) bool {
+func (priv *falconPrivKey) Equal(p rawPrivateKey) bool {
 	sec, ok := p.(*falconPrivKey)
 	return ok && *priv == *sec
 }
@@ -101,7 +103,7 @@ type falconPubKey falcon.PublicKey
 
 func (*falconPubKey) Scheme() Scheme { return falconScheme{} }
 
-func (pub *falconPubKey) Equal(p PublicKey) bool {
+func (pub *falconPubKey) Equal(p rawPublicKey) bool {
 	sec, ok := p.(*falconPubKey)
 	return ok && *pub == *sec
 }

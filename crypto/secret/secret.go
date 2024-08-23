@@ -4,10 +4,12 @@ package secret
 import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/xof"
+	"github.com/karalef/quark/internal"
 )
 
 // Scheme represents an authenticated encryption scheme based on XOF.
 type Scheme interface {
+	internal.Scheme
 	// If AEAD's MAC has not fixed key size, the mac key size will be min(len(cipherKey), MaxKeySize()).
 	AEAD() aead.Scheme
 	XOF() xof.XOF

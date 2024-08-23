@@ -5,15 +5,13 @@ import (
 	"time"
 
 	"github.com/karalef/quark"
-	cryptokem "github.com/karalef/quark/crypto/kem"
-	cryptosign "github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/keys/kem"
-	"github.com/karalef/quark/keys/sign"
+	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/pack"
 )
 
 func TestIdentity(t *testing.T) {
-	id, sk, err := quark.Generate(cryptosign.EDDilithium3, time.Now().Add(1000*time.Hour).Unix())
+	id, sk, err := quark.Generate(sign.EDDilithium3, time.Now().Add(1000*time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +19,7 @@ func TestIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	spk, _, err := sign.Generate(cryptosign.EDDilithium2)
+	_, spk, err := sign.Generate(sign.EDDilithium2, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +28,7 @@ func TestIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	kpk, _, err := kem.Generate(cryptokem.Kyber768)
+	_, kpk, err := kem.Generate(kem.Kyber768, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

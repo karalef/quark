@@ -8,7 +8,7 @@ import (
 
 // KDF represents the key derivation function.
 type KDF interface {
-	Name() string
+	internal.Scheme
 
 	// NewParams creates a new key derivation function parameters.
 	NewParams() Params
