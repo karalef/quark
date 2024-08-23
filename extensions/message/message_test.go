@@ -9,7 +9,7 @@ import (
 	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/message/compress"
+	"github.com/karalef/quark/extensions/message/compress"
 	"github.com/karalef/quark/pack"
 )
 

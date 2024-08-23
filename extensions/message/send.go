@@ -13,8 +13,8 @@ import (
 	"github.com/karalef/quark/crypto/password"
 	"github.com/karalef/quark/crypto/secret"
 	"github.com/karalef/quark/crypto/xof"
+	"github.com/karalef/quark/extensions/message/compress"
 	"github.com/karalef/quark/internal"
-	"github.com/karalef/quark/message/compress"
 	"github.com/karalef/quark/pack"
 )
 

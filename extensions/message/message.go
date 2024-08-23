@@ -2,7 +2,7 @@ package message
 
 import (
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/message/compress"
+	"github.com/karalef/quark/extensions/message/compress"
 	"github.com/karalef/quark/pack"
 )
 
