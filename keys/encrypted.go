@@ -97,7 +97,8 @@ type KeyParameters struct {
 // EncryptKey encrypts a key with passphrase.
 func EncryptKey[Scheme crypto.Scheme](key crypto.Key[Scheme], passphrase string, p KeyParameters) (*Encrypted, error) {
 	alg := strings.ToUpper(key.Scheme().Name())
-	cipher, sym, err := encrypted.PasswordEncrypt(p.Scheme, passphrase, p.SaltSize, []byte(alg), p.KDFParams)
+	fp := key.Fingerprint()
+	cipher, sym, err := encrypted.PasswordEncrypt(p.Scheme, passphrase, p.SaltSize, fp.Bytes(), p.KDFParams)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +123,7 @@ type Encrypted struct {
 
 // Decrypt decrypts the key with passphrase.
 func (k *Encrypted) Decrypt(passphrase string) ([]byte, error) {
-	cipher, err := k.Sym.PasswordDecrypt(passphrase, []byte(k.Key.Algorithm))
+	cipher, err := k.Sym.PasswordDecrypt(passphrase, k.FP.Bytes())
 	if err != nil {
 		return nil, err
 	}
