@@ -1,22 +1,22 @@
 module github.com/karalef/quark
 
-go 1.20
+go 1.21
+
+toolchain go1.22.2
 
 require (
-	github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414
-	github.com/cloudflare/circl v1.3.2
-	github.com/pierrec/lz4/v4 v4.1.17
-	github.com/urfave/cli/v2 v2.25.0
-	github.com/valyala/gozstd v1.19.1
-	github.com/vmihailenco/msgpack/v5 v5.3.5
-	golang.org/x/crypto v0.7.0
-	golang.org/x/term v0.8.0
+	github.com/algorand/falcon v0.1.0
+	github.com/cloudflare/circl v1.4.0
+	github.com/pierrec/lz4/v4 v4.1.21
+	github.com/valyala/gozstd v1.21.1
+	github.com/vmihailenco/msgpack/v5 v5.4.1
+	github.com/zeebo/blake3 v0.2.4
+	golang.org/x/crypto v0.26.0
 )
 
 require (
-	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
-	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/sys v0.24.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -2,10 +2,7 @@ package pack
 
 import (
 	"errors"
-	"io"
 	"reflect"
-
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Packable represents a packable object.
@@ -13,37 +10,12 @@ type Packable interface {
 	PacketTag() Tag
 }
 
-var _ msgpack.CustomEncoder = (*Stream)(nil)
-var _ msgpack.CustomDecoder = (*Stream)(nil)
-
-// Stream represents a msgpack bytes stream.
-// It must be the last field in the message.
-type Stream struct {
-	Reader io.Reader
-}
-
-// EncodeMsgpack implements msgpack.CustomEncoder.
-func (s *Stream) EncodeMsgpack(enc *msgpack.Encoder) error {
-	_, err := io.Copy(enc.Writer(), s.Reader)
-	return err
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder.
-func (s *Stream) DecodeMsgpack(dec *msgpack.Decoder) error {
-	s.Reader = dec.Buffered()
-	return nil
-}
-
 // Packet is a binary packet.
-type Packet struct {
+type Packet[T any] struct {
 	_msgpack struct{} `msgpack:",as_array"`
 
 	Tag    Tag
-	Header struct {
-		Encryption  *Encryption `msgpack:"encryption,omitempty"`
-		Compression Compression `msgpack:"compression,omitempty"`
-	}
-	Object Stream
+	Object T
 }
 
 // Tag is used to determine the binary packet type.
@@ -88,9 +60,6 @@ func RegisterPacketType(typ PacketType) {
 	if typ.Tag == TagInvalid {
 		panic("tag cannot be zero")
 	}
-	if typ.Type == nil {
-		panic("type cannot be nil")
-	}
 	if !reflect.PointerTo(typ.Type).Implements(packableType) {
 		panic("type does not implement Packable")
 	}
@@ -111,9 +80,11 @@ func RegisterPacketType(typ PacketType) {
 var tagToType = make(map[Tag]PacketType)
 
 // NewType creates a new packet type.
-func NewType(tag Tag, v Packable, name, blockType string) PacketType {
+// v must be a pointer.
+// Even if v is a typed nil pointer it must be able to return the packet tag.
+func NewType(v Packable, name, blockType string) PacketType {
 	return PacketType{
-		Tag:       tag,
+		Tag:       v.PacketTag(),
 		Type:      reflect.TypeOf(v).Elem(),
 		Name:      name,
 		BlockType: blockType,
@@ -122,9 +93,7 @@ func NewType(tag Tag, v Packable, name, blockType string) PacketType {
 
 // PacketType represents a binary packet type.
 type PacketType struct {
-	Tag Tag
-	// Must be a settable for the msgpack.
-	// A pointer to this type must implement the Packable interface.
+	Tag       Tag
 	Type      reflect.Type
 	Name      string
 	BlockType string
