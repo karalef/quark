@@ -82,11 +82,11 @@ func (p *Identity) Validity() (int64, Validity) {
 	return p.created, p.self.Validity
 }
 
-func (p *Identity) Verify(id *Identity, sig Signature) error {
-	if id.Fingerprint() != sig.Issuer {
+func (p *Identity) Verify(key PublicKey, sig Signature) error {
+	if key.Fingerprint() != sig.Issuer {
 		return errors.New("wrong issuer")
 	}
-	verifier := VerifyStream(id.Key())
+	verifier := VerifyStream(key)
 	err := p.signEncode(verifier)
 	if err != nil {
 		return err
