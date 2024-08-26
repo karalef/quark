@@ -12,7 +12,7 @@ type (
 
 	PublicKey    = sign.PublicKey
 	PrivateKey   = sign.PrivateKey
-	EncryptedKey = keys.EncryptedSign
+	EncryptedKey = keys.Encrypted
 )
 
 var (

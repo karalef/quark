@@ -16,76 +16,18 @@ import (
 
 // packet tags.
 const (
-	PacketTagPrivateKeySign = 0x02
-	PacketTagPrivateKeyKEM  = 0x03
+	PacketTagPrivateKey = 0x02
 )
 
 var (
-	packetTypePrivateKeySign = pack.NewType((*EncryptedSign)(nil), "sign private key", "SIGN PRIVATE KEY")
-	packetTypePrivateKeyKEM  = pack.NewType((*EncryptedKEM)(nil), "KEM private key", "KEM PRIVATE KEY")
+	packetTypePrivateKey = pack.NewType((*Encrypted)(nil), "private key", "PRIVATE KEY")
 )
 
 func init() {
-	pack.RegisterPacketType(packetTypePrivateKeySign)
-	pack.RegisterPacketType(packetTypePrivateKeyKEM)
+	pack.RegisterPacketType(packetTypePrivateKey)
 }
 
-// EncryptKEM encrypts the given KEM private key with the given parameters.
-func EncryptKEM(sk kem.PrivateKey, passphrase string, p KeyParameters) (*EncryptedKEM, error) {
-	ek, err := EncryptKey(sk, passphrase, p)
-	return (*EncryptedKEM)(ek), err
-}
-
-// EncryptSign encrypts the given sign private key with the given parameters.
-func EncryptSign(sk sign.PrivateKey, passphrase string, p KeyParameters) (*EncryptedSign, error) {
-	ek, err := EncryptKey(sk, passphrase, p)
-	return (*EncryptedSign)(ek), err
-}
-
-var _ pack.Packable = (*EncryptedKEM)(nil)
-var _ pack.Packable = (*EncryptedSign)(nil)
-
-type (
-	// EncryptedSign is used to store the sign private key encrypted with passphrase.
-	EncryptedSign Encrypted
-
-	// EncryptedKEM is used to store the KEM private key encrypted with passphrase.
-	EncryptedKEM Encrypted
-)
-
-func (*EncryptedSign) PacketTag() pack.Tag { return PacketTagPrivateKeySign }
-func (*EncryptedKEM) PacketTag() pack.Tag  { return PacketTagPrivateKeyKEM }
-
-func (e EncryptedSign) Scheme() sign.Scheme { return sign.ByName(Encrypted(e).Key.Algorithm) }
-func (e EncryptedKEM) Scheme() kem.Scheme   { return kem.ByName(Encrypted(e).Key.Algorithm) }
-
-// Decrypt decrypts the key with the given passphrase.
-func (e *EncryptedSign) Decrypt(passphrase string) (sign.PrivateKey, error) {
-	material, err := (*Encrypted)(e).Decrypt(passphrase)
-	if err != nil {
-		return nil, err
-	}
-
-	scheme := e.Scheme()
-	if scheme == nil {
-		return nil, errors.New("unknown key algorithm")
-	}
-	return scheme.UnpackPrivate(material)
-}
-
-// Decrypt decrypts the key with the given passphrase.
-func (e *EncryptedKEM) Decrypt(passphrase string) (kem.PrivateKey, error) {
-	material, err := (*Encrypted)(e).Decrypt(passphrase)
-	if err != nil {
-		return nil, err
-	}
-
-	scheme := e.Scheme()
-	if scheme == nil {
-		return nil, errors.New("unknown key algorithm")
-	}
-	return scheme.UnpackPrivate(material)
-}
+var _ pack.Packable = (*Encrypted)(nil)
 
 // KeyParameters is a password encryption parameters for key encryption.
 type KeyParameters struct {
@@ -121,6 +63,8 @@ type Encrypted struct {
 	Tag []byte              `msgpack:"tag"`
 }
 
+func (*Encrypted) PacketTag() pack.Tag { return PacketTagPrivateKey }
+
 // Decrypt decrypts the key with passphrase.
 func (k *Encrypted) Decrypt(passphrase string) ([]byte, error) {
 	cipher, err := k.Sym.PasswordDecrypt(passphrase, k.FP.Bytes())
@@ -135,4 +79,32 @@ func (k *Encrypted) Decrypt(passphrase string) ([]byte, error) {
 	}
 
 	return key, nil
+}
+
+// Decrypt decrypts the sign key with the given passphrase.
+func (k *Encrypted) DecryptSign(passphrase string) (sign.PrivateKey, error) {
+	material, err := k.Decrypt(passphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	scheme := sign.ByName(k.Key.Algorithm)
+	if scheme == nil {
+		return nil, errors.New("unknown key algorithm")
+	}
+	return scheme.UnpackPrivate(material)
+}
+
+// Decrypt decrypts the KEM key with the given passphrase.
+func (k *Encrypted) DecryptKEM(passphrase string) (kem.PrivateKey, error) {
+	material, err := k.Decrypt(passphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	scheme := kem.ByName(k.Key.Algorithm)
+	if scheme == nil {
+		return nil, errors.New("unknown key algorithm")
+	}
+	return scheme.UnpackPrivate(material)
 }
