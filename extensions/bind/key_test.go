@@ -32,7 +32,7 @@ func TestIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err = KEM(id, sk, nil, kpk, time.Now().Add(time.Hour).Unix())
+	b, err = Key(id, sk, nil, kpk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
