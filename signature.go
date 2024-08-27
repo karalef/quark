@@ -46,7 +46,7 @@ func (s *Signer) Sign(v Validity) (Signature, error) {
 	if err := v.Validate(); err != nil {
 		return Signature{}, err
 	}
-	v.WriteTo(s.Signer)
+	v.signEncode(s.Signer)
 	s.sig.Validity = v
 	s.sig.Signature = s.Signer.Sign()
 	return s.sig, nil
@@ -72,8 +72,8 @@ func (s Signature) Copy() Signature {
 	return s
 }
 
-// IsCorrect validates the signature.
-func (s Signature) IsCorrect() error {
+// Validate returns an error if the signature has incorrect values.
+func (s Signature) Validate() error {
 	if err := s.Validity.Validate(); err != nil {
 		return errors.Join(errors.New("invalid signature validity"), err)
 	}
@@ -98,8 +98,7 @@ func (s Signature) Verify(pk PublicKey, message []byte) (bool, error) {
 // It is used if the signature is not available before the message is read.
 func VerifyStream(pk PublicKey) *Verifier {
 	verifier := sign.StreamVerifier(pk, nil)
-	fp := pk.Fingerprint()
-	verifier.Write(fp[:])
+	verifier.Write(pk.Fingerprint().Bytes())
 	return &Verifier{verifier}
 }
 
@@ -113,10 +112,10 @@ type Verifier struct {
 // written message.
 // Returns an error if the signature does not match the scheme.
 func (v *Verifier) Verify(sig Signature) (bool, error) {
-	if err := sig.IsCorrect(); err != nil {
+	if err := sig.Validate(); err != nil {
 		return false, err
 	}
-	sig.Validity.WriteTo(v.Verifier)
+	sig.Validity.signEncode(v.Verifier)
 	return v.Verifier.Verify(sig.Signature)
 }
 
@@ -144,27 +143,28 @@ type Validity struct {
 	Expires int64 `msgpack:"expires,omitempty"`
 }
 
-// WriteTo implements io.WriterTo.
-func (v Validity) WriteTo(w io.Writer) (n int64, err error) {
-	nn, err := io.WriteString(w, v.Reason)
-	n += int64(nn)
+func (v Validity) signEncode(w io.Writer) error {
+	_, err := io.WriteString(w, v.Reason)
 	if err != nil {
-		return
+		return err
 	}
-	nn, err = w.Write(MarshalTime(v.Revoked))
-	n += int64(nn)
+	_, err = w.Write(MarshalTime(v.Revoked))
 	if err != nil {
-		return
+		return err
 	}
-	nn, err = w.Write(MarshalTime(v.Created))
-	n += int64(nn)
+	_, err = w.Write(MarshalTime(v.Created))
 	if err != nil {
-		return
+		return err
 	}
-	nn, err = w.Write(MarshalTime(v.Expires))
-	n += int64(nn)
-	return
+	_, err = w.Write(MarshalTime(v.Expires))
+	return err
 }
+
+// IsRevoked returns true if the validity is revoked.
+func (v Validity) IsRevoked(t int64) bool { return v.Revoked > 0 && v.Revoked <= t || v.Reason != "" }
+
+// IsExpired returns true if the validity is expired.
+func (v Validity) IsExpired(t int64) bool { return v.Expires > 0 && v.Expires <= t }
 
 // Revoke returns a revoked copy of the validity.
 func (v Validity) Revoke(t int64, reason string) Validity {
@@ -173,7 +173,7 @@ func (v Validity) Revoke(t int64, reason string) Validity {
 	return v
 }
 
-// Validate validates the validity.
+// Validate returns an error if the validity has incorrect values.
 func (v Validity) Validate() error {
 	switch {
 	case v.Created < 0 || v.Expires < 0 || v.Revoked < 0:

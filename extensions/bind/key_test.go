@@ -38,7 +38,7 @@ func TestIdentity(t *testing.T) {
 	}
 	printBindings(id.Bindings(), t)
 
-	_, err = id.Unbind(b.ID, sk, "dont wanna see it")
+	_, err = id.RevokeBinding(b.ID, sk, "dont wanna see it")
 	if err != nil {
 		t.Fatal(err)
 	}

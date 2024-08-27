@@ -13,11 +13,11 @@ import (
 // Generate generates a new key using crypto/rand and creates an identity.
 func Generate(scheme sign.Scheme, expires int64) (*Identity, PrivateKey, error) {
 	seed := crypto.Rand(scheme.SeedSize())
-	return Derive(scheme, expires, seed)
+	return Derive(scheme, seed, expires)
 }
 
 // Derive deterministically creates a new key and an identity.
-func Derive(scheme sign.Scheme, expires int64, seed []byte) (*Identity, PrivateKey, error) {
+func Derive(scheme sign.Scheme, seed []byte, expires int64) (*Identity, PrivateKey, error) {
 	sk, pk, err := scheme.DeriveKey(seed)
 	if err != nil {
 		return nil, nil, err
@@ -36,19 +36,6 @@ func Derive(scheme sign.Scheme, expires int64, seed []byte) (*Identity, PrivateK
 	return id, sk, nil
 }
 
-// ErrSignature is returned if the public key signature is invalid.
-type ErrSignature struct {
-	err          error
-	verification bool
-}
-
-func (e ErrSignature) Error() string {
-	if e.verification {
-		return "public key signature cannot be verified: " + e.err.Error()
-	}
-	return "public key signature: " + e.err.Error()
-}
-
 var _ pack.Packable = (*Identity)(nil)
 var _ pack.CustomEncoder = (*Identity)(nil)
 var _ pack.CustomDecoder = (*Identity)(nil)
@@ -61,16 +48,28 @@ type Identity struct {
 	created        int64
 }
 
-func (p *Identity) ID() ID                           { return p.pk.ID() }
-func (p *Identity) Fingerprint() Fingerprint         { return p.pk.Fingerprint() }
-func (p *Identity) Key() PublicKey                   { return p.pk }
-func (p *Identity) CorrespondsTo(sk PrivateKey) bool { return p.pk.CorrespondsTo(sk) }
-func (p *Identity) SelfSignature() Signature         { return p.self.Copy() }
+// ID returns key ID.
+func (p *Identity) ID() ID { return p.pk.ID() }
 
+// Fingerprint returns key fingerprint.
+func (p *Identity) Fingerprint() Fingerprint { return p.pk.Fingerprint() }
+
+// Key returns public key.
+func (p *Identity) Key() PublicKey { return p.pk }
+
+// CorrespondsTo returns true if key corresponds to given private key.
+func (p *Identity) CorrespondsTo(sk PrivateKey) bool { return p.pk.CorrespondsTo(sk) }
+
+// SelfSignature returns self-signature.
+func (p *Identity) SelfSignature() Signature { return p.self.Copy() }
+
+// Validity returns identity validity.
 func (p *Identity) Validity() (int64, Validity) {
 	return p.created, p.self.Validity
 }
 
+// Verify verifies the identity certification.
+// It also can verify the self-signature.
 func (p *Identity) Verify(key PublicKey, sig Signature) error {
 	if key.Fingerprint() != sig.Issuer {
 		return errors.New("wrong issuer")
@@ -101,6 +100,7 @@ func (p *Identity) Bindings() []Binding {
 	return binds
 }
 
+// ListBindings returns the short version of identity bindings.
 func (p *Identity) ListBindings() []ShortBinding {
 	binds := make([]ShortBinding, len(p.bindings))
 	i := 0
@@ -122,6 +122,7 @@ func (p *Identity) getBinding(id BindID) (*Binding, error) {
 	return bind, nil
 }
 
+// GetBinding returns the binding.
 func (p *Identity) GetBinding(id BindID) (Binding, error) {
 	bind, err := p.getBinding(id)
 	if err != nil {
@@ -140,7 +141,11 @@ func (p *Identity) signBinding(sk PrivateKey, b *Binding, v Validity) error {
 	return b.sign(sk, v)
 }
 
+// Bind binds the data to the identity.
 func (p *Identity) Bind(sk PrivateKey, b BindingData, expires int64) (Binding, error) {
+	if len(b.Data) == 0 {
+		return Binding{}, errors.New("empty data")
+	}
 	if !p.CorrespondsTo(sk) {
 		return Binding{}, ErrKeyNotCorrespond
 	}
@@ -159,41 +164,76 @@ func (p *Identity) Bind(sk PrivateKey, b BindingData, expires int64) (Binding, e
 	return bind.Copy(), nil
 }
 
+// Rebind rebinds the data to the identity with new expiration time.
+// It does not change the binding ID.
 func (p *Identity) Rebind(id BindID, sk PrivateKey, expires int64) (Binding, error) {
-	if !p.CorrespondsTo(sk) {
-		return Binding{}, ErrKeyNotCorrespond
-	}
 	bind, err := p.getBinding(id)
 	if err != nil {
 		return Binding{}, err
 	}
-	err = p.signBinding(sk, bind, NewValidity(time.Now().Unix(), expires))
+	now := time.Now().Unix()
+	if v := bind.Signature.Validity; v.IsExpired(now) || v.IsRevoked(now) {
+		return Binding{}, errors.New("binding is expired or revoked")
+	}
+	err = p.signBinding(sk, bind, NewValidity(now, expires))
 	return bind.Copy(), err
 }
 
-func (p *Identity) ChangeBinding(id BindID, sk PrivateKey, md Metadata) (Binding, error) {
-	if !p.CorrespondsTo(sk) {
-		return Binding{}, ErrKeyNotCorrespond
-	}
+// ChnageBinding changes the data and metadata of the binding.
+// It changes the binding ID.
+//
+// # If data is
+//
+// - nil: data will be unchanged.
+//
+// - empty: binding will be unbound if it is expired or revoked else the error will be returned.
+//
+// # If metadata is
+//
+// - nil: metadata will be unchanged.
+//
+// - empty: metadata will be removed.
+func (p *Identity) ChangeBinding(id BindID, sk PrivateKey, newData []byte, md Metadata) (Binding, error) {
 	bind, err := p.getBinding(id)
 	if err != nil {
 		return Binding{}, err
 	}
 
-	cpy := bind.Copy()
-	cpy.Metadata = md
-	err = p.signBinding(sk, &cpy, cpy.Signature.Validity)
-	if err != nil {
-		return bind.Copy(), err
+	now := time.Now().Unix()
+	if newData != nil && len(newData) > 0 { // special case: delete binding
+		v := bind.Signature.Validity
+		if v.IsExpired(now) || v.IsRevoked(now) {
+			delete(p.bindings, bind.ID)
+			return Binding{}, nil
+		}
+		return Binding{}, errors.New("binding is not expired or revoked")
 	}
-	*bind = cpy
-	return cpy, err
-}
 
-func (p *Identity) Unbind(id BindID, sk PrivateKey, reason string) (Binding, error) {
 	if !p.CorrespondsTo(sk) {
 		return Binding{}, ErrKeyNotCorrespond
 	}
+
+	newBind := bind.Copy()
+	if newData != nil {
+		newBind.Data = newData
+	}
+	if md != nil {
+		if len(md) == 0 {
+			newBind.Metadata = nil
+		} else {
+			newBind.Metadata = md
+		}
+	}
+	err = p.signBinding(sk, &newBind, newBind.Signature.Validity)
+	if err != nil {
+		return bind.Copy(), err
+	}
+	*bind = newBind
+	return newBind.Copy(), err
+}
+
+// RevokeBinding revokes the binding.
+func (p *Identity) RevokeBinding(id BindID, sk PrivateKey, reason string) (Binding, error) {
 	b, err := p.getBinding(id)
 	if err != nil {
 		return Binding{}, err
@@ -211,6 +251,7 @@ func (p *Identity) Certifications() []Signature {
 	return certs
 }
 
+// Certify signs the identity.
 func (p *Identity) Certify(with PrivateKey, expires int64) error {
 	if p.CorrespondsTo(with) {
 		return errors.New("the key cannot certify itself")
@@ -228,27 +269,18 @@ func (p *Identity) Certify(with PrivateKey, expires int64) error {
 	return nil
 }
 
-func (p *Identity) ChangeExpiry(expiry int64, sk PrivateKey) error {
-	if !p.CorrespondsTo(sk) {
-		return ErrKeyNotCorrespond
-	}
+// ChangeExpiry changes the expiration time of the identity.
+func (p *Identity) ChangeExpiry(sk PrivateKey, expiry int64) error {
 	return p.selfSign(sk, NewValidity(time.Now().Unix(), expiry))
 }
 
-func (p *Identity) Revoke(reason string, sk PrivateKey) error {
-	if !p.CorrespondsTo(sk) {
-		return ErrKeyNotCorrespond
-	}
-	if p.self.Validity.Revoked != 0 {
+// Revoke revokes the identity.
+func (p *Identity) Revoke(sk PrivateKey, reason string) error {
+	now := time.Now().Unix()
+	if p.self.Validity.IsRevoked(now) {
 		return errors.New("the key is already revoked")
 	}
-	now := time.Now().Unix()
-	return p.selfSign(sk, Validity{
-		Created: now,
-		Expires: 0,
-		Revoked: now,
-		Reason:  reason,
-	})
+	return p.selfSign(sk, p.self.Validity.Revoke(now, reason))
 }
 
 func (p *Identity) signEncode(w io.Writer) error {
@@ -266,6 +298,9 @@ func (p *Identity) signEncode(w io.Writer) error {
 }
 
 func (p *Identity) selfSign(issuer PrivateKey, v Validity) error {
+	if !p.CorrespondsTo(issuer) {
+		return ErrKeyNotCorrespond
+	}
 	signer := SignStream(issuer)
 	err := p.signEncode(signer)
 	if err != nil {
