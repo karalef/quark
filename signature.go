@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/internal"
 )
@@ -61,9 +62,9 @@ func MarshalTime(time int64) []byte {
 
 // Signature represents a signature.
 type Signature struct {
-	Signature []byte      `msgpack:"sig"`
-	Validity  Validity    `msgpack:"validity"`
-	Issuer    Fingerprint `msgpack:"issuer"`
+	Signature []byte             `msgpack:"sig"`
+	Validity  Validity           `msgpack:"validity"`
+	Issuer    crypto.Fingerprint `msgpack:"issuer"`
 }
 
 // Copy returns a copy of the signature.

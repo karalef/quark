@@ -3,7 +3,7 @@ package message
 import (
 	"errors"
 
-	"github.com/karalef/quark"
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/kem"
@@ -16,7 +16,7 @@ import (
 type Encryption struct {
 	// key id used for encapsulation.
 	// If id is empty, only password-based symmetric encryption is used
-	ID quark.ID `msgpack:"id,omitempty"`
+	ID crypto.ID `msgpack:"id,omitempty"`
 
 	// symmetric encryption parameters
 	Symmetric encrypted.Symmetric `msgpack:"symmetric"`

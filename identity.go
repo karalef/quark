@@ -36,6 +36,11 @@ func Derive(scheme sign.Scheme, seed []byte, expires int64) (*Identity, PrivateK
 	return id, sk, nil
 }
 
+type (
+	PublicKey  = sign.PublicKey
+	PrivateKey = sign.PrivateKey
+)
+
 var _ pack.Packable = (*Identity)(nil)
 var _ pack.CustomEncoder = (*Identity)(nil)
 var _ pack.CustomDecoder = (*Identity)(nil)
@@ -49,10 +54,10 @@ type Identity struct {
 }
 
 // ID returns key ID.
-func (p *Identity) ID() ID { return p.pk.ID() }
+func (p *Identity) ID() crypto.ID { return p.pk.ID() }
 
 // Fingerprint returns key fingerprint.
-func (p *Identity) Fingerprint() Fingerprint { return p.pk.Fingerprint() }
+func (p *Identity) Fingerprint() crypto.Fingerprint { return p.pk.Fingerprint() }
 
 // Key returns public key.
 func (p *Identity) Key() PublicKey { return p.pk }
@@ -133,7 +138,7 @@ func (p *Identity) GetBinding(id BindID) (Binding, error) {
 
 func (p *Identity) signBinding(sk PrivateKey, b *Binding, v Validity) error {
 	if !p.CorrespondsTo(sk) {
-		return ErrKeyNotCorrespond
+		return crypto.ErrKeyNotCorrespond
 	}
 	if !b.CheckIntegrity(p.pk) {
 		return errors.New("invalid binding")
@@ -147,7 +152,7 @@ func (p *Identity) Bind(sk PrivateKey, b BindingData, expires int64) (Binding, e
 		return Binding{}, errors.New("empty data")
 	}
 	if !p.CorrespondsTo(sk) {
-		return Binding{}, ErrKeyNotCorrespond
+		return Binding{}, crypto.ErrKeyNotCorrespond
 	}
 	bind := NewBinding(p.pk, b)
 	if p.bindings == nil {
@@ -210,7 +215,7 @@ func (p *Identity) ChangeBinding(id BindID, sk PrivateKey, newData []byte, md Me
 	}
 
 	if !p.CorrespondsTo(sk) {
-		return Binding{}, ErrKeyNotCorrespond
+		return Binding{}, crypto.ErrKeyNotCorrespond
 	}
 
 	newBind := bind.Copy()
@@ -299,7 +304,7 @@ func (p *Identity) signEncode(w io.Writer) error {
 
 func (p *Identity) selfSign(issuer PrivateKey, v Validity) error {
 	if !p.CorrespondsTo(issuer) {
-		return ErrKeyNotCorrespond
+		return crypto.ErrKeyNotCorrespond
 	}
 	signer := SignStream(issuer)
 	err := p.signEncode(signer)

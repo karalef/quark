@@ -2,6 +2,7 @@ package message
 
 import (
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/extensions/message/compress"
 	"github.com/karalef/quark/pack"
 )
@@ -21,7 +22,7 @@ func init() {
 // It also contains the file info.
 type Header struct {
 	// If not empty, message is signed.
-	Sender quark.ID `msgpack:"sender,omitempty"`
+	Sender crypto.ID `msgpack:"sender,omitempty"`
 
 	// Time of the message creation.
 	Time int64 `msgpack:"time,omitempty"`
