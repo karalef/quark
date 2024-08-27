@@ -56,7 +56,6 @@ var _ pack.CustomDecoder = (*Identity)(nil)
 
 type Identity struct {
 	pk             PublicKey
-	esk            *EncryptedKey
 	bindings       map[BindID]*Binding
 	certifications []Signature
 	self           Signature
@@ -68,15 +67,6 @@ func (p *Identity) Fingerprint() Fingerprint         { return p.pk.Fingerprint()
 func (p *Identity) Key() PublicKey                   { return p.pk }
 func (p *Identity) CorrespondsTo(sk PrivateKey) bool { return p.pk.CorrespondsTo(sk) }
 func (p *Identity) SelfSignature() Signature         { return p.self.Copy() }
-func (p *Identity) WithPrivateKey(sk *EncryptedKey)  { p.esk = sk }
-
-// PrivateKey returns the private key if it is available.
-// This function returns the available key only one time.
-func (p *Identity) PrivateKey() *EncryptedKey {
-	esk := p.esk
-	p.esk = nil
-	return esk
-}
 
 func (p *Identity) Validity() (int64, Validity) {
 	return p.created, p.self.Validity
@@ -295,7 +285,7 @@ func (*Identity) PacketTag() pack.Tag { return PacketTagIdentity }
 // EncodeMsgpack implements pack.CustomEncoder interface.
 func (p Identity) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.Encode(idModel{
-		Public: &keys.Model{
+		Key: &keys.Model{
 			Algorithm: p.Key().Scheme().Name(),
 			Key:       p.Key().Pack(),
 		},
@@ -318,7 +308,6 @@ func (p *Identity) DecodeMsgpack(dec *pack.Decoder) (err error) {
 		return err
 	}
 	p.pk = key
-	p.esk = m.Private
 	p.created = m.Created
 	p.self = m.Self
 	p.bindings = func(bindings []Binding) map[BindID]*Binding {
