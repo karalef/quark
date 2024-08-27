@@ -7,7 +7,6 @@ import (
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/keys"
 	"github.com/karalef/quark/pack"
 )
 
@@ -285,7 +284,7 @@ func (*Identity) PacketTag() pack.Tag { return PacketTagIdentity }
 // EncodeMsgpack implements pack.CustomEncoder interface.
 func (p Identity) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.Encode(idModel{
-		Key: &keys.Model{
+		Key: KeyModel{
 			Algorithm: p.Key().Scheme().Name(),
 			Key:       p.Key().Pack(),
 		},

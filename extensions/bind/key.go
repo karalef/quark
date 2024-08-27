@@ -7,7 +7,6 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/keys"
 	"github.com/karalef/quark/pack"
 )
 
@@ -23,7 +22,7 @@ func NewKey(key sign.PublicKey, md Metadata) (BindingData, error) {
 	if key == nil {
 		return BindingData{}, errors.New("nil key")
 	}
-	return newKey(keys.Model{
+	return newKey(quark.KeyModel{
 		Algorithm: key.Scheme().Name(),
 		Key:       key.Pack(),
 	}, TypeSignKey, md)
@@ -34,13 +33,13 @@ func NewKEM(key kem.PublicKey, md Metadata) (BindingData, error) {
 	if key == nil {
 		return BindingData{}, errors.New("nil key")
 	}
-	return newKey(keys.Model{
+	return newKey(quark.KeyModel{
 		Algorithm: key.Scheme().Name(),
 		Key:       key.Pack(),
 	}, TypeKEMKey, md)
 }
 
-func newKey(m keys.Model, typ Type, md Metadata) (BindingData, error) {
+func newKey(m quark.KeyModel, typ Type, md Metadata) (BindingData, error) {
 	b := bytes.NewBuffer(nil)
 	err := pack.EncodeBinary(b, m)
 	if err != nil {
@@ -72,11 +71,11 @@ func KEM(id *quark.Identity, sk sign.PrivateKey, md Metadata, key kem.PublicKey,
 	return id.Bind(sk, bd, expires)
 }
 
-func decodeKey(b Binding, typ Type) (*keys.Model, error) {
+func decodeKey(b Binding, typ Type) (*quark.KeyModel, error) {
 	if b.Type != typ {
 		return nil, errors.New("invalid type")
 	}
-	return pack.DecodeBinaryNew[keys.Model](bytes.NewReader(b.Data))
+	return pack.DecodeBinaryNew[quark.KeyModel](bytes.NewReader(b.Data))
 }
 
 // DecodeKey decodes a key from the binding.

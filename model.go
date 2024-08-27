@@ -2,11 +2,16 @@ package quark
 
 import (
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/keys"
 )
 
+// KeyModel contains packed immutable parts of the key.
+type KeyModel struct {
+	Algorithm string `msgpack:"algorithm"`
+	Key       []byte `msgpack:"key"`
+}
+
 type idModel struct {
-	Key            *keys.Model `msgpack:"key,omitempty"`
+	Key            KeyModel    `msgpack:"key,omitempty"`
 	Bindings       []Binding   `msgpack:"bindings,omitempty"`
 	Certifications []Signature `msgpack:"certifications"`
 	Self           Signature   `msgpack:"selfSignature,omitempty"`
@@ -14,7 +19,7 @@ type idModel struct {
 }
 
 func (m idModel) UnpackKey() (PublicKey, error) {
-	if m.Key == nil {
+	if m.Key.Key == nil {
 		return nil, UnpackError("object does not contain public key")
 	}
 	scheme := sign.ByName(m.Key.Algorithm)
