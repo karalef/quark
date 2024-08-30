@@ -1,6 +1,9 @@
 package internal
 
-import "strings"
+import (
+	"errors"
+	"strings"
+)
 
 // Scheme interface.
 type Scheme interface {
@@ -30,6 +33,9 @@ func CompleteSchemeName(subSchemes ...Scheme) string {
 func SplitSchemeName(scheme string) []string {
 	return strings.Split(scheme, "-")
 }
+
+// ErrUnknownScheme can be returned when the requested scheme is not registered.
+var ErrUnknownScheme = errors.New("unknown scheme")
 
 // Schemes is a base type for schemes map.
 // Names are stored in uppercase.

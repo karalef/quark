@@ -1,10 +1,12 @@
 package quark
 
 import (
+	"bytes"
 	"strings"
 
 	"github.com/karalef/quark/crypto/hash"
 	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/pkg/crockford"
 )
 
@@ -43,7 +45,11 @@ func (b BindID) IsEmpty() bool { return b == BindID{} }
 func (b BindID) String() string { return crockford.Upper.EncodeToString(b[:]) }
 
 // NewBinding returns a new binding.
+// Panics if data is empty.
 func NewBinding(key PublicKey, d BindingData) Binding {
+	if len(d.Data) == 0 {
+		panic("empty data")
+	}
 	b := Binding{
 		Type:     d.Type,
 		Metadata: d.Metadata.Copy(),
@@ -65,6 +71,28 @@ type BindingData struct {
 	Type     BindType
 	Metadata Metadata
 	Data     []byte
+}
+
+// NewBindingData returns a new binding data with value that can be msgpack encoded.
+func NewBindingData(data any, typ BindType, md Metadata) (BindingData, error) {
+	if data == nil {
+		panic("empty data")
+	}
+	b := bytes.NewBuffer(nil)
+	err := pack.EncodeBinary(b, data)
+	if err != nil {
+		return BindingData{}, err
+	}
+	return BindingData{
+		Type:     typ,
+		Metadata: md,
+		Data:     b.Bytes(),
+	}, nil
+}
+
+// DecodeBinding decodes a msgpack encoded value from Binding.
+func DecodeBinding[T any](b Binding) (*T, error) {
+	return pack.DecodeBinaryNew[T](bytes.NewReader(b.Data))
 }
 
 // Metadata contains the binding metadata.

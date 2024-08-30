@@ -1,4 +1,4 @@
-package bind
+package subkey_test
 
 import (
 	"testing"
@@ -7,6 +7,7 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
+	"github.com/karalef/quark/extensions/subkey"
 	"github.com/karalef/quark/pack"
 )
 
@@ -23,7 +24,7 @@ func TestIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := Key(id, sk, nil, spk, time.Now().Add(time.Hour).Unix())
+	b, err := subkey.Bind(id, sk, nil, spk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +33,7 @@ func TestIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err = Key(id, sk, nil, kpk, time.Now().Add(time.Hour).Unix())
+	b, err = subkey.Bind(id, sk, nil, kpk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,18 +47,18 @@ func TestIdentity(t *testing.T) {
 	printBindings(id.Bindings(), t)
 }
 
-func printBindings(binds []Binding, t *testing.T) {
+func printBindings(binds []quark.Binding, t *testing.T) {
 	for _, bind := range binds {
 		data := bind.Data
 		switch bind.Type {
-		case TypeSignKey:
-			pk, err := DecodeKey(bind)
+		case subkey.TypeSignKey:
+			pk, err := subkey.DecodeSign(bind)
 			if err != nil {
 				t.Fatal(err)
 			}
 			data = pack.Raw(pk.Fingerprint().String())
-		case TypeKEMKey:
-			pk, err := DecodeKEM(bind)
+		case subkey.TypeKEMKey:
+			pk, err := subkey.DecodeKEM(bind)
 			if err != nil {
 				t.Fatal(err)
 			}
