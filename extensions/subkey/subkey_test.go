@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/extensions/subkey"
-	"github.com/karalef/quark/pack"
 )
 
 func TestIdentity(t *testing.T) {
@@ -24,7 +24,7 @@ func TestIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := subkey.Bind(id, sk, nil, spk, time.Now().Add(time.Hour).Unix())
+	_, err = subkey.BindSign(id, sk, spk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err = subkey.Bind(id, sk, nil, kpk, time.Now().Add(time.Hour).Unix())
+	b, err := subkey.BindKEM(id, sk, kpk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,29 +47,33 @@ func TestIdentity(t *testing.T) {
 	printBindings(id.Bindings(), t)
 }
 
-func printBindings(binds []quark.Binding, t *testing.T) {
+func printBindings(binds []quark.RawBinding, t *testing.T) {
 	for _, bind := range binds {
-		data := bind.Data
-		switch bind.Type {
+		var key crypto.KeyID
+		switch bind.BindType() {
 		case subkey.TypeSignKey:
-			pk, err := subkey.DecodeSign(bind)
+			sub, err := quark.BindingAs[subkey.SignSubkey](bind)
 			if err != nil {
 				t.Fatal(err)
 			}
-			data = pack.Raw(pk.Fingerprint().String())
+			key = sub.GetData()
 		case subkey.TypeKEMKey:
-			pk, err := subkey.DecodeKEM(bind)
+			sub, err := quark.BindingAs[subkey.KEMSubkey](bind)
 			if err != nil {
 				t.Fatal(err)
 			}
-			data = pack.Raw(pk.Fingerprint().String())
+			key = sub.GetData()
 		}
-		bindid := bind.ID.String()
-		t.Logf("binding %s...%s: %s %v %s", bindid[:4], bindid[len(bindid)-4:], bind.Type, bind.Metadata, string(data))
-		if bind.Signature.Validity.Revoked != 0 {
-			t.Logf("revoked at %s because %s", time.Unix(bind.Signature.Validity.Revoked, 0), bind.Signature.Validity.Reason)
+		bindid := bind.ID.ShortString()
+		t.Logf("binding %s: %s %s", bindid, bind.BindType(), key.ID().String())
+		if bind.Validity().IsRevoked(time.Now().Unix()) {
+			t.Logf("revoked at %s because %s",
+				time.Unix(bind.Validity().Revoked, 0).Format(time.DateOnly),
+				bind.Validity().Reason)
 		} else {
-			t.Logf("signed by %s and valid before %s", bind.Signature.Issuer.ID().String(), time.Unix(bind.Signature.Validity.Expires, 0))
+			t.Logf("signed by %s and valid before %s",
+				bind.Signature.Issuer.ID().String(),
+				time.Unix(bind.Validity().Expires, 0).Format(time.DateOnly))
 		}
 		t.Log()
 	}

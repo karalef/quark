@@ -10,6 +10,18 @@ import (
 	"github.com/karalef/quark/internal"
 )
 
+// Signable represents an object that can be signed.
+type Signable interface {
+	SignEncode(io.Writer) error
+}
+
+// SignObject signs the object.
+func SignObject(sk PrivateKey, v Validity, obj Signable) (Signature, error) {
+	signer := SignStream(sk)
+	obj.SignEncode(signer)
+	return signer.Sign(v)
+}
+
 // Sign signs the message.
 func Sign(sk PrivateKey, v Validity, message []byte) (Signature, error) {
 	signer := SignStream(sk)
@@ -19,11 +31,8 @@ func Sign(sk PrivateKey, v Validity, message []byte) (Signature, error) {
 
 // SignStream creates a Signer.
 func SignStream(sk PrivateKey) *Signer {
-	signer := sign.StreamSigner(sk, nil)
-	signer.Write(sk.Fingerprint().Bytes())
-
 	return &Signer{
-		Signer: signer,
+		Signer: sign.StreamSigner(sk, nil),
 		sig: Signature{
 			Issuer: sk.Fingerprint(),
 		},
@@ -95,12 +104,17 @@ func (s Signature) Verify(pk PublicKey, message []byte) (bool, error) {
 	return verifier.Verify(s)
 }
 
+// VerifyObject verifies the signature.
+func (s Signature) VerifyObject(pk PublicKey, obj Signable) (bool, error) {
+	verifier := VerifyStream(pk)
+	obj.SignEncode(verifier)
+	return verifier.Verify(s)
+}
+
 // VerifyStream creates a Verifier.
 // It is used if the signature is not available before the message is read.
 func VerifyStream(pk PublicKey) *Verifier {
-	verifier := sign.StreamVerifier(pk, nil)
-	verifier.Write(pk.Fingerprint().Bytes())
-	return &Verifier{verifier}
+	return &Verifier{sign.StreamVerifier(pk, nil)}
 }
 
 // Verifier represents a signature verification state.

@@ -11,11 +11,11 @@ type KeyModel struct {
 }
 
 type idModel struct {
-	Key            KeyModel    `msgpack:"key,omitempty"`
-	Bindings       []Binding   `msgpack:"bindings,omitempty"`
-	Certifications []Signature `msgpack:"certifications"`
-	Self           Signature   `msgpack:"selfSignature,omitempty"`
-	Created        int64       `msgpack:"created,omitempty"`
+	Key            KeyModel     `msgpack:"key,omitempty"`
+	Bindings       []RawBinding `msgpack:"bindings,omitempty"`
+	Certifications []Signature  `msgpack:"certifications"`
+	Self           Signature    `msgpack:"selfSignature,omitempty"`
+	Created        int64        `msgpack:"created,omitempty"`
 }
 
 func (m idModel) UnpackKey() (PublicKey, error) {

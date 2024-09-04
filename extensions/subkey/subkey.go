@@ -1,13 +1,11 @@
 package subkey
 
 import (
-	"errors"
-
 	"github.com/karalef/quark"
-	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/pack"
 )
 
 // subkey bind types
@@ -17,63 +15,96 @@ const (
 	TypeKEMKey        quark.BindType = TypeGroupQuarkKey + ".kem"
 )
 
-// New returns a new subkey binding data.
-func New[Scheme crypto.Scheme](subkey crypto.Key[Scheme], md quark.Metadata) (quark.BindingData, error) {
-	t := TypeSignKey
-	if _, ok := subkey.(kem.PublicKey); ok {
-		t = TypeKEMKey
-	}
-	return quark.NewBindingData(quark.KeyModel{
-		Algorithm: subkey.Scheme().Name(),
-		Key:       subkey.Pack(),
-	}, t, md)
+var _ quark.Bindable[SignSubkey] = SignSubkey{}
+var _ quark.Bindable[KEMSubkey] = KEMSubkey{}
+
+type SignSubkey struct {
+	sign.PublicKey
 }
 
-// Bind binds a subkey to the identity.
-func Bind[Scheme crypto.Scheme](id *quark.Identity, sk sign.PrivateKey, md quark.Metadata, subkey crypto.Key[Scheme], expires int64) (quark.Binding, error) {
-	bd, err := New(subkey, md)
+type KEMSubkey struct {
+	kem.PublicKey
+}
+
+func (SignSubkey) BindType() quark.BindType { return TypeSignKey }
+func (KEMSubkey) BindType() quark.BindType  { return TypeKEMKey }
+func (s SignSubkey) Copy() SignSubkey {
+	b := s.PublicKey.Pack()
+	cpy, err := s.Scheme().UnpackPublic(b)
 	if err != nil {
-		return quark.Binding{}, err
+		panic(err)
 	}
-	return id.Bind(sk, bd, expires)
+	return SignSubkey{cpy}
 }
-
-// Decode decodes a key model from the subkey binding.
-func Decode(b quark.Binding) (*quark.KeyModel, error) {
-	return quark.DecodeBinding[quark.KeyModel](b)
-}
-
-// ErrWrongType is returned when an wrong binding type is provided.
-var ErrWrongType = errors.New("wrong binding type")
-
-// DecodeSign decodes a signing subkey from the binding.
-func DecodeSign(b quark.Binding) (sign.PublicKey, error) {
-	if b.Type != TypeSignKey {
-		return nil, ErrWrongType
-	}
-	m, err := Decode(b)
+func (k KEMSubkey) Copy() KEMSubkey {
+	b := k.PublicKey.Pack()
+	cpy, err := k.Scheme().UnpackPublic(b)
 	if err != nil {
-		return nil, err
+		panic(err)
+	}
+	return KEMSubkey{cpy}
+}
+
+func (s SignSubkey) EncodeMsgpack(enc *pack.Encoder) error {
+	return enc.Encode(quark.KeyModel{
+		Algorithm: s.Scheme().Name(),
+		Key:       s.Pack(),
+	})
+}
+func (k KEMSubkey) EncodeMsgpack(enc *pack.Encoder) error {
+	return enc.Encode(quark.KeyModel{
+		Algorithm: k.Scheme().Name(),
+		Key:       k.Pack(),
+	})
+}
+
+func (s *SignSubkey) DecodeMsgpack(dec *pack.Decoder) error {
+	m := new(quark.KeyModel)
+	err := dec.Decode(m)
+	if err != nil {
+		return err
 	}
 	scheme := sign.ByName(m.Algorithm)
 	if scheme == nil {
-		return nil, internal.ErrUnknownScheme
+		return internal.ErrUnknownScheme
 	}
-	return scheme.UnpackPublic(m.Key)
-}
-
-// DecodeKEM decodes a KEM subkey from the binding.
-func DecodeKEM(b quark.Binding) (kem.PublicKey, error) {
-	if b.Type != TypeKEMKey {
-		return nil, ErrWrongType
-	}
-	m, err := Decode(b)
+	key, err := scheme.UnpackPublic(m.Key)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	s.PublicKey = key
+	return nil
+}
+func (k *KEMSubkey) DecodeMsgpack(dec *pack.Decoder) error {
+	m := new(quark.KeyModel)
+	err := dec.Decode(m)
+	if err != nil {
+		return err
 	}
 	scheme := kem.ByName(m.Algorithm)
 	if scheme == nil {
-		return nil, errors.New("unknown scheme")
+		return internal.ErrUnknownScheme
 	}
-	return scheme.UnpackPublic(m.Key)
+	key, err := scheme.UnpackPublic(m.Key)
+	if err != nil {
+		return err
+	}
+	k.PublicKey = key
+	return nil
+}
+
+// BindSign binds a subkey to an identity.
+func BindSign(id *quark.Identity, sk sign.PrivateKey, subkey sign.PublicKey, expires int64) (quark.Binding[SignSubkey], error) {
+	if subkey == nil {
+		return quark.Binding[SignSubkey]{}, nil
+	}
+	return quark.Bind(id, sk, expires, SignSubkey{subkey})
+}
+
+// BindKEM binds a subkey to an identity.
+func BindKEM(id *quark.Identity, sk sign.PrivateKey, subkey kem.PublicKey, expires int64) (quark.Binding[KEMSubkey], error) {
+	if subkey == nil {
+		return quark.Binding[KEMSubkey]{}, nil
+	}
+	return quark.Bind(id, sk, expires, KEMSubkey{subkey})
 }
