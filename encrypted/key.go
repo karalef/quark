@@ -33,7 +33,7 @@ var _ pack.Packable = (*Key)(nil)
 type KeyParameters struct {
 	SaltSize  int
 	Scheme    password.Scheme
-	KDFParams kdf.Params
+	KDFParams kdf.Cost
 }
 
 // EncryptKey encrypts a key with passphrase.

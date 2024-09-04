@@ -1,7 +1,6 @@
 package kdf
 
 import (
-	"encoding/binary"
 	"errors"
 
 	"golang.org/x/crypto/argon2"
@@ -13,55 +12,27 @@ func init() {
 }
 
 // Argon2i KDF.
-var Argon2i = New("argon2i", argon2i)
+var Argon2i = New("argon2i", argon2i, validateArgon2)
 
 // Argon2id KDF.
-var Argon2id = New("argon2id", argon2id)
+var Argon2id = New("argon2id", argon2id, validateArgon2)
 
-func argon2i(password, salt []byte, size int, params *Argon2Params) ([]byte, error) {
-	return argon2.Key(password, salt, params.Rounds, params.Memory, params.Threads, uint32(size)), nil
+func argon2i(password, salt []byte, size int, cost Cost) []byte {
+	return argon2.Key(password, salt, uint32(cost.CPU), uint32(cost.Memory), uint8(cost.Parallelism), uint32(size))
 }
 
-func argon2id(password, salt []byte, size int, params *Argon2Params) ([]byte, error) {
-	return argon2.IDKey(password, salt, params.Rounds, params.Memory, params.Threads, uint32(size)), nil
+func argon2id(password, salt []byte, size int, cost Cost) []byte {
+	return argon2.IDKey(password, salt, uint32(cost.CPU), uint32(cost.Memory), uint8(cost.Parallelism), uint32(size))
 }
 
-// Argon2Params contains the argon2 parameters.
-type Argon2Params struct {
-	Rounds  uint32
-	Memory  uint32
-	Threads uint8
-}
-
-func (*Argon2Params) new() Params {
-	return new(Argon2Params)
-}
-
-func (p Argon2Params) Encode() []byte {
-	var b [4 + 4 + 1]byte
-	binary.LittleEndian.PutUint32(b[:4], p.Rounds)
-	binary.LittleEndian.PutUint32(b[4:8], p.Memory)
-	b[8] = p.Threads
-	return b[:]
-}
-
-func (p *Argon2Params) Decode(b []byte) error {
-	if len(b) < 9 {
-		return errors.New("invalid argon2 parameters")
+func validateArgon2(cost Cost) error {
+	const maxUint8 = uint(^uint8(0))
+	const maxUint32 = uint(^uint32(0))
+	if cost.CPU < 1 || cost.Parallelism < 1 {
+		return errors.New("cost parameters too small")
 	}
-	p.Rounds = binary.LittleEndian.Uint32(b[:4])
-	p.Memory = binary.LittleEndian.Uint32(b[4:8])
-	p.Threads = b[8]
-	return nil
-}
-
-// Validate validates the argon2 parameters.
-func (p Argon2Params) Validate() error {
-	if p.Rounds < 1 {
-		return errors.New("number of rounds too small")
-	}
-	if p.Threads < 1 {
-		return errors.New("parallelism degree too low")
+	if cost.CPU > maxUint32 || cost.Memory > maxUint32 || cost.Parallelism > maxUint8 {
+		return errors.New("cost parameters too large")
 	}
 	return nil
 }

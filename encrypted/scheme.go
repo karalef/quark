@@ -43,16 +43,16 @@ var _ pack.CustomDecoder = (*Password)(nil)
 
 // Password contains password-based encryption parameters.
 type Password struct {
-	KDF    kdf.KDF
-	Params kdf.Params
+	KDF    kdf.Scheme
+	Params kdf.Cost
 	Salt   []byte
 }
 
 // EncodeMsgpack implements the pack.CustomEncoder interface.
 func (p Password) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.EncodeMap(map[string]interface{}{
+	return enc.EncodeMap(map[string]any{
 		"kdf":    p.KDF.Name(),
-		"params": p.Params.Encode(),
+		"params": p.Params,
 		"salt":   p.Salt,
 	})
 }
@@ -68,10 +68,7 @@ func (p *Password) DecodeMsgpack(dec *pack.Decoder) error {
 	if p.KDF == nil {
 		return ErrInvalidScheme
 	}
-	p.Params = p.KDF.NewParams()
-	if err := p.Params.Decode(internal.MapValue[[]byte](m, "params")); err != nil {
-		return err
-	}
+	p.Params = internal.MapValue[kdf.Cost](m, "params")
 	p.Salt = internal.MapValue[[]byte](m, "salt")
 
 	return nil

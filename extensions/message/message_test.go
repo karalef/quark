@@ -28,10 +28,10 @@ func TestMessage(t *testing.T) {
 	sent, err := New(plaintext,
 		WithSignature(sk),
 		WithCompression(compress.LZ4, 0, compress.LZ4Opts{Threads: 4}),
-		WithPassword("password", &kdf.Argon2Params{
-			Rounds:  2,
-			Memory:  64 * 1024,
-			Threads: 4,
+		WithPassword("password", kdf.Cost{
+			CPU:         2,
+			Memory:      64 * 1024,
+			Parallelism: 4,
 		}))
 	if err != nil {
 		t.Fatal(err)

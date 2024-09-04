@@ -45,8 +45,8 @@ func Encrypt(scheme secret.Scheme, sharedSecret, ad []byte) (aead.Cipher, *Symme
 
 // PasswordEncrypt creates a new AEAD cipher using passphrase.
 // It automatically appends the scheme to the additional data.
-func PasswordEncrypt(scheme password.Scheme, passphrase string, saltSize int, ad []byte, params kdf.Params) (aead.Cipher, *Symmetric, error) {
-	if scheme == nil || passphrase == "" || params == nil {
+func PasswordEncrypt(scheme password.Scheme, passphrase string, saltSize int, ad []byte, params kdf.Cost) (aead.Cipher, *Symmetric, error) {
+	if scheme == nil || passphrase == "" {
 		return nil, nil, ErrInvalidParameters
 	}
 	if saltSize < 16 {

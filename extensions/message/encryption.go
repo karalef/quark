@@ -48,7 +48,7 @@ func Encapsulate(scheme secret.Scheme, recipient kem.PublicKey, associatedData [
 }
 
 // Password uses password-based symmetric encryption to create an authenticated stream cipher.
-func Password(scheme password.Scheme, passphrase string, ad []byte, params kdf.Params) (aead.Cipher, *Encryption, error) {
+func Password(scheme password.Scheme, passphrase string, ad []byte, params kdf.Cost) (aead.Cipher, *Encryption, error) {
 	aead, sym, err := encrypted.PasswordEncrypt(scheme, passphrase, 32, ad, params)
 	if err != nil {
 		return nil, nil, err

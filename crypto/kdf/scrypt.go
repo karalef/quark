@@ -1,7 +1,6 @@
 package kdf
 
 import (
-	"encoding/binary"
 	"errors"
 
 	"golang.org/x/crypto/scrypt"
@@ -12,46 +11,26 @@ func init() {
 }
 
 // Scrypt is a scrypt KDF.
-var Scrypt KDF = New("scrypt", deriveScrypt)
+var Scrypt Scheme = New("scrypt", deriveScrypt, validateScrypt)
 
-func deriveScrypt(password, salt []byte, size int, params *ScryptParams) ([]byte, error) {
-	return scrypt.Key(password, salt, params.N, params.BlockMix, params.Parallelism, size)
-}
-
-// ScryptParams contains the scrypt parameters.
-type ScryptParams struct {
-	// N parameter
-	N int `msgpack:"N"`
-	// r parameter
-	BlockMix int `msgpack:"r"`
-	// p parameter
-	Parallelism int `msgpack:"p"`
-}
-
-func (*ScryptParams) new() Params {
-	return new(ScryptParams)
-}
-
-func (p ScryptParams) Encode() []byte {
-	var b [8 + 8 + 8]byte
-	binary.LittleEndian.PutUint64(b[:8], uint64(p.N))
-	binary.LittleEndian.PutUint64(b[8:16], uint64(p.BlockMix))
-	binary.LittleEndian.PutUint64(b[16:24], uint64(p.Parallelism))
-	return b[:]
-}
-
-func (p *ScryptParams) Decode(b []byte) error {
-	if len(b) < 24 {
-		return errors.New("invalid scrypt parameters")
+func deriveScrypt(password, salt []byte, size int, cost Cost) []byte {
+	h, err := scrypt.Key(password, salt, int(cost.CPU), int(cost.Memory), int(cost.Parallelism), size)
+	if err != nil {
+		panic("unexpected scrypt error: " + err.Error())
 	}
-	p.N = int(binary.LittleEndian.Uint64(b[:8]))
-	p.BlockMix = int(binary.LittleEndian.Uint64(b[8:16]))
-	p.Parallelism = int(binary.LittleEndian.Uint64(b[16:24]))
-	return nil
+	return h
 }
 
-// Validate always returns nil.
-// Validation occurs during the key derivation.
-func (p ScryptParams) Validate() error {
+func validateScrypt(cost Cost) error {
+	if cost.CPU <= 1 || cost.CPU&(cost.CPU-1) != 0 {
+		return errors.New("N must be > 1 and a power of 2")
+	}
+	const maxMemory = ^uint(0) >> 9
+	if cost.Memory*cost.Parallelism >= 1<<30 ||
+		cost.Memory > (maxMemory<<1)/cost.Parallelism ||
+		cost.Memory > maxMemory ||
+		cost.CPU > (maxMemory<<1)/cost.Memory {
+		return errors.New("parameters are too large")
+	}
 	return nil
 }

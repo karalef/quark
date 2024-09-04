@@ -8,7 +8,7 @@ import (
 
 // Build creates a password-based authenticated encryption scheme.
 // Panics if one of the arguments is nil.
-func Build(aead aead.Scheme, kdf kdf.KDF) Scheme {
+func Build(aead aead.Scheme, kdf kdf.Scheme) Scheme {
 	if aead == nil || kdf == nil {
 		panic("password.Build: nil scheme part")
 	}
@@ -22,14 +22,14 @@ func Build(aead aead.Scheme, kdf kdf.KDF) Scheme {
 type scheme struct {
 	name string
 	aead aead.Scheme
-	kdf  kdf.KDF
+	kdf  kdf.Scheme
 }
 
 func (s scheme) Name() string      { return s.name }
 func (s scheme) AEAD() aead.Scheme { return s.aead }
-func (s scheme) KDF() kdf.KDF      { return s.kdf }
+func (s scheme) KDF() kdf.Scheme   { return s.kdf }
 
-func (s scheme) crypter(password string, iv, salt, ad []byte, params kdf.Params, decrypt bool) (aead.Cipher, error) {
+func (s scheme) crypter(password string, iv, salt, ad []byte, params kdf.Cost, decrypt bool) (aead.Cipher, error) {
 	cipherKey, macKey, err := DeriveKeys(s, password, salt, params)
 	if err != nil {
 		return nil, err
@@ -37,10 +37,10 @@ func (s scheme) crypter(password string, iv, salt, ad []byte, params kdf.Params,
 	return s.AEAD().Crypter(iv, cipherKey, macKey, ad, decrypt)
 }
 
-func (s scheme) Encrypter(password string, iv, salt, ad []byte, params kdf.Params) (aead.Cipher, error) {
+func (s scheme) Encrypter(password string, iv, salt, ad []byte, params kdf.Cost) (aead.Cipher, error) {
 	return s.crypter(password, iv, salt, ad, params, false)
 }
 
-func (s scheme) Decrypter(password string, iv, salt, ad []byte, params kdf.Params) (aead.Cipher, error) {
+func (s scheme) Decrypter(password string, iv, salt, ad []byte, params kdf.Cost) (aead.Cipher, error) {
 	return s.crypter(password, iv, salt, ad, params, true)
 }

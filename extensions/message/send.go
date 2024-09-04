@@ -38,7 +38,7 @@ func WithEncryption(recipient kem.PublicKey, scheme ...secret.Scheme) Opt {
 // WithPassword sets password-based authenticated encryption scheme.
 // WithEncryption always overrides WithPassword.
 // Panics if password is empty.
-func WithPassword(passwd string, params kdf.Params, scheme ...password.Scheme) Opt {
+func WithPassword(passwd string, params kdf.Cost, scheme ...password.Scheme) Opt {
 	if len(passwd) == 0 {
 		panic("empty password")
 	}
@@ -92,7 +92,7 @@ type messageOpts struct {
 
 	password       string
 	passwordScheme password.Scheme
-	KDFParams      kdf.Params
+	KDFParams      kdf.Cost
 
 	compression  compress.Compression
 	compressOpts compress.Opts
