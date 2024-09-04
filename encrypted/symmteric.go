@@ -65,9 +65,9 @@ func PasswordEncrypt(scheme password.Scheme, passphrase string, saltSize int, ad
 
 	return aead, &Symmetric{
 		Password: &Password{
-			KDF:    scheme.KDF(),
-			Params: params,
-			Salt:   salt,
+			KDF:  KDFScheme{scheme.KDF()},
+			Cost: params,
+			Salt: salt,
 		},
 		IV:     iv,
 		Scheme: Scheme{scheme.AEAD()},
@@ -87,7 +87,7 @@ func (s Symmetric) Decrypt(sharedSecret, ad []byte) (aead.Cipher, error) {
 func (s Symmetric) PasswordDecrypt(passphrase string, ad []byte) (aead.Cipher, error) {
 	scheme := password.Build(s.Scheme, s.Password.KDF)
 	ad = append(ad[:len(ad):len(ad)], []byte(strings.ToUpper(scheme.Name()))...)
-	return scheme.Decrypter(passphrase, s.IV, s.Password.Salt, ad, s.Password.Params)
+	return scheme.Decrypter(passphrase, s.IV, s.Password.Salt, ad, s.Password.Cost)
 }
 
 var (

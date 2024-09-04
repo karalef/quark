@@ -31,16 +31,16 @@ var _ pack.Packable = (*Key)(nil)
 
 // KeyParameters is a password encryption parameters for key encryption.
 type KeyParameters struct {
-	SaltSize  int
-	Scheme    password.Scheme
-	KDFParams kdf.Cost
+	SaltSize int
+	Scheme   password.Scheme
+	Cost     kdf.Cost
 }
 
 // EncryptKey encrypts a key with passphrase.
 func EncryptKey[Scheme crypto.Scheme](key crypto.Key[Scheme], passphrase string, p KeyParameters) (*Key, error) {
 	alg := strings.ToUpper(key.Scheme().Name())
 	fp := key.Fingerprint()
-	cipher, sym, err := PasswordEncrypt(p.Scheme, passphrase, p.SaltSize, fp.Bytes(), p.KDFParams)
+	cipher, sym, err := PasswordEncrypt(p.Scheme, passphrase, p.SaltSize, fp.Bytes(), p.Cost)
 	if err != nil {
 		return nil, err
 	}

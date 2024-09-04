@@ -6,13 +6,10 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/kem"
-	"github.com/karalef/quark/crypto/mac"
 	"github.com/karalef/quark/crypto/password"
 	"github.com/karalef/quark/crypto/secret"
-	"github.com/karalef/quark/crypto/xof"
 	"github.com/karalef/quark/extensions/message/compress"
 	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/pack"
@@ -23,31 +20,33 @@ type Opt func(*messageOpts)
 
 // WithEncryption enables encryption based on key encapsulation mechanism.
 // Panics if recipient is nil.
-func WithEncryption(recipient kem.PublicKey, scheme ...secret.Scheme) Opt {
+func WithEncryption(recipient kem.PublicKey, scheme secret.Scheme) Opt {
 	if recipient == nil {
 		panic("nil recipient")
 	}
+	if scheme == nil {
+		panic("nil secret scheme")
+	}
 	return func(o *messageOpts) {
 		o.recipient = recipient
-		if len(scheme) > 0 {
-			o.scheme = scheme[0]
-		}
+		o.scheme = scheme
 	}
 }
 
 // WithPassword sets password-based authenticated encryption scheme.
 // WithEncryption always overrides WithPassword.
 // Panics if password is empty.
-func WithPassword(passwd string, params kdf.Cost, scheme ...password.Scheme) Opt {
+func WithPassword(passwd string, scheme password.Scheme, params kdf.Cost) Opt {
 	if len(passwd) == 0 {
 		panic("empty password")
+	}
+	if scheme == nil {
+		panic("nil password scheme")
 	}
 	return func(o *messageOpts) {
 		o.password = passwd
 		o.KDFParams = params
-		if len(scheme) > 0 {
-			o.passwordScheme = scheme[0]
-		}
+		o.passwordScheme = scheme
 	}
 }
 
@@ -101,13 +100,6 @@ type messageOpts struct {
 	file FileInfo
 }
 
-// Default schemes.
-var (
-	DefaultSymmetricScheme = aead.Build(cipher.AESCTR256, mac.SHA3_256)
-	DefaultSecretScheme    = secret.Build(DefaultSymmetricScheme, xof.Shake256)
-	DefaultPasswordScheme  = password.Build(DefaultSymmetricScheme, kdf.Argon2id)
-)
-
 // New creates a new message.
 func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 	if plaintext == nil {
@@ -138,9 +130,6 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 	mw := &messageWriter{}
 	var msgWriter io.WriteCloser = mw
 	if recipient := messageOpts.recipient; recipient != nil {
-		if messageOpts.scheme == nil {
-			messageOpts.scheme = DefaultSecretScheme
-		}
 		cipher, enc, err := Encapsulate(messageOpts.scheme, recipient, nil)
 		if err != nil {
 			return nil, err
@@ -154,9 +143,6 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 			},
 		})
 	} else if messageOpts.password != "" {
-		if messageOpts.passwordScheme == nil {
-			messageOpts.passwordScheme = DefaultPasswordScheme
-		}
 		cipher, enc, err := Password(messageOpts.passwordScheme, messageOpts.password, nil, messageOpts.KDFParams)
 		if err != nil {
 			return nil, err

@@ -38,40 +38,42 @@ func (x *XOF) DecodeMsgpack(dec *pack.Decoder) error {
 	return nil
 }
 
-var _ pack.CustomEncoder = (*Password)(nil)
-var _ pack.CustomDecoder = (*Password)(nil)
-
 // Password contains password-based encryption parameters.
 type Password struct {
-	KDF    kdf.Scheme
-	Params kdf.Cost
-	Salt   []byte
+	KDF  KDFScheme `msgpack:"kdf"`
+	Cost kdf.Cost  `msgpack:"cost"`
+	Salt []byte    `msgpack:"salt"`
 }
 
-// EncodeMsgpack implements the pack.CustomEncoder interface.
-func (p Password) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.EncodeMap(map[string]any{
-		"kdf":    p.KDF.Name(),
-		"params": p.Params,
-		"salt":   p.Salt,
-	})
+var _ pack.CustomEncoder = KDFScheme{}
+var _ pack.CustomDecoder = (*KDFScheme)(nil)
+
+// KDFScheme wraps an KDF scheme to be msgpack de/encodable.
+type KDFScheme struct {
+	kdf.Scheme
 }
 
-// DecodeMsgpack implements the pack.CustomDecoder interface.
-func (p *Password) DecodeMsgpack(dec *pack.Decoder) error {
-	m, err := dec.DecodeMap()
+// EncodeMsgpack implements pack.CustomEncoder.
+func (s KDFScheme) EncodeMsgpack(enc *pack.Encoder) error {
+	return enc.EncodeString(s.Name())
+}
+
+// Parse parses a symmetric encryption scheme.
+func (s *KDFScheme) Parse(str string) error {
+	s.Scheme = kdf.ByName(str)
+	if s.Scheme == nil {
+		return ErrInvalidScheme
+	}
+	return nil
+}
+
+// DecodeMsgpack implements pack.CustomDecoder.
+func (s *KDFScheme) DecodeMsgpack(dec *pack.Decoder) error {
+	str, err := dec.DecodeString()
 	if err != nil {
 		return err
 	}
-
-	p.KDF = kdf.ByName(internal.MapValue[string](m, "kdf"))
-	if p.KDF == nil {
-		return ErrInvalidScheme
-	}
-	p.Params = internal.MapValue[kdf.Cost](m, "params")
-	p.Salt = internal.MapValue[[]byte](m, "salt")
-
-	return nil
+	return s.Parse(str)
 }
 
 var _ pack.CustomEncoder = Scheme{}

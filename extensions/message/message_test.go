@@ -6,8 +6,12 @@ import (
 	"time"
 
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/crypto/aead"
+	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/mac"
+	"github.com/karalef/quark/crypto/password"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/extensions/message/compress"
 	"github.com/karalef/quark/pack"
@@ -28,7 +32,7 @@ func TestMessage(t *testing.T) {
 	sent, err := New(plaintext,
 		WithSignature(sk),
 		WithCompression(compress.LZ4, 0, compress.LZ4Opts{Threads: 4}),
-		WithPassword("password", kdf.Cost{
+		WithPassword("password", password.Build(aead.Build(cipher.AESCTR256, mac.BLAKE3), kdf.Argon2i), kdf.Cost{
 			CPU:         2,
 			Memory:      64 * 1024,
 			Parallelism: 4,
