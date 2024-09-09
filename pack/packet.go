@@ -12,6 +12,7 @@ type Packable interface {
 
 // Packet is a binary packet.
 type Packet[T any] struct {
+	//nolint:unused
 	_msgpack struct{} `msgpack:",as_array"`
 
 	Tag    Tag
@@ -75,6 +76,15 @@ func RegisterPacketType(typ PacketType) {
 	}
 
 	tagToType[typ.Tag] = typ
+}
+
+// RegisteredTypes returns all registered packet types.
+func RegisteredTypes() []PacketType {
+	types := make([]PacketType, 0, len(tagToType))
+	for _, typ := range tagToType {
+		types = append(types, typ)
+	}
+	return types
 }
 
 var tagToType = make(map[Tag]PacketType)
