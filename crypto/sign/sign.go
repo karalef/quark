@@ -38,7 +38,7 @@ type Scheme interface {
 
 // PrivateKey represents a signing private key.
 type PrivateKey interface {
-	crypto.Key[Scheme]
+	crypto.Key
 	Public() PublicKey
 	Equal(PrivateKey) bool
 
@@ -47,7 +47,7 @@ type PrivateKey interface {
 
 // PublicKey represents a signing public key.
 type PublicKey interface {
-	crypto.Key[Scheme]
+	crypto.Key
 	CorrespondsTo(PrivateKey) bool
 	Equal(PublicKey) bool
 

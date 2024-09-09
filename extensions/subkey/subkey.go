@@ -30,7 +30,7 @@ func (SignSubkey) BindType() quark.BindType { return TypeSignKey }
 func (KEMSubkey) BindType() quark.BindType  { return TypeKEMKey }
 func (s SignSubkey) Copy() SignSubkey {
 	b := s.PublicKey.Pack()
-	cpy, err := s.Scheme().UnpackPublic(b)
+	cpy, err := s.Scheme().(sign.Scheme).UnpackPublic(b)
 	if err != nil {
 		panic(err)
 	}
@@ -38,7 +38,7 @@ func (s SignSubkey) Copy() SignSubkey {
 }
 func (k KEMSubkey) Copy() KEMSubkey {
 	b := k.PublicKey.Pack()
-	cpy, err := k.Scheme().UnpackPublic(b)
+	cpy, err := k.Scheme().(kem.Scheme).UnpackPublic(b)
 	if err != nil {
 		panic(err)
 	}

@@ -21,7 +21,7 @@ func Generate(s Scheme, rand io.Reader) (PrivateKey, PublicKey, error) {
 
 // Encapsulate is wrapper for PublicKey.Encapsulate with random seed.
 func Encapsulate(p PublicKey) (ciphertext []byte, secret []byte, err error) {
-	return p.Encapsulate(crypto.Rand(p.Scheme().EncapsulationSeedSize()))
+	return p.Encapsulate(crypto.Rand(p.Scheme().(Scheme).EncapsulationSeedSize()))
 }
 
 // Scheme represents a KEM scheme.
@@ -49,7 +49,7 @@ type Scheme interface {
 
 // PrivateKey represents a KEM private key.
 type PrivateKey interface {
-	crypto.Key[Scheme]
+	crypto.Key
 	Public() PublicKey
 	Equal(PrivateKey) bool
 
@@ -59,7 +59,7 @@ type PrivateKey interface {
 
 // PublicKey represents a KEM public key.
 type PublicKey interface {
-	crypto.Key[Scheme]
+	crypto.Key
 	CorrespondsTo(PrivateKey) bool
 	Equal(PublicKey) bool
 

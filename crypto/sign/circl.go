@@ -4,6 +4,7 @@ import (
 	circlsign "github.com/cloudflare/circl/sign"
 	"github.com/cloudflare/circl/sign/eddilithium2"
 	"github.com/cloudflare/circl/sign/eddilithium3"
+	"github.com/karalef/quark/crypto"
 )
 
 func init() {
@@ -66,7 +67,7 @@ type circlPrivKey struct {
 	scheme circlScheme
 }
 
-func (priv *circlPrivKey) Scheme() Scheme { return priv.scheme }
+func (priv *circlPrivKey) Scheme() crypto.Scheme { return priv.scheme }
 
 func (priv *circlPrivKey) Public() rawPublicKey {
 	return &circlPubKey{priv.PrivateKey.Public().(circlsign.PublicKey), priv.scheme}
@@ -95,7 +96,7 @@ type circlPubKey struct {
 	scheme circlScheme
 }
 
-func (pub *circlPubKey) Scheme() Scheme { return pub.scheme }
+func (pub *circlPubKey) Scheme() crypto.Scheme { return pub.scheme }
 
 func (pub *circlPubKey) Equal(p rawPublicKey) bool {
 	if p, ok := p.(*circlPubKey); ok {

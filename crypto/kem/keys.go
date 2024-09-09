@@ -3,7 +3,7 @@ package kem
 import "github.com/karalef/quark/crypto"
 
 type rawKey interface {
-	Scheme() Scheme
+	Scheme() crypto.Scheme
 	Pack() []byte
 }
 

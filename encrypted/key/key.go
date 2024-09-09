@@ -28,7 +28,7 @@ func init() {
 var _ pack.Packable = (*Key)(nil)
 
 // Encrypt encrypts a key with passphrase.
-func Encrypt[Scheme crypto.Scheme](key crypto.Key[Scheme], passphrase string, p encrypted.PassphraseParams) (*Key, error) {
+func Encrypt(key crypto.Key, passphrase string, p encrypted.PassphraseParams) (*Key, error) {
 	fp := key.Fingerprint()
 	data, err := single.NewPassphraseData(passphrase, key.Pack(), fp.Bytes(), p)
 	if err != nil {
@@ -36,7 +36,7 @@ func Encrypt[Scheme crypto.Scheme](key crypto.Key[Scheme], passphrase string, p 
 	}
 	return &Key{
 		Algorithm: strings.ToUpper(key.Scheme().Name()),
-		FP:        key.Fingerprint(),
+		FP:        fp,
 		Data:      data,
 	}, nil
 }

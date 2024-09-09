@@ -21,9 +21,11 @@ type Scheme interface {
 }
 
 // Key is a basic interface for asymmetric keys.
-type Key[KeyScheme Scheme] interface {
+type Key interface {
 	KeyID
-	Scheme() KeyScheme
+
+	// Scheme returns the scheme.
+	Scheme() Scheme
 
 	// Pack allocates a new slice of bytes with Scheme().{Private, Public}KeySize() length
 	// and writes the key to it.
@@ -31,7 +33,7 @@ type Key[KeyScheme Scheme] interface {
 }
 
 // Corresponds returns true if k1 and k2 have the same fingerprint.
-func Corresponds[KeyScheme Scheme](k1, k2 Key[Scheme]) bool {
+func Corresponds(k1, k2 Key) bool {
 	return k1.Fingerprint().IsEqual(k2.Fingerprint())
 }
 

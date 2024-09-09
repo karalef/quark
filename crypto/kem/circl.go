@@ -6,6 +6,7 @@ import (
 	"github.com/cloudflare/circl/kem/kyber/kyber1024"
 	"github.com/cloudflare/circl/kem/kyber/kyber512"
 	"github.com/cloudflare/circl/kem/kyber/kyber768"
+	"github.com/karalef/quark/crypto"
 )
 
 func init() {
@@ -73,7 +74,7 @@ type circlPrivKey struct {
 	sch circlScheme
 }
 
-func (priv *circlPrivKey) Scheme() Scheme { return priv.sch }
+func (priv *circlPrivKey) Scheme() crypto.Scheme { return priv.sch }
 
 func (priv *circlPrivKey) Public() rawPublicKey {
 	return &circlPubKey{priv.sk.Public(), priv.sch}
@@ -103,7 +104,7 @@ type circlPubKey struct {
 	sch circlScheme
 }
 
-func (pub *circlPubKey) Scheme() Scheme { return pub.sch }
+func (pub *circlPubKey) Scheme() crypto.Scheme { return pub.sch }
 
 func (pub *circlPubKey) Pack() []byte {
 	b, _ := pub.pk.MarshalBinary()
