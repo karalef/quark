@@ -12,17 +12,11 @@ import (
 	"github.com/karalef/quark/pack"
 )
 
-// packet tags.
-const (
-	PacketTagPrivateKey = 0x02
-)
-
-var (
-	packetTypePrivateKey = pack.NewType((*Key)(nil), "private key", "PRIVATE KEY")
-)
+// PacketTagPrivateKey is a private key packet tag.
+const PacketTagPrivateKey = 0x02
 
 func init() {
-	pack.RegisterPacketType(packetTypePrivateKey)
+	pack.RegisterPacketType(pack.NewType((*Key)(nil), "private key", "PRIVATE KEY"))
 }
 
 var _ pack.Packable = (*Key)(nil)
