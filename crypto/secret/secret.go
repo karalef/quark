@@ -24,7 +24,7 @@ type Scheme interface {
 }
 
 // DeriveKeys derives cipher and MAC keys from an IV and shared secret.
-func DeriveKeys(s Scheme, iv, sharedSecret []byte) ([]byte, []byte, error) {
+func DeriveKeys(s Scheme, sharedSecret []byte) ([]byte, []byte, error) {
 	cipherSize, macSize := s.AEAD().Cipher().KeySize(), s.AEAD().MAC().KeySize()
 	if macSize == 0 {
 		macSize = min(s.AEAD().MAC().MaxKeySize(), cipherSize)
@@ -33,7 +33,6 @@ func DeriveKeys(s Scheme, iv, sharedSecret []byte) ([]byte, []byte, error) {
 	macKey := make([]byte, macSize)
 	xof := s.XOF().New()
 	xof.Write(sharedSecret)
-	xof.Write(iv)
 	xof.Read(key)
 	xof.Read(macKey)
 	return key, macKey, nil

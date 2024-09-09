@@ -5,9 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-
-	"github.com/karalef/quark/internal"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Stream represents an de/encodable bytes stream.
@@ -18,12 +15,12 @@ type Stream struct {
 	// Writer represents the decoded data output.
 	Writer io.Writer
 
-	writerWrapper func(io.WriteCloser) io.WriteCloser
+	writerWrapper func(io.Writer) io.WriteCloser
 	readerWrapper func(io.Reader) io.Reader
 }
 
 // WrapWriter wraps the encoder's writer.
-func (s *Stream) WrapWriter(f func(io.WriteCloser) io.WriteCloser) {
+func (s *Stream) WrapWriter(f func(io.Writer) io.WriteCloser) {
 	s.writerWrapper = f
 }
 
@@ -33,33 +30,50 @@ func (s *Stream) WrapReader(f func(io.Reader) io.Reader) {
 }
 
 // EncodeMsgpack implements msgpack.CustomEncoder.
-func (s Stream) EncodeMsgpack(enc *msgpack.Encoder) error {
-	w := internal.NopCloser(enc.Writer())
-	if s.writerWrapper != nil {
-		w = s.writerWrapper(w)
+func (s Stream) EncodeMsgpack(enc *Encoder) error {
+	if s.Reader == nil {
+		return errors.New("pack: Stream.Reader is nil")
 	}
-	sw := newStreamWriter(w)
-	_, err := io.Copy(sw, s.Reader)
+	sw := newStreamWriter(enc.Writer())
+	wc := io.WriteCloser(sw)
+	if s.writerWrapper != nil {
+		wc = s.writerWrapper(wc)
+	}
+	_, err := io.Copy(wc, s.Reader)
 	if err != nil {
 		return err
 	}
-	if err := sw.Close(); err != nil {
-		return errors.Join(err, w.Close())
+	if s.writerWrapper != nil {
+		err = wc.Close()
 	}
-	return w.Close()
+	return errors.Join(err, sw.Close())
 }
 
 // DecodeMsgpack implements msgpack.CustomDecoder.
-func (s *Stream) DecodeMsgpack(dec *msgpack.Decoder) error {
+func (s *Stream) DecodeMsgpack(dec *Decoder) error {
 	if s.Writer == nil {
 		return errors.New("pack: Stream.Writer is nil")
 	}
-	r := dec.Buffered()
+	sr := newStreamReader(dec.Buffered())
+	r := io.Reader(sr)
 	if s.readerWrapper != nil {
 		r = s.readerWrapper(r)
 	}
-	_, err := io.Copy(s.Writer, newStreamReader(r))
-	return err
+	_, err := io.Copy(s.Writer, r)
+	if err != nil {
+		return err
+	}
+	if s.readerWrapper == nil || sr.eof {
+		return nil
+	}
+	if sr.remaining > 0 {
+		return errors.New("pack.Stream: decoder stream has remaining bytes")
+	}
+	err = sr.readLen()
+	if err != io.EOF {
+		return errors.New("pack.Stream: decoder stream was not fully read")
+	}
+	return nil
 }
 
 func newStreamWriter(w io.Writer) *streamWriter {
@@ -91,7 +105,7 @@ func (sw *streamWriter) Write(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	n := binary.PutVarint(sw.length[:], int64(len(p)))
+	n := binary.PutUvarint(sw.length[:], uint64(len(p)))
 	_, err := sw.w.Write(sw.length[:n])
 	if err != nil {
 		return 0, err
@@ -112,21 +126,19 @@ type byteReader interface {
 
 type streamReader struct {
 	r         byteReader
-	remaining int64
+	remaining uint64
 	eof       bool
 }
 
 func (sr *streamReader) readLen() (err error) {
-	sr.remaining, err = binary.ReadVarint(sr.r)
+	sr.remaining, err = binary.ReadUvarint(sr.r)
 	if err != nil {
 		if err == io.EOF {
 			return io.ErrUnexpectedEOF
 		}
 		return
 	}
-	if sr.remaining < 0 {
-		err = errors.New("negative length")
-	} else if sr.remaining == 0 {
+	if sr.remaining == 0 {
 		sr.eof = true
 		err = io.EOF
 	}
@@ -144,15 +156,15 @@ func (sr *streamReader) Read(p []byte) (n int, err error) {
 		}
 	}
 
-	toRead := int64(len(p))
+	toRead := uint64(len(p))
 	if toRead > sr.remaining {
 		toRead = sr.remaining
 	}
 
 	n, err = io.ReadFull(sr.r, p[:toRead])
-	if err == io.EOF && int64(n) != toRead {
+	if err == io.EOF && uint64(n) != toRead {
 		err = io.ErrUnexpectedEOF
 	}
-	sr.remaining -= int64(n)
+	sr.remaining -= uint64(n)
 	return
 }

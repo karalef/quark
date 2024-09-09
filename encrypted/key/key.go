@@ -1,16 +1,14 @@
-package encrypted
+package key
 
 import (
 	"errors"
 	"strings"
 
-	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto"
-	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/kem"
-	"github.com/karalef/quark/crypto/mac"
-	"github.com/karalef/quark/crypto/password"
 	"github.com/karalef/quark/crypto/sign"
+	"github.com/karalef/quark/encrypted"
+	"github.com/karalef/quark/encrypted/single"
 	"github.com/karalef/quark/pack"
 )
 
@@ -29,56 +27,32 @@ func init() {
 
 var _ pack.Packable = (*Key)(nil)
 
-// KeyParameters is a password encryption parameters for key encryption.
-type KeyParameters struct {
-	SaltSize int
-	Scheme   password.Scheme
-	Cost     kdf.Cost
-}
-
-// EncryptKey encrypts a key with passphrase.
-func EncryptKey[Scheme crypto.Scheme](key crypto.Key[Scheme], passphrase string, p KeyParameters) (*Key, error) {
-	alg := strings.ToUpper(key.Scheme().Name())
+// Encrypt encrypts a key with passphrase.
+func Encrypt[Scheme crypto.Scheme](key crypto.Key[Scheme], passphrase string, p encrypted.PassphraseParams) (*Key, error) {
 	fp := key.Fingerprint()
-	cipher, sym, err := PasswordEncrypt(p.Scheme, passphrase, p.SaltSize, fp.Bytes(), p.Cost)
+	data, err := single.NewPassphraseData(passphrase, key.Pack(), fp.Bytes(), p)
 	if err != nil {
 		return nil, err
 	}
-	material := key.Pack()
-	cipher.Crypt(material, material)
-
 	return &Key{
-		Key: quark.KeyModel{Algorithm: alg, Key: material},
-		FP:  key.Fingerprint(),
-		Sym: *sym,
-		Tag: cipher.Tag(nil),
+		Algorithm: strings.ToUpper(key.Scheme().Name()),
+		FP:        key.Fingerprint(),
+		Data:      data,
 	}, nil
 }
 
 // Key is used to store the private key encrypted with passphrase.
 type Key struct {
-	Key quark.KeyModel     `msgpack:"key"`
-	FP  crypto.Fingerprint `msgpack:"fp"`
-	Sym Symmetric          `msgpack:"sym"`
-	Tag []byte             `msgpack:"tag"`
+	Algorithm string                `msgpack:"alg"`
+	FP        crypto.Fingerprint    `msgpack:"fp"`
+	Data      single.PassphraseData `msgpack:"data"`
 }
 
 func (*Key) PacketTag() pack.Tag { return PacketTagPrivateKey }
 
 // Decrypt decrypts the key with passphrase.
 func (k *Key) Decrypt(passphrase string) ([]byte, error) {
-	cipher, err := k.Sym.PasswordDecrypt(passphrase, k.FP.Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	key := make([]byte, len(k.Key.Key))
-	cipher.Crypt(key, k.Key.Key)
-	if !mac.Equal(k.Tag, cipher.Tag(nil)) {
-		return nil, mac.ErrMismatch
-	}
-
-	return key, nil
+	return k.Data.Decrypt(passphrase, k.FP.Bytes(), true)
 }
 
 // Decrypt decrypts the sign key with the given passphrase.
@@ -88,7 +62,7 @@ func (k *Key) DecryptSign(passphrase string) (sign.PrivateKey, error) {
 		return nil, err
 	}
 
-	scheme := sign.ByName(k.Key.Algorithm)
+	scheme := sign.ByName(k.Algorithm)
 	if scheme == nil {
 		return nil, errors.New("unknown key algorithm")
 	}
@@ -102,7 +76,7 @@ func (k *Key) DecryptKEM(passphrase string) (kem.PrivateKey, error) {
 		return nil, err
 	}
 
-	scheme := kem.ByName(k.Key.Algorithm)
+	scheme := kem.ByName(k.Algorithm)
 	if scheme == nil {
 		return nil, errors.New("unknown key algorithm")
 	}

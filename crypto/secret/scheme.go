@@ -30,7 +30,7 @@ func (s scheme) AEAD() aead.Scheme { return s.aead }
 func (s scheme) XOF() xof.XOF      { return s.xof }
 
 func (s scheme) crypter(iv, sharedSecret, associatedData []byte, decrypt bool) (aead.Cipher, error) {
-	cipherKey, macKey, err := DeriveKeys(s, iv, sharedSecret)
+	cipherKey, macKey, err := DeriveKeys(s, sharedSecret)
 	if err != nil {
 		return nil, err
 	}

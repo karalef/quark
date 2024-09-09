@@ -12,9 +12,6 @@ import (
 	"github.com/karalef/quark/pack"
 )
 
-var _ pack.CustomEncoder = (*XOF)(nil)
-var _ pack.CustomDecoder = (*XOF)(nil)
-
 // XOF wraps a XOF algorithm to be msgpack de/encodable.
 type XOF struct {
 	xof.XOF
@@ -38,28 +35,21 @@ func (x *XOF) DecodeMsgpack(dec *pack.Decoder) error {
 	return nil
 }
 
-// Password contains password-based encryption parameters.
-type Password struct {
-	KDF  KDFScheme `msgpack:"kdf"`
-	Cost kdf.Cost  `msgpack:"cost"`
-	Salt []byte    `msgpack:"salt"`
-}
+var _ pack.CustomEncoder = KDF{}
+var _ pack.CustomDecoder = (*KDF)(nil)
 
-var _ pack.CustomEncoder = KDFScheme{}
-var _ pack.CustomDecoder = (*KDFScheme)(nil)
-
-// KDFScheme wraps an KDF scheme to be msgpack de/encodable.
-type KDFScheme struct {
+// KDF wraps an KDF scheme to be msgpack de/encodable.
+type KDF struct {
 	kdf.Scheme
 }
 
 // EncodeMsgpack implements pack.CustomEncoder.
-func (s KDFScheme) EncodeMsgpack(enc *pack.Encoder) error {
+func (s KDF) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.EncodeString(s.Name())
 }
 
 // Parse parses a symmetric encryption scheme.
-func (s *KDFScheme) Parse(str string) error {
+func (s *KDF) Parse(str string) error {
 	s.Scheme = kdf.ByName(str)
 	if s.Scheme == nil {
 		return ErrInvalidScheme
@@ -68,7 +58,7 @@ func (s *KDFScheme) Parse(str string) error {
 }
 
 // DecodeMsgpack implements pack.CustomDecoder.
-func (s *KDFScheme) DecodeMsgpack(dec *pack.Decoder) error {
+func (s *KDF) DecodeMsgpack(dec *pack.Decoder) error {
 	str, err := dec.DecodeString()
 	if err != nil {
 		return err

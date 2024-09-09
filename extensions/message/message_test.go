@@ -8,22 +8,17 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/cipher"
-	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/mac"
-	"github.com/karalef/quark/crypto/password"
+	"github.com/karalef/quark/crypto/secret"
 	"github.com/karalef/quark/crypto/sign"
+	"github.com/karalef/quark/crypto/xof"
 	"github.com/karalef/quark/extensions/message/compress"
 	"github.com/karalef/quark/pack"
 )
 
 func TestMessage(t *testing.T) {
-	_, sk, _, _, err := test_create(sign.EDDilithium3, kem.Kyber768)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, _, _, _, err = test_create(sign.EDDilithium2, kem.Kyber1024)
+	_, sk, ksk, kpk, err := test_create(sign.EDDilithium3, kem.Kyber768)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,11 +27,14 @@ func TestMessage(t *testing.T) {
 	sent, err := New(plaintext,
 		WithSignature(sk),
 		WithCompression(compress.LZ4, 0, compress.LZ4Opts{Threads: 4}),
-		WithPassword("password", password.Build(aead.Build(cipher.AESCTR256, mac.BLAKE3), kdf.Argon2i), kdf.Cost{
-			CPU:         2,
-			Memory:      64 * 1024,
-			Parallelism: 4,
-		}))
+		WithEncryption(kpk, secret.Build(aead.Build(cipher.AESCTR256, mac.BLAKE3), xof.BLAKE3x)),
+		WithFileInfo(FileInfo{
+			Name:     "test.txt",
+			Created:  time.Now().AddDate(-1, 0, 0).Unix(),
+			Modified: time.Now().Unix(),
+		}),
+	)
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +44,6 @@ func TestMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stock, encoded := len("some message"), buf.Len()
 	err = pack.Pack(out, sent)
 	if err != nil {
 		t.Fatal(err)
@@ -55,6 +52,7 @@ func TestMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	stock, encoded := len("some message"), buf.Len()
 
 	t.Log("\n", buf.String())
 
@@ -73,21 +71,28 @@ func TestMessage(t *testing.T) {
 	received := unpacked.(*Message)
 
 	receivedPlaintext := new(bytes.Buffer)
-	//err = received.Decrypt(receivedPlaintext, ksk2, sk.Public())
-	received.PasswordDecrypt(receivedPlaintext, sk.Public(), "password")
+	err = received.Decrypt(receivedPlaintext, Decrypt{
+		Issuer:    sk.Public(),
+		Password:  "password",
+		Recipient: ksk,
+	})
 	if err != nil {
+		println(receivedPlaintext.String(), receivedPlaintext.Len())
 		t.Fatal(err)
 	}
 
-	//t.Log("kem:", ksk2.Scheme().Name())
-	t.Log("password ecnryption:", received.Header.Encryption.Symmetric.Scheme.Name(), "with", received.Header.Encryption.Symmetric.Password.KDF.Name())
-	//t.Log("symmetric:", received.Header.Encryption.Symmetric.Scheme.String())
+	t.Log("kem:", ksk.Scheme().Name())
+
+	sym := received.Header.Encryption.Symmetric
+	t.Log("symmetric", sym.Secret.Build(sym.Scheme).Name())
+	//t.Log("password encryption:", sym.Passphrase.Build(sym.Scheme).Name())
+
 	issuer := received.Auth.Signature.Issuer
-	t.Log("signed with:", sk.Scheme().Name(), issuer)
-	t.Log("signature verified:", issuer.ID(), "=", received.Header.Sender, time.Unix(received.Header.Time, 0))
-	t.Log("message integrity verified")
+	t.Log("signed with:", sk.Scheme().Name(), issuer.ID().String(), time.Unix(received.Header.Time, 0))
 	t.Log("compression:", received.Header.Compression.Name())
-	t.Log("size overhead (%):", float64(encoded)/float64(stock)*100)
+	t.Logf("transmission size overhead: %.2f%%\n", float64(encoded)/float64(stock)*100-100)
+	file := received.Header.File
+	t.Logf("file %s created at %s, modified at %s\n", file.Name, time.Unix(file.Created, 0), time.Unix(file.Modified, 0))
 	t.Log(receivedPlaintext.String())
 }
 

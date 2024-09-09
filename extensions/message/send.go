@@ -6,10 +6,9 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/kem"
-	"github.com/karalef/quark/crypto/password"
 	"github.com/karalef/quark/crypto/secret"
+	"github.com/karalef/quark/encrypted"
 	"github.com/karalef/quark/extensions/message/compress"
 	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/pack"
@@ -36,17 +35,13 @@ func WithEncryption(recipient kem.PublicKey, scheme secret.Scheme) Opt {
 // WithPassword sets password-based authenticated encryption scheme.
 // WithEncryption always overrides WithPassword.
 // Panics if password is empty.
-func WithPassword(passwd string, scheme password.Scheme, params kdf.Cost) Opt {
+func WithPassword(passwd string, params encrypted.PassphraseParams) Opt {
 	if len(passwd) == 0 {
 		panic("empty password")
 	}
-	if scheme == nil {
-		panic("nil password scheme")
-	}
 	return func(o *messageOpts) {
 		o.password = passwd
-		o.KDFParams = params
-		o.passwordScheme = scheme
+		o.passwordParams = params
 	}
 }
 
@@ -90,8 +85,7 @@ type messageOpts struct {
 	scheme    secret.Scheme
 
 	password       string
-	passwordScheme password.Scheme
-	KDFParams      kdf.Cost
+	passwordParams encrypted.PassphraseParams
 
 	compression  compress.Compression
 	compressOpts compress.Opts
@@ -128,7 +122,7 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 	}
 
 	mw := &messageWriter{}
-	var msgWriter io.WriteCloser = mw
+	msgWriter := internal.NopCloser(mw)
 	if recipient := messageOpts.recipient; recipient != nil {
 		cipher, enc, err := Encapsulate(messageOpts.scheme, recipient, nil)
 		if err != nil {
@@ -143,7 +137,7 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 			},
 		})
 	} else if messageOpts.password != "" {
-		cipher, enc, err := Password(messageOpts.passwordScheme, messageOpts.password, nil, messageOpts.KDFParams)
+		cipher, enc, err := Password(messageOpts.password, nil, messageOpts.passwordParams)
 		if err != nil {
 			return nil, err
 		}
@@ -166,8 +160,8 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 		msgWriter = internal.ChainCloser(msgWriter, compressed)
 	}
 
-	msg.Data.WrapWriter(func(wc io.WriteCloser) io.WriteCloser {
-		mw.WriteCloser = wc
+	msg.Data.WrapWriter(func(w io.Writer) io.WriteCloser {
+		mw.Writer = w
 		return msgWriter
 	})
 
@@ -186,7 +180,7 @@ func signMessage(sender quark.PrivateKey, msg *Message, expiry int64) error {
 }
 
 type messageWriter struct {
-	io.WriteCloser
+	io.Writer
 }
 
 type messageEncrypter struct {

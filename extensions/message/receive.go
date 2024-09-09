@@ -12,109 +12,72 @@ import (
 	"github.com/karalef/quark/pack"
 )
 
-// ErrBrokenMessage is returned when the message is broken.
-type ErrBrokenMessage struct {
-	Description string
-}
-
-func (err ErrBrokenMessage) Error() string {
-	return "broken message: " + err.Description
-}
-
 type messageReader struct {
 	io.Reader
 }
 
-// Decrypt decrypts a message.
-func (msg *Message) Decrypt(plaintext io.Writer, recipient kem.PrivateKey, sender quark.PublicKey) error {
-	closer := internal.NopCloser(plaintext)
-	if !msg.Header.Sender.IsEmpty() {
-		closer = internal.ChainCloser(closer, messageVerifier{
-			w:   closer,
-			msg: msg,
-			v:   quark.VerifyStream(sender),
-		})
-	}
+// Decrypt contains the parameters to decrypt the message.
+type Decrypt struct {
+	// Issuer is used to verify the signature.
+	Issuer quark.PublicKey
 
-	mr := &messageReader{}
-	var msgReader io.Reader = mr
-	if msg.Header.Encryption != nil {
-		cipher, err := msg.Header.Encryption.Decapsulate(recipient, nil)
-		if err != nil {
-			return err
-		}
-		msgReader = messageDecrypter{
-			msg: msg,
-			Reader: aead.Reader{
-				AEAD: cipher,
-				R:    msgReader,
-			},
-		}
-	}
-
-	if comp := msg.Header.Compression; comp != nil {
-		decompressed, err := comp.Decompress(msgReader, nil)
-		if err != nil {
-			return err
-		}
-		msgReader = decompressed
-	}
-
-	msg.Data.Writer = closer
-	msg.Data.WrapReader(func(r io.Reader) io.Reader {
-		mr.Reader = r
-		return msgReader
-	})
-
-	dec := pack.GetDecoder(msg.Data.Reader)
-	defer pack.PutDecoder(dec)
-
-	err := dec.Decode(&msg.Data)
-	if err != nil {
-		return err
-	}
-	err = dec.Decode(&msg.Auth)
-	if err != nil {
-		return err
-	}
-	return closer.Close()
+	// Recipient is used to decrypt the message.
+	Recipient kem.PrivateKey
+	// Password is used to decrypt the message.
+	Password string
 }
 
-func (msg *Message) PasswordDecrypt(plaintext io.Writer, sender quark.PublicKey, passphrase string) error {
-	closer := internal.NopCloser(plaintext)
-	if !msg.Header.Sender.IsEmpty() {
-		closer = internal.ChainCloser(closer, messageVerifier{
-			w:   closer,
+func (msg *Message) Decrypt(plain io.Writer, decrypt Decrypt) error {
+	// Verify signature
+	verifier := internal.NopCloser(plain)
+	if !msg.Header.Sender.IsEmpty() && decrypt.Issuer != nil {
+		verifier = messageVerifier{
+			w:   plain,
 			msg: msg,
-			v:   quark.VerifyStream(sender),
-		})
+			v:   quark.VerifyStream(decrypt.Issuer),
+		}
 	}
+	msg.Data.Writer = verifier
 
+	// Decrypt
 	mr := &messageReader{}
-	var msgReader io.Reader = mr
-	if msg.Header.Encryption != nil {
-		cipher, err := msg.Header.Encryption.Decrypt(passphrase, nil)
+	var md messageDecrypter
+	msgReader := io.Reader(mr)
+	if enc := msg.Header.Encryption; enc != nil {
+		var cipher aead.Cipher
+		var err error
+		if enc.IsEncapsulated() {
+			if decrypt.Recipient == nil {
+				return errors.New("message is public key encrypted but no recipient's private key provided")
+			}
+			cipher, err = enc.Decapsulate(decrypt.Recipient, nil)
+		} else if decrypt.Password != "" {
+			cipher, err = enc.Decrypt(decrypt.Password, nil)
+		} else {
+			err = errors.New("message is encrypted with password but no password provided")
+		}
 		if err != nil {
 			return err
 		}
-		msgReader = messageDecrypter{
+		md = messageDecrypter{
 			msg: msg,
 			Reader: aead.Reader{
 				AEAD: cipher,
 				R:    msgReader,
 			},
 		}
+		msgReader = md
 	}
 
+	// Decompress
 	if comp := msg.Header.Compression; comp != nil {
-		decompressed, err := comp.Decompress(msgReader, nil)
+		dec, err := comp.Decompress(msgReader, nil)
 		if err != nil {
 			return err
 		}
-		msgReader = decompressed
+		msgReader = dec
 	}
 
-	msg.Data.Writer = closer
 	msg.Data.WrapReader(func(r io.Reader) io.Reader {
 		mr.Reader = r
 		return msgReader
@@ -131,7 +94,8 @@ func (msg *Message) PasswordDecrypt(plaintext io.Writer, sender quark.PublicKey,
 	if err != nil {
 		return err
 	}
-	return closer.Close()
+
+	return errors.Join(verifier.Close(), md.Close())
 }
 
 type messageDecrypter struct {
@@ -139,15 +103,14 @@ type messageDecrypter struct {
 	aead.Reader
 }
 
-func (d messageDecrypter) Read(p []byte) (int, error) {
-	n, err := d.Reader.Read(p)
-	if err == io.EOF {
-		if !mac.Equal(d.msg.Auth.Tag, d.AEAD.Tag(nil)) {
-			err = mac.ErrMismatch
-		}
+func (d messageDecrypter) Close() error {
+	if d.msg == nil {
+		return nil
 	}
-
-	return n, err
+	if !mac.Equal(d.msg.Auth.Tag, d.AEAD.Tag(nil)) {
+		return mac.ErrMismatch
+	}
+	return nil
 }
 
 type messageVerifier struct {

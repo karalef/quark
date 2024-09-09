@@ -5,11 +5,10 @@ import (
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/kem"
-	"github.com/karalef/quark/crypto/password"
 	"github.com/karalef/quark/crypto/secret"
 	"github.com/karalef/quark/encrypted"
+	"github.com/karalef/quark/encrypted/single"
 )
 
 // Encryption contains encapsulated shared secret with symmetric encryption parameters.
@@ -19,7 +18,7 @@ type Encryption struct {
 	ID crypto.ID `msgpack:"id,omitempty"`
 
 	// symmetric encryption parameters
-	Symmetric encrypted.Symmetric `msgpack:"symmetric"`
+	Symmetric single.Stream `msgpack:"symmetric"`
 
 	// encapsulated shared secret
 	Secret []byte `msgpack:"secret,omitempty"`
@@ -35,27 +34,27 @@ func Encapsulate(scheme secret.Scheme, recipient kem.PublicKey, associatedData [
 		return nil, nil, err
 	}
 
-	aead, sym, err := encrypted.Encrypt(scheme, secret, associatedData)
+	sym, aead, err := single.New(scheme, secret, associatedData)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return aead, &Encryption{
 		ID:        recipient.ID(),
-		Symmetric: *sym,
+		Symmetric: sym,
 		Secret:    ciphertext,
 	}, err
 }
 
 // Password uses password-based symmetric encryption to create an authenticated stream cipher.
-func Password(scheme password.Scheme, passphrase string, ad []byte, params kdf.Cost) (aead.Cipher, *Encryption, error) {
-	aead, sym, err := encrypted.PasswordEncrypt(scheme, passphrase, 32, ad, params)
+func Password(passphrase string, ad []byte, params encrypted.PassphraseParams) (aead.Cipher, *Encryption, error) {
+	sym, aead, err := single.NewWithPassphrase(passphrase, ad, params)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return aead, &Encryption{
-		Symmetric: *sym,
+		Symmetric: sym,
 	}, nil
 }
 
@@ -79,5 +78,5 @@ func (e *Encryption) Decrypt(passphrase string, ad []byte) (aead.Cipher, error) 
 	if e.IsEncapsulated() {
 		return nil, errors.New("there is encapsulated shared secret (not password-encrypted)")
 	}
-	return e.Symmetric.PasswordDecrypt(passphrase, ad)
+	return e.Symmetric.DecryptPassphrase(passphrase, ad)
 }
