@@ -108,3 +108,21 @@ func BindKEM(id *quark.Identity, sk sign.PrivateKey, subkey kem.PublicKey, expir
 	}
 	return quark.Bind(id, sk, expires, KEMSubkey{subkey})
 }
+
+// SignFrom extracts the public key from a binding.
+func SignFrom(b quark.RawBinding) (sign.PublicKey, error) {
+	k, err := quark.BindingAs[SignSubkey](b)
+	if err != nil {
+		return nil, err
+	}
+	return k.GetData().PublicKey, nil
+}
+
+// KEMFrom extracts the public key from a binding.
+func KEMFrom(b quark.RawBinding) (kem.PublicKey, error) {
+	k, err := quark.BindingAs[KEMSubkey](b)
+	if err != nil {
+		return nil, err
+	}
+	return k.GetData().PublicKey, nil
+}

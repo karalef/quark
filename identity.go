@@ -129,8 +129,8 @@ func GetBinding[T Bindable[T]](ident *Identity, id CertID) (Binding[T], error) {
 }
 
 func signBinding[T Bindable[T]](id *Identity, sk PrivateKey, b *Binding[T], v Validity) error {
-	if !id.CorrespondsTo(sk) {
-		return crypto.ErrKeyNotCorrespond
+	if err := id.checkKey(sk); err != nil {
+		return err
 	}
 	if err := b.Validate(); err != nil {
 		return err
@@ -260,9 +260,23 @@ func (p *Identity) SignEncode(w io.Writer) error {
 	return err
 }
 
-func (p *Identity) selfSign(issuer PrivateKey, v Validity) error {
-	if !p.CorrespondsTo(issuer) {
+// ErrExpiredOrRevoked is returned if the key is expired or revoked.
+var ErrExpiredOrRevoked = errors.New("key is expired or revoked")
+
+func (p *Identity) checkKey(sk PrivateKey) error {
+	now := time.Now().Unix()
+	if v := p.self.Validity; v.IsExpired(now) || v.IsRevoked(now) {
+		return ErrExpiredOrRevoked
+	}
+	if !p.CorrespondsTo(sk) {
 		return crypto.ErrKeyNotCorrespond
+	}
+	return nil
+}
+
+func (p *Identity) selfSign(issuer PrivateKey, v Validity) error {
+	if err := p.checkKey(issuer); err != nil {
+		return err
 	}
 	sig, err := SignObject(issuer, v, p)
 	if err == nil {
