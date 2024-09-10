@@ -6,6 +6,7 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/encrypted"
+	"github.com/karalef/quark/encrypted/key"
 	"github.com/karalef/quark/pack"
 )
 
@@ -33,13 +34,13 @@ func New(data BackupData, passphrase string, params encrypted.PassphraseParams) 
 	if err != nil {
 		return nil, err
 	}
-	b.Secret, err = EncryptKey(data.Secret, crypter)
+	b.Secret, err = key.EncryptElement(data.Secret, crypter)
 	if err != nil {
 		return nil, err
 	}
-	b.Subkeys = make([]Key, len(data.Subkeys))
+	b.Subkeys = make([]key.Element, len(data.Subkeys))
 	for i, sub := range data.Subkeys {
-		b.Subkeys[i], err = EncryptKey(sub, crypter)
+		b.Subkeys[i], err = key.EncryptElement(sub, crypter)
 		if err != nil {
 			return nil, err
 		}
@@ -52,8 +53,8 @@ type Backup struct {
 	Identity *quark.Identity `msgpack:"identity"`
 
 	encrypted.Passphrase
-	Secret  Key   `msgpack:"secret"`
-	Subkeys []Key `msgpack:"subkeys"`
+	Secret  key.Element   `msgpack:"secret"`
+	Subkeys []key.Element `msgpack:"subkeys"`
 }
 
 // PacketTag returns the packet tag.
