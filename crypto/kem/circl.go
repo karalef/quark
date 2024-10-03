@@ -7,6 +7,7 @@ import (
 	"github.com/cloudflare/circl/kem/kyber/kyber512"
 	"github.com/cloudflare/circl/kem/kyber/kyber768"
 	"github.com/karalef/quark/crypto"
+	"github.com/karalef/quark/scheme"
 )
 
 func init() {
@@ -18,26 +19,31 @@ func init() {
 
 // kem schemes.
 var (
-	Kyber512      = circlScheme{kyber512.Scheme(), "Kyber512"}
-	Kyber768      = circlScheme{kyber768.Scheme(), "Kyber768"}
-	Kyber1024     = circlScheme{kyber1024.Scheme(), "Kyber1024"}
-	Frodo640Shake = circlScheme{frodo640shake.Scheme(), "Frodo640SHAKE"}
+	Kyber512      = circlScheme{"Kyber512", kyber512.Scheme()}
+	Kyber768      = circlScheme{"Kyber768", kyber768.Scheme()}
+	Kyber1024     = circlScheme{"Kyber1024", kyber1024.Scheme()}
+	Frodo640Shake = circlScheme{"Frodo640SHAKE", frodo640shake.Scheme()}
 )
 
 var _ Scheme = circlScheme{}
 
 type circlScheme struct {
-	circlkem.Scheme
-	name string
+	scheme.StringName
+	scheme circlkem.Scheme
 }
 
-func (s circlScheme) Name() string { return s.name }
+func (s circlScheme) CiphertextSize() int        { return s.scheme.CiphertextSize() }
+func (s circlScheme) SharedSecretSize() int      { return s.scheme.SharedKeySize() }
+func (s circlScheme) EncapsulationSeedSize() int { return s.scheme.EncapsulationSeedSize() }
+func (s circlScheme) PrivateKeySize() int        { return s.scheme.PrivateKeySize() }
+func (s circlScheme) PublicKeySize() int         { return s.scheme.PublicKeySize() }
+func (s circlScheme) SeedSize() int              { return s.scheme.SeedSize() }
 
 func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 	if len(seed) != s.SeedSize() {
 		return nil, nil, ErrSeedSize
 	}
-	pub, priv := s.Scheme.DeriveKeyPair(seed)
+	pub, priv := s.scheme.DeriveKeyPair(seed)
 	pk, sk := newKeys(&circlPubKey{pub, s}, &circlPrivKey{priv, s})
 	return sk, pk, nil
 }
@@ -46,7 +52,7 @@ func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
 	if len(key) != s.PublicKeySize() {
 		return nil, ErrKeySize
 	}
-	pub, err := s.UnmarshalBinaryPublicKey(key)
+	pub, err := s.scheme.UnmarshalBinaryPublicKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -57,15 +63,13 @@ func (s circlScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
 	if len(key) != s.PrivateKeySize() {
 		return nil, ErrKeySize
 	}
-	priv, err := s.UnmarshalBinaryPrivateKey(key)
+	priv, err := s.scheme.UnmarshalBinaryPrivateKey(key)
 	if err != nil {
 		return nil, err
 	}
 	_, sk := newKeys(nil, &circlPrivKey{priv, s})
 	return sk, nil
 }
-
-func (s circlScheme) SharedSecretSize() int { return s.Scheme.SharedKeySize() }
 
 var _ rawPrivateKey = &circlPrivKey{}
 
@@ -94,7 +98,7 @@ func (priv *circlPrivKey) Decapsulate(ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) != priv.sch.CiphertextSize() {
 		return nil, ErrCiphertext
 	}
-	return priv.sch.Decapsulate(priv.sk, ciphertext)
+	return priv.sch.scheme.Decapsulate(priv.sk, ciphertext)
 }
 
 var _ rawPublicKey = &circlPubKey{}
@@ -123,7 +127,7 @@ func (pub *circlPubKey) Encapsulate(seed []byte) (ciphertext, secret []byte, err
 	if len(seed) != pub.sch.EncapsulationSeedSize() {
 		return nil, nil, ErrEncapsulationSeed
 	}
-	ct, ss, err := pub.sch.Scheme.EncapsulateDeterministically(pub.pk, seed)
+	ct, ss, err := pub.sch.scheme.EncapsulateDeterministically(pub.pk, seed)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto"
+	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
 	"github.com/karalef/quark/encrypted/key"
 	"github.com/karalef/quark/pack"
@@ -19,8 +20,8 @@ func init() {
 
 // BackupData contains backup data.
 type BackupData struct {
-	Identity *quark.Identity
-	Secret   quark.PrivateKey
+	Identity *quark.Key
+	Secret   sign.PrivateKey
 	Subkeys  []crypto.Key
 }
 
@@ -50,7 +51,7 @@ func New(data BackupData, passphrase string, params encrypted.PassphraseParams) 
 
 // Backup contains the identity with encrypted private keys.
 type Backup struct {
-	Identity *quark.Identity `msgpack:"identity"`
+	Identity *quark.Key `msgpack:"identity"`
 
 	encrypted.Passphrase
 	Secret  key.Element   `msgpack:"secret"`
@@ -73,7 +74,7 @@ func (b Backup) Decrypt(passphrase string) (BackupData, error) {
 		return BackupData{}, err
 	}
 	var ok bool
-	bd.Secret, ok = key.(quark.PrivateKey)
+	bd.Secret, ok = key.(sign.PrivateKey)
 	if !ok {
 		return BackupData{}, errInvalidKeyType
 	}

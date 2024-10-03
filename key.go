@@ -10,72 +10,66 @@ import (
 	"github.com/karalef/quark/pack"
 )
 
-// Generate generates a new key using crypto/rand and creates an identity.
-func Generate(scheme sign.Scheme, expires int64) (*Identity, PrivateKey, error) {
-	seed := crypto.Rand(scheme.SeedSize())
-	return Derive(scheme, seed, expires)
+// Generate generates a new key using crypto/rand.
+func Generate(scheme sign.Scheme, expires int64) (*Key, sign.PrivateKey, error) {
+	return Derive(scheme, crypto.Rand(scheme.SeedSize()), NewValidity(time.Now().Unix(), expires))
 }
 
-// Derive deterministically creates a new key and an identity.
-func Derive(scheme sign.Scheme, seed []byte, expires int64) (*Identity, PrivateKey, error) {
+// Derive deterministically creates a new key.
+// The key creation time is set to the v.Created.
+func Derive(scheme sign.Scheme, seed []byte, v Validity) (*Key, sign.PrivateKey, error) {
 	sk, pk, err := scheme.DeriveKey(seed)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	id := &Identity{
+	key := &Key{
 		pk:      pk,
-		created: time.Now().Unix(),
+		created: v.Created,
 	}
-
-	err = id.selfSign(sk, NewValidity(id.created, expires))
+	err = key.selfSign(sk, v)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return id, sk, nil
+	return key, sk, nil
 }
 
-type (
-	PublicKey  = sign.PublicKey
-	PrivateKey = sign.PrivateKey
-)
+var _ pack.Packable = (*Key)(nil)
+var _ pack.CustomEncoder = (*Key)(nil)
+var _ pack.CustomDecoder = (*Key)(nil)
 
-var _ pack.Packable = (*Identity)(nil)
-var _ pack.CustomEncoder = (*Identity)(nil)
-var _ pack.CustomDecoder = (*Identity)(nil)
-
-type Identity struct {
-	pk             PublicKey
-	bindings       map[CertID]*RawBinding
+type Key struct {
+	pk             sign.PublicKey
+	certs          map[CertID]*RawCertificate
 	certifications []Signature
 	self           Signature
 	created        int64
 }
 
 // ID returns key ID.
-func (p *Identity) ID() crypto.ID { return p.pk.ID() }
+func (p *Key) ID() crypto.ID { return p.pk.ID() }
 
 // Fingerprint returns key fingerprint.
-func (p *Identity) Fingerprint() crypto.Fingerprint { return p.pk.Fingerprint() }
+func (p *Key) Fingerprint() crypto.Fingerprint { return p.pk.Fingerprint() }
 
 // Key returns public key.
-func (p *Identity) Key() PublicKey { return p.pk }
+func (p *Key) Key() sign.PublicKey { return p.pk }
 
 // CorrespondsTo returns true if key corresponds to given private key.
-func (p *Identity) CorrespondsTo(sk PrivateKey) bool { return p.pk.CorrespondsTo(sk) }
+func (p *Key) CorrespondsTo(sk sign.PrivateKey) bool { return p.pk.CorrespondsTo(sk) }
 
 // SelfSignature returns self-signature.
-func (p *Identity) SelfSignature() Signature { return p.self.Copy() }
+func (p *Key) SelfSignature() Signature { return p.self.Copy() }
 
 // Validity returns identity validity.
-func (p *Identity) Validity() (int64, Validity) {
+func (p *Key) Validity() (int64, Validity) {
 	return p.created, p.self.Validity
 }
 
 // Verify verifies the identity certification.
 // It also can verify the self-signature.
-func (p *Identity) Verify(key PublicKey, sig Signature) error {
+func (p *Key) Verify(key sign.PublicKey, sig Signature) error {
 	if key.Fingerprint() != sig.Issuer {
 		return errors.New("wrong issuer")
 	}
@@ -90,7 +84,7 @@ func (p *Identity) Verify(key PublicKey, sig Signature) error {
 }
 
 // Bindings returns identity bindings.
-func (p *Identity) Bindings() []RawBinding {
+func (p *Key) Bindings() []RawBinding {
 	binds := make([]RawBinding, 0, len(p.bindings))
 	for _, bind := range p.bindings {
 		binds = append(binds, bind.Copy())
@@ -101,7 +95,7 @@ func (p *Identity) Bindings() []RawBinding {
 // ErrBindingNotFound is returned if the binding is not found.
 var ErrBindingNotFound = errors.New("binding not found")
 
-func (p *Identity) getBinding(id CertID) (*RawBinding, error) {
+func (p *Key) getBinding(id CertID) (*RawBinding, error) {
 	bind, ok := p.bindings[id]
 	if !ok {
 		return nil, ErrBindingNotFound
@@ -110,7 +104,7 @@ func (p *Identity) getBinding(id CertID) (*RawBinding, error) {
 }
 
 // GetBinding returns the binding.
-func (p *Identity) GetBinding(id CertID) (RawBinding, error) {
+func (p *Key) GetBinding(id CertID) (RawBinding, error) {
 	bind, err := p.getBinding(id)
 	if err != nil {
 		return RawBinding{}, err
@@ -119,7 +113,7 @@ func (p *Identity) GetBinding(id CertID) (RawBinding, error) {
 }
 
 // GetBinding returns the binding with constrained type.
-func GetBinding[T Bindable[T]](ident *Identity, id CertID) (Binding[T], error) {
+func GetBinding[T Bindable[T]](ident *Key, id CertID) (Binding[T], error) {
 	var empty Binding[T]
 	bind, err := ident.getBinding(id)
 	if err != nil {
@@ -128,7 +122,7 @@ func GetBinding[T Bindable[T]](ident *Identity, id CertID) (Binding[T], error) {
 	return BindingAs[T](bind.Copy())
 }
 
-func signBinding[T Bindable[T]](id *Identity, sk PrivateKey, b *Binding[T], v Validity) error {
+func signBinding[T Bindable[T]](id *Key, sk sign.PrivateKey, b *Binding[T], v Validity) error {
 	if err := id.checkKey(sk); err != nil {
 		return err
 	}
@@ -139,7 +133,7 @@ func signBinding[T Bindable[T]](id *Identity, sk PrivateKey, b *Binding[T], v Va
 }
 
 // Bind binds the data to the identity.
-func Bind[T Bindable[T]](id *Identity, sk PrivateKey, expires int64, data T) (Binding[T], error) {
+func Bind[T Bindable[T]](id *Key, sk sign.PrivateKey, expires int64, data T) (Binding[T], error) {
 	bind := NewBinding(data)
 	err := signBinding(id, sk, &bind, NewValidity(time.Now().Unix(), expires))
 	if err != nil {
@@ -150,7 +144,7 @@ func Bind[T Bindable[T]](id *Identity, sk PrivateKey, expires int64, data T) (Bi
 }
 
 // Bind binds the data to the identity.
-func (p *Identity) Bind(sk PrivateKey, expires int64, bind RawBinding) (RawBinding, error) {
+func (p *Key) Bind(sk sign.PrivateKey, expires int64, bind RawBinding) (RawBinding, error) {
 	err := signBinding(p, sk, &bind, NewValidity(time.Now().Unix(), expires))
 	if err != nil {
 		return RawBinding{}, err
@@ -159,7 +153,7 @@ func (p *Identity) Bind(sk PrivateKey, expires int64, bind RawBinding) (RawBindi
 	return bind, p.addBinding(&cpy)
 }
 
-func (p *Identity) addBinding(bind *RawBinding) error {
+func (p *Key) addBinding(bind *RawBinding) error {
 	if p.bindings == nil {
 		p.bindings = make(map[CertID]*RawBinding)
 	}
@@ -172,7 +166,7 @@ func (p *Identity) addBinding(bind *RawBinding) error {
 
 // Rebind rebinds the data to the identity with new expiration time.
 // It does not change the binding ID.
-func (p *Identity) Rebind(id CertID, sk PrivateKey, expires int64) (RawBinding, error) {
+func (p *Key) Rebind(id CertID, sk sign.PrivateKey, expires int64) (RawBinding, error) {
 	bind, err := p.getBinding(id)
 	if err != nil {
 		return bind.Copy(), err
@@ -186,7 +180,7 @@ func (p *Identity) Rebind(id CertID, sk PrivateKey, expires int64) (RawBinding, 
 }
 
 // RevokeBinding revokes the binding.
-func (p *Identity) RevokeBinding(id CertID, sk PrivateKey, reason string) (RawBinding, error) {
+func (p *Key) RevokeBinding(id CertID, sk sign.PrivateKey, reason string) (RawBinding, error) {
 	b, err := p.getBinding(id)
 	if err != nil {
 		return RawBinding{}, err
@@ -196,7 +190,7 @@ func (p *Identity) RevokeBinding(id CertID, sk PrivateKey, reason string) (RawBi
 }
 
 // DeleteBinding deletes the expired or revoked binding.
-func (p *Identity) DeleteBinding(id CertID) (RawBinding, error) {
+func (p *Key) DeleteBinding(id CertID) (RawBinding, error) {
 	b, err := p.getBinding(id)
 	if err != nil {
 		return RawBinding{}, err
@@ -210,7 +204,7 @@ func (p *Identity) DeleteBinding(id CertID) (RawBinding, error) {
 }
 
 // Certifications returns certification signatures.
-func (p *Identity) Certifications() []Signature {
+func (p *Key) Certifications() []Signature {
 	certs := make([]Signature, len(p.certifications))
 	for i, cert := range p.certifications {
 		certs[i] = cert.Copy()
@@ -219,7 +213,7 @@ func (p *Identity) Certifications() []Signature {
 }
 
 // Certify signs the identity.
-func (p *Identity) Certify(with PrivateKey, expires int64) error {
+func (p *Key) Certify(with sign.PrivateKey, expires int64) error {
 	if p.CorrespondsTo(with) {
 		return errors.New("the key cannot certify itself")
 	}
@@ -232,12 +226,12 @@ func (p *Identity) Certify(with PrivateKey, expires int64) error {
 }
 
 // ChangeExpiry changes the expiration time of the identity.
-func (p *Identity) ChangeExpiry(sk PrivateKey, expiry int64) error {
+func (p *Key) ChangeExpiry(sk sign.PrivateKey, expiry int64) error {
 	return p.selfSign(sk, NewValidity(time.Now().Unix(), expiry))
 }
 
 // Revoke revokes the identity.
-func (p *Identity) Revoke(sk PrivateKey, reason string) error {
+func (p *Key) Revoke(sk sign.PrivateKey, reason string) error {
 	now := time.Now().Unix()
 	if p.self.Validity.IsRevoked(now) {
 		return errors.New("the key is already revoked")
@@ -246,7 +240,7 @@ func (p *Identity) Revoke(sk PrivateKey, reason string) error {
 }
 
 // SignEncode implements Signable.
-func (p *Identity) SignEncode(w io.Writer) error {
+func (p *Key) SignEncode(w io.Writer) error {
 	key := p.Key()
 	_, err := w.Write([]byte(key.Scheme().Name()))
 	if err != nil {
@@ -263,7 +257,7 @@ func (p *Identity) SignEncode(w io.Writer) error {
 // ErrExpiredOrRevoked is returned if the key is expired or revoked.
 var ErrExpiredOrRevoked = errors.New("key is expired or revoked")
 
-func (p *Identity) checkKey(sk PrivateKey) error {
+func (p *Key) checkKey(sk sign.PrivateKey) error {
 	now := time.Now().Unix()
 	if v := p.self.Validity; v.IsExpired(now) || v.IsRevoked(now) {
 		return ErrExpiredOrRevoked
@@ -274,7 +268,7 @@ func (p *Identity) checkKey(sk PrivateKey) error {
 	return nil
 }
 
-func (p *Identity) selfSign(issuer PrivateKey, v Validity) error {
+func (p *Key) selfSign(issuer sign.PrivateKey, v Validity) error {
 	if err := p.checkKey(issuer); err != nil {
 		return err
 	}
@@ -286,15 +280,15 @@ func (p *Identity) selfSign(issuer PrivateKey, v Validity) error {
 }
 
 // PacketTag implements pack.Packable interface.
-func (*Identity) PacketTag() pack.Tag { return PacketTagIdentity }
+func (*Key) PacketTag() pack.Tag { return PacketTagIdentity }
 
 // EncodeMsgpack implements pack.CustomEncoder interface.
-func (p Identity) EncodeMsgpack(enc *pack.Encoder) error {
+func (p Key) EncodeMsgpack(enc *pack.Encoder) error {
 	binds := make([]RawBinding, 0, len(p.bindings))
 	for _, bind := range p.bindings {
 		binds = append(binds, *bind)
 	}
-	return enc.Encode(idModel{
+	return enc.Encode(Model{
 		Key: KeyModel{
 			Algorithm: p.Key().Scheme().Name(),
 			Key:       p.Key().Pack(),
@@ -307,8 +301,8 @@ func (p Identity) EncodeMsgpack(enc *pack.Encoder) error {
 }
 
 // DecodeMsgpack implements pack.CustomDecoder interface.
-func (p *Identity) DecodeMsgpack(dec *pack.Decoder) (err error) {
-	m := new(idModel)
+func (p *Key) DecodeMsgpack(dec *pack.Decoder) (err error) {
+	m := new(Model)
 	if err = dec.Decode(m); err != nil {
 		return err
 	}

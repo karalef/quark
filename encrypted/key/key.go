@@ -1,7 +1,6 @@
 package key
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/karalef/quark/crypto"
@@ -55,12 +54,7 @@ func (k *Key) DecryptSign(passphrase string) (sign.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	scheme := sign.ByName(k.Algorithm)
-	if scheme == nil {
-		return nil, errors.New("unknown key algorithm")
-	}
-	return scheme.UnpackPrivate(material)
+	return sign.UnpackPrivate(k.Algorithm, material)
 }
 
 // Decrypt decrypts the KEM key with the given passphrase.
@@ -69,10 +63,5 @@ func (k *Key) DecryptKEM(passphrase string) (kem.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	scheme := kem.ByName(k.Algorithm)
-	if scheme == nil {
-		return nil, errors.New("unknown key algorithm")
-	}
-	return scheme.UnpackPrivate(material)
+	return kem.UnpackPrivate(k.Algorithm, material)
 }

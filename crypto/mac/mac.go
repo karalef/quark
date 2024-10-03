@@ -6,81 +6,11 @@ import (
 	"io"
 
 	"github.com/karalef/quark/internal"
+	"golang.org/x/crypto/poly1305"
 )
 
-// Scheme represents MAC scheme and provides its parameters.
-type Scheme interface {
-	internal.Scheme
-	Size() int
-	BlockSize() int
-
-	// KeySize returns the key size in bytes.
-	// If the key size is not fixed, it returns 0.
-	KeySize() int
-	// MaxKeySize returns the maximum key size in bytes if the key can be length of [1, MaxKeySize()].
-	// Returns 0 if the key size is fixed.
-	MaxKeySize() int
-
-	// New returns a new MAC instance.
-	// Panics if key is not of length KeySize().
-	New(key []byte) MAC
-}
-
-// Fixed represents a scheme that can fix the key size.
-type Fixed interface {
-	// Fixed returns the copy of the scheme but with fixed key size.
-	// Panics if keySize is invalid.
-	Fixed(keySize int) Scheme
-}
-
-// NewFunc represents the function to create a MAC.
-type NewFunc func(key []byte) MAC
-
-// New creates new MAC scheme.
-// It does not register the scheme.
-// The returned scheme guarantees the correct key length.
-func New(name string, keySize, maxKeySize, size, blockSize int, new NewFunc) Scheme {
-	return baseScheme{
-		new:     new,
-		name:    name,
-		size:    size,
-		block:   blockSize,
-		keySize: keySize,
-		maxSize: maxKeySize,
-	}
-}
-
-type baseScheme struct {
-	new     NewFunc
-	name    string
-	size    int
-	block   int
-	keySize int
-	maxSize int
-}
-
-func (s baseScheme) Name() string    { return s.name }
-func (s baseScheme) Size() int       { return s.size }
-func (s baseScheme) BlockSize() int  { return s.block }
-func (s baseScheme) KeySize() int    { return s.keySize }
-func (s baseScheme) MaxKeySize() int { return s.maxSize }
-func (s baseScheme) New(key []byte) MAC {
-	if err := CheckKeySize(s, len(key)); err != nil {
-		panic(err)
-	}
-	return s.new(key)
-}
-func (s baseScheme) Fixed(keySize int) Scheme {
-	if err := CheckKeySize(s, keySize); err != nil {
-		panic(err)
-	}
-	s.maxSize = 0
-	s.keySize = keySize
-	return s
-}
-
-// MAC represent MAC state.
-type MAC interface {
+// State represent State state.
+type State interface {
 	// Write never returns an error.
 	io.Writer
 
@@ -120,17 +50,19 @@ var ErrKeySize = errors.New("invalid key size")
 // ErrMismatch is returned when the MACs do not match.
 var ErrMismatch = errors.New("MACs do not match")
 
-var schemes = make(internal.Schemes[Scheme])
+var Poly1305 = New("Poly1305", 32, 0, 16, 0, func(key []byte) State {
+	key = internal.Copy(key)
+	m := &macpoly1305{
+		key: (*[32]byte)(key),
+	}
+	m.Reset()
+	return m
+})
 
-// Register registers a MAC scheme.
-func Register(scheme Scheme) { schemes.Register(scheme) }
+type macpoly1305 struct {
+	*poly1305.MAC
+	key *[32]byte
+}
 
-// ByName returns the MAC scheme by the provided name.
-// Returns nil if the name is not registered.
-func ByName(name string) Scheme { return schemes.ByName(name) }
-
-// ListAll returns all registered MAC algorithms.
-func ListAll() []string { return schemes.ListAll() }
-
-// ListSchemes returns all registered MAC schemes.
-func ListSchemes() []Scheme { return schemes.ListSchemes() }
+func (m macpoly1305) Tag(b []byte) []byte { return m.MAC.Sum(b) }
+func (m *macpoly1305) Reset()             { m.MAC = poly1305.New(m.key) }

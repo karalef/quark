@@ -13,7 +13,7 @@ func init() {
 
 var (
 	packetTypeIdentity = pack.NewType(
-		(*Identity)(nil),
+		(*Key)(nil),
 		"identity",
 		"QUARK IDENTITY",
 	)

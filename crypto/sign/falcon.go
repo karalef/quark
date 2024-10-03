@@ -1,11 +1,10 @@
-//go:build !windows
-// +build !windows
-
 package sign
 
 import (
 	"github.com/algorand/falcon"
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/scheme"
 )
 
 func init() {
@@ -15,14 +14,14 @@ func init() {
 // Falcon1024 signature scheme.
 var Falcon1024 = falconScheme{}
 
-var _ Scheme = falconScheme{}
+var _ Scheme = falconScheme{scheme.StringName("Falcon1024")}
 
-type falconScheme struct{}
+type falconScheme struct {
+	scheme.StringName
+}
 
 const falconSeedSize = 48
 const privateKeySize = falcon.PrivateKeySize + falcon.PublicKeySize
-
-func (s falconScheme) Name() string { return "Falcon1024" }
 
 func (s falconScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 	if len(seed) != s.SeedSize() {
@@ -32,7 +31,7 @@ func (s falconScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	pk, sk := newKeys(&falconPubKey{pub, s}, &falconPrivKey{priv, s})
+	pk, sk := newKeys(nil, &falconPrivKey{priv, pub})
 	return sk, pk, nil
 }
 
@@ -69,7 +68,7 @@ type falconPrivKey struct {
 	falcon.PublicKey
 }
 
-func (*falconPrivKey) Scheme() Scheme { return falconScheme{} }
+func (*falconPrivKey) Scheme() crypto.Scheme { return falconScheme{} }
 
 func (priv *falconPrivKey) Public() rawPublicKey {
 	return (*falconPubKey)(&priv.PublicKey)
@@ -101,7 +100,7 @@ func (priv *falconPrivKey) Sign(msg []byte) []byte {
 
 type falconPubKey falcon.PublicKey
 
-func (*falconPubKey) Scheme() Scheme { return falconScheme{} }
+func (*falconPubKey) Scheme() crypto.Scheme { return falconScheme{} }
 
 func (pub *falconPubKey) Equal(p rawPublicKey) bool {
 	sec, ok := p.(*falconPubKey)

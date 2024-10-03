@@ -3,12 +3,12 @@ package aead
 import (
 	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/mac"
-	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/scheme"
 )
 
 // Scheme represents an AEAD scheme.
 type Scheme interface {
-	internal.Scheme
+	scheme.Scheme
 	Cipher() cipher.Scheme
 	MAC() mac.Scheme
 
@@ -23,25 +23,46 @@ func Build(cipher cipher.Scheme, mac mac.Scheme) Scheme {
 	if cipher == nil || mac == nil {
 		panic("nil scheme part")
 	}
-	return &scheme{
-		name:   internal.CompleteSchemeName(cipher, mac),
-		cipher: cipher,
-		mac:    mac,
+	return &baseScheme{
+		StringName: scheme.StringName(scheme.Join(cipher, mac)),
+		cipher:     cipher,
+		mac:        mac,
 	}
 }
 
-var _ Scheme = (*scheme)(nil)
+// FromName creates an AEAD scheme from its name.
+func FromName(schemeName string) (Scheme, error) {
+	parts, err := scheme.SplitN(schemeName, 2)
+	if err != nil {
+		return nil, err
+	}
+	return FromNames(parts[0], parts[1])
+}
 
-type scheme struct {
-	name   string
+// FromNames creates an AEAD scheme from its part names.
+func FromNames(cipherName, macName string) (Scheme, error) {
+	cipher, err := cipher.ByName(cipherName)
+	if err != nil {
+		return nil, err
+	}
+	mac, err := mac.ByName(macName)
+	if err != nil {
+		return nil, err
+	}
+	return Build(cipher, mac), nil
+}
+
+var _ Scheme = (*baseScheme)(nil)
+
+type baseScheme struct {
+	scheme.StringName
 	cipher cipher.Scheme
 	mac    mac.Scheme
 }
 
-func (s *scheme) Name() string          { return s.name }
-func (s *scheme) Cipher() cipher.Scheme { return s.cipher }
-func (s *scheme) MAC() mac.Scheme       { return s.mac }
+func (s *baseScheme) Cipher() cipher.Scheme { return s.cipher }
+func (s *baseScheme) MAC() mac.Scheme       { return s.mac }
 
-func (s *scheme) Crypter(iv, key, macKey, associatedData []byte, decrypt bool) (Cipher, error) {
+func (s *baseScheme) Crypter(iv, key, macKey, associatedData []byte, decrypt bool) (Cipher, error) {
 	return New(s, iv, key, macKey, associatedData, decrypt)
 }

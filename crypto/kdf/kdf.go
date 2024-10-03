@@ -3,12 +3,12 @@ package kdf
 import (
 	"errors"
 
-	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/scheme"
 )
 
 // Scheme represents the key derivation function.
 type Scheme interface {
-	internal.Scheme
+	scheme.Scheme
 
 	// New creates a new KDF.
 	New(Cost) (KDF, error)
@@ -53,19 +53,17 @@ type FuncCost func(Cost) error
 // The returned scheme ensures that the size are at least 1 and the Cost is correct.
 func New(name string, fn Func, cost FuncCost) Scheme {
 	return baseScheme{
-		name:   name,
-		cost:   cost,
-		derive: fn,
+		StringName: scheme.StringName(name),
+		cost:       cost,
+		derive:     fn,
 	}
 }
 
 type baseScheme struct {
-	name   string
+	scheme.StringName
 	cost   FuncCost
 	derive Func
 }
-
-func (s baseScheme) Name() string { return s.name }
 
 func (s baseScheme) New(cost Cost) (KDF, error) {
 	err := s.cost(cost)
@@ -92,14 +90,13 @@ func (kdf baseKDF) Derive(password, salt []byte, size int) []byte {
 	return kdf.kdf(password, salt, size, kdf.cost)
 }
 
-var kdfs = make(internal.Schemes[Scheme])
+var kdfs = make(scheme.Schemes[Scheme])
 
 // Register registers a KDF.
 func Register(kdf Scheme) { kdfs.Register(kdf) }
 
 // ByName returns the KDF by the provided name.
-// Returns nil if the name is not registered.
-func ByName(name string) Scheme { return kdfs.ByName(name) }
+func ByName(name string) (Scheme, error) { return kdfs.ByName(name) }
 
 // ListAll returns all registered KDF algorithms.
 func ListAll() []string { return kdfs.ListAll() }

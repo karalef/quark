@@ -6,12 +6,13 @@ import (
 	"io"
 
 	"github.com/karalef/quark/crypto/hash"
+	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/pkg/crockford"
 )
 
-// CertID represents a binding ID.
+// CertID represents a certificate ID.
 type CertID [32]byte
 
 // IsEmpty returns true if the ID is empty.
@@ -93,14 +94,17 @@ func (r RawCertifyable) Copy() RawCertifyable {
 	return r
 }
 
+// RawCertificate represents a certificate with raw data.
+type RawCertificate = Certificate[RawCertifyable]
+
 // Raw returns the certificate with raw data.
-func (c Certificate[Type]) Raw() Certificate[RawCertifyable] {
+func (c Certificate[Type]) Raw() RawCertificate {
 	b := bytes.NewBuffer(nil)
 	err := pack.EncodeBinary(b, c.Data)
 	if err != nil {
 		panic("unexpected error: " + err.Error())
 	}
-	return Certificate[RawCertifyable]{
+	return RawCertificate{
 		ID:        c.ID,
 		Type:      c.Type,
 		Data:      RawCertifyable{Type: c.Type, RawData: b.Bytes()},
@@ -143,7 +147,7 @@ func (c Certificate[Data]) SignEncode(w io.Writer) error {
 }
 
 // Sign signs the certificate.
-func (c *Certificate[Data]) Sign(sk PrivateKey, v Validity) error {
+func (c *Certificate[Data]) Sign(sk sign.StreamPrivateKey, v Validity) error {
 	sig, err := SignObject(sk, v, c)
 	if err != nil {
 		return err
@@ -153,7 +157,7 @@ func (c *Certificate[Data]) Sign(sk PrivateKey, v Validity) error {
 }
 
 // Verify verifies the certificate signature.
-func (c Certificate[Data]) Verify(pk PublicKey) (bool, error) {
+func (c Certificate[Data]) Verify(pk sign.StreamPublicKey) (bool, error) {
 	return c.Signature.VerifyObject(pk, c)
 }
 
@@ -169,7 +173,7 @@ func (c Certificate[Data]) Validate() error {
 }
 
 // CertificateAs converts a raw certificate to a typed certificate.
-func CertificateAs[T Certifyable[T]](cert Certificate[RawCertifyable]) (Certificate[T], error) {
+func CertificateAs[T Certifyable[T]](cert RawCertificate) (Certificate[T], error) {
 	constrained := Certificate[T]{
 		ID:        cert.ID,
 		Type:      cert.Type,

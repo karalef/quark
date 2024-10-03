@@ -1,38 +1,9 @@
-package internal
+package scheme
 
 import (
 	"errors"
 	"strings"
 )
-
-// Scheme interface.
-type Scheme interface {
-	Name() string
-}
-
-// CompleteSchemeName combines scheme names.
-func CompleteSchemeName(subSchemes ...Scheme) string {
-	l := 0
-	for _, s := range subSchemes {
-		l += len(s.Name())
-	}
-	b := strings.Builder{}
-	b.Grow(l + len(subSchemes) - 1)
-
-	for i, s := range subSchemes {
-		b.WriteString(strings.ToUpper(s.Name()))
-		if i < len(subSchemes)-1 {
-			b.WriteByte('-')
-		}
-	}
-
-	return b.String()
-}
-
-// SplitSchemeName splits scheme names.
-func SplitSchemeName(scheme string) []string {
-	return strings.Split(scheme, "-")
-}
 
 // ErrUnknownScheme can be returned when the requested scheme is not registered.
 var ErrUnknownScheme = errors.New("unknown scheme")
@@ -49,8 +20,12 @@ func (schemes Schemes[T]) Register(scheme T) {
 	schemes[name] = scheme
 }
 
-func (schemes Schemes[T]) ByName(name string) T {
-	return schemes[strings.ToUpper(name)]
+func (schemes Schemes[T]) ByName(name string) (T, error) {
+	s, ok := schemes[strings.ToUpper(name)]
+	if !ok {
+		return s, ErrUnknownScheme
+	}
+	return s, nil
 }
 
 func (schemes Schemes[T]) ListAll() []string {

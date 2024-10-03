@@ -4,12 +4,12 @@ package password
 import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kdf"
-	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/scheme"
 )
 
 // Scheme represents password-based authenticated encryption scheme.
 type Scheme interface {
-	internal.Scheme
+	scheme.Scheme
 	// If AEAD's MAC has not fixed key size, the mac key size will be min(len(cipherKey), MaxKeySize()).
 	AEAD() aead.Scheme
 	KDF() kdf.Scheme

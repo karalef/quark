@@ -178,5 +178,4 @@ func (c *Crypter) DecryptData(data Data, ad []byte) ([]byte, error) {
 
 var (
 	ErrInvalidParameters = errors.New("invalid parameters")
-	ErrInvalidScheme     = errors.New("invalid symmetric encryption scheme")
 )

@@ -5,48 +5,47 @@ import (
 	"crypto/sha512"
 	"hash"
 
-	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/scheme"
 	"github.com/zeebo/blake3"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
 )
 
-// Hash alias.
-type Hash = hash.Hash
+// State is an stdlib hash.Hash alias.
+type State = hash.Hash
 
 // Scheme represents a hash scheme and provides its parameters.
 type Scheme interface {
-	internal.Scheme
+	scheme.Scheme
 	Size() int
 	BlockSize() int
-	New() Hash
+	New() State
 }
 
 // NewFunc represents the function to create a hash.
-type NewFunc func() Hash
+type NewFunc func() State
 
 // New creates new hash scheme.
 // It does not register the scheme.
 func New(name string, size, blockSize int, new NewFunc) Scheme {
 	return baseScheme{
-		new:       new,
-		name:      name,
-		size:      size,
-		blockSize: blockSize,
+		StringName: scheme.StringName(name),
+		new:        new,
+		size:       size,
+		blockSize:  blockSize,
 	}
 }
 
 type baseScheme struct {
+	scheme.StringName
 	new       NewFunc
-	name      string
 	size      int
 	blockSize int
 }
 
-func (s baseScheme) Name() string   { return s.name }
 func (s baseScheme) Size() int      { return s.size }
 func (s baseScheme) BlockSize() int { return s.blockSize }
-func (s baseScheme) New() Hash      { return s.new() }
+func (s baseScheme) New() State     { return s.new() }
 
 // schemes.
 var (
@@ -54,24 +53,24 @@ var (
 	SHA512     = New("SHA512", sha512.Size, sha512.BlockSize, sha512.New)
 	SHA3_256   = New("SHA3_256", 32, 136, sha3.New256)
 	SHA3_512   = New("SHA3_512", 64, 72, sha3.New512)
-	BLAKE2B128 = New("BLAKE2B_128", 16, blake2b.BlockSize, func() Hash {
+	BLAKE2B128 = New("BLAKE2B_128", 16, blake2b.BlockSize, func() State {
 		h, _ := blake2b.New(16, nil)
 		return h
 	})
-	BLAKE2B256 = New("BLAKE2B_256", blake2b.Size256, blake2b.BlockSize, func() Hash {
+	BLAKE2B256 = New("BLAKE2B_256", blake2b.Size256, blake2b.BlockSize, func() State {
 		h, _ := blake2b.New256(nil)
 		return h
 	})
-	BLAKE2B512 = New("BLAKE2B_512", blake2b.Size, blake2b.BlockSize, func() Hash {
+	BLAKE2B512 = New("BLAKE2B_512", blake2b.Size, blake2b.BlockSize, func() State {
 		h, _ := blake2b.New512(nil)
 		return h
 	})
-	BLAKE3 = New("BLAKE3", 32, 64, func() Hash {
+	BLAKE3 = New("BLAKE3", 32, 64, func() State {
 		return blake3.New()
 	})
 )
 
-var schemes = make(internal.Schemes[Scheme])
+var schemes = make(scheme.Schemes[Scheme])
 
 func init() {
 	Register(SHA256)
@@ -88,8 +87,7 @@ func init() {
 func Register(scheme Scheme) { schemes.Register(scheme) }
 
 // ByName returns the hash scheme by the provided name.
-// Returns nil if the name is not registered.
-func ByName(name string) Scheme { return schemes.ByName(name) }
+func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
 
 // ListAll returns all registered hash algorithms.
 func ListAll() []string { return schemes.ListAll() }

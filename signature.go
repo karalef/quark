@@ -16,23 +16,23 @@ type Signable interface {
 }
 
 // SignObject signs the object.
-func SignObject(sk PrivateKey, v Validity, obj Signable) (Signature, error) {
+func SignObject(sk sign.StreamPrivateKey, v Validity, obj Signable) (Signature, error) {
 	signer := SignStream(sk)
 	obj.SignEncode(signer)
 	return signer.Sign(v)
 }
 
 // Sign signs the message.
-func Sign(sk PrivateKey, v Validity, message []byte) (Signature, error) {
+func Sign(sk sign.StreamPrivateKey, v Validity, message []byte) (Signature, error) {
 	signer := SignStream(sk)
 	signer.Write(message)
 	return signer.Sign(v)
 }
 
 // SignStream creates a Signer.
-func SignStream(sk PrivateKey) *Signer {
+func SignStream(sk sign.StreamPrivateKey) *Signer {
 	return &Signer{
-		Signer: sign.StreamSigner(sk, nil),
+		Signer: sk.Signer(),
 		sig: Signature{
 			Issuer: sk.Fingerprint(),
 		},
@@ -98,14 +98,14 @@ func (s Signature) Validate() error {
 }
 
 // Verify verifies the signature.
-func (s Signature) Verify(pk PublicKey, message []byte) (bool, error) {
+func (s Signature) Verify(pk sign.StreamPublicKey, message []byte) (bool, error) {
 	verifier := VerifyStream(pk)
 	verifier.Write(message)
 	return verifier.Verify(s)
 }
 
 // VerifyObject verifies the signature.
-func (s Signature) VerifyObject(pk PublicKey, obj Signable) (bool, error) {
+func (s Signature) VerifyObject(pk sign.StreamPublicKey, obj Signable) (bool, error) {
 	verifier := VerifyStream(pk)
 	obj.SignEncode(verifier)
 	return verifier.Verify(s)
@@ -113,8 +113,8 @@ func (s Signature) VerifyObject(pk PublicKey, obj Signable) (bool, error) {
 
 // VerifyStream creates a Verifier.
 // It is used if the signature is not available before the message is read.
-func VerifyStream(pk PublicKey) *Verifier {
-	return &Verifier{sign.StreamVerifier(pk, nil)}
+func VerifyStream(pk sign.StreamPublicKey) *Verifier {
+	return &Verifier{pk.Verifier()}
 }
 
 // Verifier represents a signature verification state.
@@ -148,56 +148,43 @@ func NewValidity(created, expires int64) Validity {
 
 // Validity contains the signature validity.
 type Validity struct {
-	// revocation reason
-	Reason string `msgpack:"reason,omitempty"`
-	// revocation time
-	Revoked int64 `msgpack:"revoked,omitempty"`
 	// creation time
-	Created int64 `msgpack:"created,omitempty"`
+	Created int64 `msgpack:"created"`
 	// expiration time
 	Expires int64 `msgpack:"expires,omitempty"`
+	// revokation reason
+	Reason string `msgpack:"reason,omitempty"`
 }
 
-func (v Validity) signEncode(w io.Writer) error {
-	_, err := io.WriteString(w, v.Reason)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(MarshalTime(v.Revoked))
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(MarshalTime(v.Created))
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(MarshalTime(v.Expires))
-	return err
+//nolint:errcheck
+func (v Validity) signEncode(w io.Writer) {
+	w.Write(MarshalTime(v.Created))
+	w.Write(MarshalTime(v.Expires))
+	io.WriteString(w, v.Reason)
 }
 
 // IsRevoked returns true if the validity is revoked.
-func (v Validity) IsRevoked(t int64) bool { return v.Revoked > 0 && v.Revoked <= t || v.Reason != "" }
+func (v Validity) IsRevoked(t int64) bool { return v.Reason != "" }
 
 // IsExpired returns true if the validity is expired.
 func (v Validity) IsExpired(t int64) bool { return v.Expires > 0 && v.Expires <= t }
 
+// IsValid returns true if the validity neither expired nor revoked.
+func (v Validity) IsValid(t int64) bool { return !v.IsRevoked(t) && !v.IsExpired(t) }
+
 // Revoke returns a revoked copy of the validity.
 func (v Validity) Revoke(t int64, reason string) Validity {
-	v.Revoked = t
+	v.Created = t
 	v.Reason = reason
 	return v
 }
 
 // Validate returns an error if the validity has incorrect values.
 func (v Validity) Validate() error {
-	switch {
-	case v.Created < 0 || v.Expires < 0 || v.Revoked < 0:
+	if v.Created < 0 || v.Expires < 0 {
 		return errors.New("unix time is negative")
-	case v.Expires > 0 && v.Expires < v.Created:
+	} else if v.Expires > 0 && v.Expires < v.Created {
 		return errors.New("invalid expiration time")
-	case v.Revoked > 0 && v.Revoked < v.Created:
-		return errors.New("invalid revocation time")
-	default:
-		return nil
 	}
+	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/pack"
 )
 
@@ -64,11 +63,7 @@ func (s *SignSubkey) DecodeMsgpack(dec *pack.Decoder) error {
 	if err != nil {
 		return err
 	}
-	scheme := sign.ByName(m.Algorithm)
-	if scheme == nil {
-		return internal.ErrUnknownScheme
-	}
-	key, err := scheme.UnpackPublic(m.Key)
+	key, err := sign.UnpackPublic(m.Algorithm, m.Key)
 	if err != nil {
 		return err
 	}
@@ -81,11 +76,7 @@ func (k *KEMSubkey) DecodeMsgpack(dec *pack.Decoder) error {
 	if err != nil {
 		return err
 	}
-	scheme := kem.ByName(m.Algorithm)
-	if scheme == nil {
-		return internal.ErrUnknownScheme
-	}
-	key, err := scheme.UnpackPublic(m.Key)
+	key, err := kem.UnpackPublic(m.Algorithm, m.Key)
 	if err != nil {
 		return err
 	}
@@ -94,7 +85,7 @@ func (k *KEMSubkey) DecodeMsgpack(dec *pack.Decoder) error {
 }
 
 // BindSign binds a subkey to an identity.
-func BindSign(id *quark.Identity, sk sign.PrivateKey, subkey sign.PublicKey, expires int64) (quark.Binding[SignSubkey], error) {
+func BindSign(id *quark.Key, sk sign.PrivateKey, subkey sign.PublicKey, expires int64) (quark.Binding[SignSubkey], error) {
 	if subkey == nil {
 		return quark.Binding[SignSubkey]{}, nil
 	}
@@ -102,7 +93,7 @@ func BindSign(id *quark.Identity, sk sign.PrivateKey, subkey sign.PublicKey, exp
 }
 
 // BindKEM binds a subkey to an identity.
-func BindKEM(id *quark.Identity, sk sign.PrivateKey, subkey kem.PublicKey, expires int64) (quark.Binding[KEMSubkey], error) {
+func BindKEM(id *quark.Key, sk sign.PrivateKey, subkey kem.PublicKey, expires int64) (quark.Binding[KEMSubkey], error) {
 	if subkey == nil {
 		return quark.Binding[KEMSubkey]{}, nil
 	}

@@ -47,7 +47,7 @@ func New(s Scheme, iv, cipherKey, macKey, associatedData []byte, decrypt bool) (
 
 type baseAE struct {
 	cipher cipher.Cipher
-	mac    mac.MAC
+	mac    mac.State
 	crypt  func(ae *baseAE, dst, src []byte)
 }
 

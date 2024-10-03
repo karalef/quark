@@ -4,17 +4,14 @@ import (
 	"strings"
 
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/kdf"
-	"github.com/karalef/quark/crypto/mac"
 	"github.com/karalef/quark/crypto/xof"
-	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/pack"
 )
 
 // XOF wraps a XOF algorithm to be msgpack de/encodable.
 type XOF struct {
-	xof.XOF
+	xof.Scheme
 }
 
 // EncodeMsgpack implements pack.CustomEncoder.
@@ -28,11 +25,8 @@ func (x *XOF) DecodeMsgpack(dec *pack.Decoder) error {
 	if err != nil {
 		return err
 	}
-	x.XOF = xof.ByName(str)
-	if x.XOF == nil {
-		err = ErrInvalidScheme
-	}
-	return nil
+	x.Scheme, err = xof.ByName(str)
+	return err
 }
 
 var _ pack.CustomEncoder = KDF{}
@@ -48,22 +42,14 @@ func (s KDF) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.EncodeString(s.Name())
 }
 
-// Parse parses a symmetric encryption scheme.
-func (s *KDF) Parse(str string) error {
-	s.Scheme = kdf.ByName(str)
-	if s.Scheme == nil {
-		return ErrInvalidScheme
-	}
-	return nil
-}
-
 // DecodeMsgpack implements pack.CustomDecoder.
 func (s *KDF) DecodeMsgpack(dec *pack.Decoder) error {
 	str, err := dec.DecodeString()
 	if err != nil {
 		return err
 	}
-	return s.Parse(str)
+	s.Scheme, err = kdf.ByName(str)
+	return err
 }
 
 var _ pack.CustomEncoder = Scheme{}
@@ -79,27 +65,12 @@ func (s Scheme) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.EncodeString(s.Name())
 }
 
-// Parse parses a symmetric encryption scheme.
-func (s *Scheme) Parse(str string) error {
-	scheme := internal.SplitSchemeName(str)
-	if len(scheme) != 2 {
-		return ErrInvalidScheme
-	}
-
-	cipher := cipher.ByName(scheme[0])
-	mac := mac.ByName(scheme[1])
-	if cipher == nil || mac == nil {
-		return ErrInvalidScheme
-	}
-	s.Scheme = aead.Build(cipher, mac)
-	return nil
-}
-
 // DecodeMsgpack implements pack.CustomDecoder.
 func (s *Scheme) DecodeMsgpack(dec *pack.Decoder) error {
 	str, err := dec.DecodeString()
 	if err != nil {
 		return err
 	}
-	return s.Parse(str)
+	s.Scheme, err = aead.FromName(str)
+	return err
 }

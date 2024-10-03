@@ -10,35 +10,16 @@ type KeyModel struct {
 	Key       []byte `msgpack:"key"`
 }
 
-type idModel struct {
-	Key            KeyModel     `msgpack:"key,omitempty"`
-	Bindings       []RawBinding `msgpack:"bindings,omitempty"`
-	Certifications []Signature  `msgpack:"certifications"`
-	Self           Signature    `msgpack:"selfSignature,omitempty"`
-	Created        int64        `msgpack:"created,omitempty"`
+// Model contains packed Key.
+type Model struct {
+	Key            KeyModel         `msgpack:"key,omitempty"`
+	Certificates   []RawCertificate `msgpack:"certificates,omitempty"`
+	Certifications []Signature      `msgpack:"certifications"`
+	Self           Signature        `msgpack:"selfSignature,omitempty"`
+	Created        int64            `msgpack:"created,omitempty"`
 }
 
-func (m idModel) UnpackKey() (PublicKey, error) {
-	if m.Key.Key == nil {
-		return nil, UnpackError("object does not contain public key")
-	}
-	scheme := sign.ByName(m.Key.Algorithm)
-	if scheme == nil {
-		return nil, UnpackError("scheme not found: " + m.Key.Algorithm)
-	}
-	if len(m.Key.Key) != scheme.PublicKeySize() {
-		return nil, UnpackError("invalid public key size")
-	}
-	key, err := scheme.UnpackPublic(m.Key.Key)
-	if err != nil {
-		return nil, UnpackError("invalid public key: " + err.Error())
-	}
-	return key, nil
-}
-
-// UnpackError is an error that occurs when unpacking an identity.
-type UnpackError string
-
-func (e UnpackError) Error() string {
-	return "identity unpacking error: " + string(e)
+// UnpackKey unpacks key from the model.
+func (m Model) UnpackKey() (sign.PublicKey, error) {
+	return sign.UnpackPublic(m.Key.Algorithm, m.Key.Key)
 }

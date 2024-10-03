@@ -96,7 +96,7 @@ func TestMessage(t *testing.T) {
 	t.Log(receivedPlaintext.String())
 }
 
-func test_create(scheme sign.Scheme, kemScheme kem.Scheme) (*quark.Identity, quark.PrivateKey, kem.PrivateKey, kem.PublicKey, error) {
+func test_create(scheme sign.Scheme, kemScheme kem.Scheme) (*quark.Key, quark.PrivateKey, kem.PrivateKey, kem.PublicKey, error) {
 	id, sk, err := quark.Generate(scheme, 0)
 	if err != nil {
 		return id, sk, nil, nil, err

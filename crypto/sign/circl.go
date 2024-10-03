@@ -5,6 +5,7 @@ import (
 	"github.com/cloudflare/circl/sign/eddilithium2"
 	"github.com/cloudflare/circl/sign/eddilithium3"
 	"github.com/karalef/quark/crypto"
+	"github.com/karalef/quark/scheme"
 )
 
 func init() {
@@ -14,25 +15,28 @@ func init() {
 
 var (
 	// EDDilithium2 is the hybrid signature scheme of ED25519 and Dilithium in mode 2.
-	EDDilithium2 = circlScheme{eddilithium2.Scheme(), "ED25519_Dilithium2"}
+	EDDilithium2 = circlScheme{"ED25519_Dilithium2", eddilithium2.Scheme()}
 	// EDDilithium3 is the hybrid signature scheme of ED448 and Dilithium in mode 3.
-	EDDilithium3 = circlScheme{eddilithium3.Scheme(), "ED448_Dilithium3"}
+	EDDilithium3 = circlScheme{"ED448_Dilithium3", eddilithium3.Scheme()}
 )
 
 var _ Scheme = circlScheme{}
 
 type circlScheme struct {
-	circlsign.Scheme
-	name string
+	scheme.StringName
+	scheme circlsign.Scheme
 }
 
-func (s circlScheme) Name() string { return s.name }
+func (s circlScheme) PrivateKeySize() int { return s.scheme.PrivateKeySize() }
+func (s circlScheme) PublicKeySize() int  { return s.scheme.PublicKeySize() }
+func (s circlScheme) SignatureSize() int  { return s.scheme.SignatureSize() }
+func (s circlScheme) SeedSize() int       { return s.scheme.SeedSize() }
 
 func (s circlScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 	if len(seed) != s.SeedSize() {
 		return nil, nil, ErrSeedSize
 	}
-	pub, priv := s.Scheme.DeriveKey(seed)
+	pub, priv := s.scheme.DeriveKey(seed)
 	pk, sk := newKeys(&circlPubKey{pub, s}, &circlPrivKey{priv, s})
 	return sk, pk, nil
 }
@@ -41,7 +45,7 @@ func (s circlScheme) UnpackPublic(key []byte) (PublicKey, error) {
 	if len(key) != s.PublicKeySize() {
 		return nil, ErrKeySize
 	}
-	pub, err := s.UnmarshalBinaryPublicKey(key)
+	pub, err := s.scheme.UnmarshalBinaryPublicKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +56,7 @@ func (s circlScheme) UnpackPrivate(key []byte) (PrivateKey, error) {
 	if len(key) != s.PrivateKeySize() {
 		return nil, ErrKeySize
 	}
-	priv, err := s.UnmarshalBinaryPrivateKey(key)
+	priv, err := s.scheme.UnmarshalBinaryPrivateKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +90,7 @@ func (priv *circlPrivKey) Pack() []byte {
 }
 
 func (priv *circlPrivKey) Sign(data []byte) []byte {
-	return priv.scheme.Sign(priv.PrivateKey, data, nil)
+	return priv.scheme.scheme.Sign(priv.PrivateKey, data, nil)
 }
 
 var _ rawPublicKey = &circlPubKey{}
@@ -114,5 +118,5 @@ func (pub *circlPubKey) Verify(message, signature []byte) (bool, error) {
 	if len(signature) != pub.scheme.SignatureSize() {
 		return false, ErrSignature
 	}
-	return pub.scheme.Verify(pub.PublicKey, message, signature, nil), nil
+	return pub.scheme.scheme.Verify(pub.PublicKey, message, signature, nil), nil
 }

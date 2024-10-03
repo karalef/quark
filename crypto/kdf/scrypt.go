@@ -23,7 +23,7 @@ func deriveScrypt(password, salt []byte, size int, cost Cost) []byte {
 
 func validateScrypt(cost Cost) error {
 	if cost.CPU <= 1 || cost.CPU&(cost.CPU-1) != 0 {
-		return errors.New("N must be > 1 and a power of 2")
+		return errors.New("N must be >1 and a power of 2")
 	}
 	const maxMemory = ^uint(0) >> 9
 	if cost.Memory*cost.Parallelism >= 1<<30 ||

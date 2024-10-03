@@ -7,7 +7,7 @@ import (
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
-	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/scheme"
 )
 
 // EncryptElement encrypts a key with the given crypter.
@@ -37,11 +37,11 @@ func (e *Element) Decrypt(crypter *encrypted.Crypter) (crypto.Key, error) {
 	if err != nil {
 		return nil, err
 	}
-	if scheme := sign.ByName(e.Algorithm); scheme != nil {
-		return scheme.UnpackPrivate(data)
+	if key, err := sign.UnpackPrivate(e.Algorithm, data); err == nil {
+		return key, nil
 	}
-	if scheme := kem.ByName(e.Algorithm); scheme != nil {
-		return scheme.UnpackPrivate(data)
+	if key, err := kem.UnpackPrivate(e.Algorithm, data); err == nil {
+		return key, nil
 	}
-	return nil, internal.ErrUnknownScheme
+	return nil, scheme.ErrUnknownScheme
 }

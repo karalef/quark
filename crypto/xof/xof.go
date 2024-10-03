@@ -3,12 +3,12 @@ package xof
 import (
 	"io"
 
-	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/scheme"
 )
 
-// XOF represents the hash function with arbitrary-length output.
-type XOF interface {
-	internal.Scheme
+// Scheme represents the scheme of hash function with arbitrary-length output.
+type Scheme interface {
+	scheme.Scheme
 	New() State
 }
 
@@ -29,34 +29,32 @@ type State interface {
 	Reset()
 }
 
-// New creates a new XOF.
-// It does not register the XOF.
-func New(name string, new func() State) XOF {
-	return scheme{
-		new:  new,
-		name: name,
+// New creates a new Scheme.
+// It does not register the scheme.
+func New(name string, new func() State) Scheme {
+	return xof{
+		StringName: scheme.StringName(name),
+		new:        new,
 	}
 }
 
-type scheme struct {
-	new  func() State
-	name string
+type xof struct {
+	scheme.StringName
+	new func() State
 }
 
-func (s scheme) Name() string { return s.name }
-func (s scheme) New() State   { return s.new() }
+func (s xof) New() State { return s.new() }
 
-var xofs = make(internal.Schemes[XOF])
+var xofs = make(scheme.Schemes[Scheme])
 
 // Register registers a XOF.
-func Register(xof XOF) { xofs.Register(xof) }
+func Register(xof Scheme) { xofs.Register(xof) }
 
 // ByName returns the XOF by the provided name.
-// Returns nil if the name is not registered.
-func ByName(name string) XOF { return xofs.ByName(name) }
+func ByName(name string) (Scheme, error) { return xofs.ByName(name) }
 
 // ListAll returns all registered XOF names.
 func ListAll() []string { return xofs.ListAll() }
 
 // ListSchemes returns all registered XOF schemes.
-func ListSchemes() []XOF { return xofs.ListSchemes() }
+func ListSchemes() []Scheme { return xofs.ListSchemes() }

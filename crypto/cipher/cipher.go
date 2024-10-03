@@ -4,15 +4,21 @@ import (
 	stdcipher "crypto/cipher"
 	"errors"
 
-	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/scheme"
 )
 
 // Cipher represents a stream cipher.
 type Cipher = stdcipher.Stream
 
+// Reader represents a stream cipher reader.
+type Reader = stdcipher.StreamReader
+
+// Writer represents a stream cipher writer.
+type Writer = stdcipher.StreamWriter
+
 // Scheme type.
 type Scheme interface {
-	internal.Scheme
+	scheme.Scheme
 
 	KeySize() int
 	IVSize() int
@@ -29,23 +35,22 @@ type NewFunc func(key, iv []byte) (Cipher, error)
 // that are passed to the new.
 func New(name string, keySize, ivSize int, new NewFunc) Scheme {
 	return baseScheme{
-		name:    name,
-		keySize: keySize,
-		ivSize:  ivSize,
-		newFunc: new,
+		StringName: scheme.StringName(name),
+		keySize:    keySize,
+		ivSize:     ivSize,
+		newFunc:    new,
 	}
 }
 
 var _ Scheme = baseScheme{}
 
 type baseScheme struct {
+	scheme.StringName
 	newFunc NewFunc
-	name    string
 	keySize int
 	ivSize  int
 }
 
-func (s baseScheme) Name() string { return s.name }
 func (s baseScheme) KeySize() int { return s.keySize }
 func (s baseScheme) IVSize() int  { return s.ivSize }
 func (s baseScheme) New(key, iv []byte) (Cipher, error) {
@@ -64,14 +69,13 @@ var (
 	ErrIVSize  = errors.New("invalid iv size")
 )
 
-var schemes = make(internal.Schemes[Scheme])
+var schemes = make(scheme.Schemes[Scheme])
 
 // Register registers a cipher scheme.
 func Register(scheme Scheme) { schemes.Register(scheme) }
 
 // ByName returns the cipher scheme by the provided name.
-// Returns nil if the name is not registered.
-func ByName(name string) Scheme { return schemes.ByName(name) }
+func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
 
 // ListAll returns all registered cipher algorithms.
 func ListAll() []string { return schemes.ListAll() }

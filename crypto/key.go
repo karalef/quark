@@ -3,12 +3,12 @@ package crypto
 import (
 	"errors"
 
-	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/scheme"
 )
 
 // Scheme is a basic interface for asymmetric algorithm schemes.
 type Scheme interface {
-	internal.Scheme
+	scheme.Scheme
 
 	// Size of packed public keys.
 	PublicKeySize() int
