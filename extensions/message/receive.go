@@ -8,7 +8,7 @@ import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/mac"
-	"github.com/karalef/quark/internal"
+	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/pack"
 )
 
@@ -19,7 +19,7 @@ type messageReader struct {
 // Decrypt contains the parameters to decrypt the message.
 type Decrypt struct {
 	// Issuer is used to verify the signature.
-	Issuer quark.PublicKey
+	Issuer sign.PublicKey
 
 	// Recipient is used to decrypt the message.
 	Recipient kem.PrivateKey
@@ -29,12 +29,12 @@ type Decrypt struct {
 
 func (msg *Message) Decrypt(plain io.Writer, decrypt Decrypt) error {
 	// Verify signature
-	verifier := internal.NopCloser(plain)
+	verifier := NopCloser(plain)
 	if !msg.Header.Sender.IsEmpty() && decrypt.Issuer != nil {
 		verifier = messageVerifier{
 			w:   plain,
 			msg: msg,
-			v:   quark.VerifyStream(decrypt.Issuer),
+			v:   quark.Verify(decrypt.Issuer),
 		}
 	}
 	msg.Data.Writer = verifier

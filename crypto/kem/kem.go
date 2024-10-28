@@ -49,6 +49,7 @@ type Scheme interface {
 
 // PrivateKey represents a KEM private key.
 type PrivateKey interface {
+	// The scheme returned by Scheme() must implement the Scheme interface.
 	crypto.Key
 	Public() PublicKey
 	Equal(PrivateKey) bool
@@ -59,6 +60,7 @@ type PrivateKey interface {
 
 // PublicKey represents a KEM public key.
 type PublicKey interface {
+	// The scheme returned by Scheme() must implement the Scheme interface.
 	crypto.Key
 	CorrespondsTo(PrivateKey) bool
 	Equal(PublicKey) bool

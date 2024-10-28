@@ -7,7 +7,6 @@ import (
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/internal"
 )
 
 // Signable represents an object that can be signed.
@@ -16,23 +15,19 @@ type Signable interface {
 }
 
 // SignObject signs the object.
-func SignObject(sk sign.StreamPrivateKey, v Validity, obj Signable) (Signature, error) {
-	signer := SignStream(sk)
-	obj.SignEncode(signer)
+func SignObject(sk sign.PrivateKey, v Validity, obj Signable) (Signature, error) {
+	signer := Sign(sk)
+	err := obj.SignEncode(signer)
+	if err != nil {
+		return Signature{}, err
+	}
 	return signer.Sign(v)
 }
 
-// Sign signs the message.
-func Sign(sk sign.StreamPrivateKey, v Validity, message []byte) (Signature, error) {
-	signer := SignStream(sk)
-	signer.Write(message)
-	return signer.Sign(v)
-}
-
-// SignStream creates a Signer.
-func SignStream(sk sign.StreamPrivateKey) *Signer {
+// Sign creates a Signer.
+func Sign(sk sign.PrivateKey) *Signer {
 	return &Signer{
-		Signer: sk.Signer(),
+		Signer: sk.Sign(),
 		sig: Signature{
 			Issuer: sk.Fingerprint(),
 		},
@@ -71,14 +66,14 @@ func MarshalTime(time int64) []byte {
 
 // Signature represents a signature.
 type Signature struct {
-	Signature []byte             `msgpack:"sig"`
 	Validity  Validity           `msgpack:"validity"`
+	Signature []byte             `msgpack:"sig"`
 	Issuer    crypto.Fingerprint `msgpack:"issuer"`
 }
 
 // Copy returns a copy of the signature.
 func (s Signature) Copy() Signature {
-	s.Signature = internal.Copy(s.Signature)
+	s.Signature = crypto.Copy(s.Signature)
 	return s
 }
 
@@ -97,24 +92,20 @@ func (s Signature) Validate() error {
 	}
 }
 
-// Verify verifies the signature.
-func (s Signature) Verify(pk sign.StreamPublicKey, message []byte) (bool, error) {
-	verifier := VerifyStream(pk)
-	verifier.Write(message)
-	return verifier.Verify(s)
-}
-
 // VerifyObject verifies the signature.
-func (s Signature) VerifyObject(pk sign.StreamPublicKey, obj Signable) (bool, error) {
-	verifier := VerifyStream(pk)
-	obj.SignEncode(verifier)
+func (s Signature) VerifyObject(pk sign.PublicKey, obj Signable) (bool, error) {
+	verifier := Verify(pk)
+	err := obj.SignEncode(verifier)
+	if err != nil {
+		return false, err
+	}
 	return verifier.Verify(s)
 }
 
-// VerifyStream creates a Verifier.
+// Verify creates a Verifier.
 // It is used if the signature is not available before the message is read.
-func VerifyStream(pk sign.StreamPublicKey) *Verifier {
-	return &Verifier{pk.Verifier()}
+func Verify(pk sign.PublicKey) *Verifier {
+	return &Verifier{pk.Verify()}
 }
 
 // Verifier represents a signature verification state.
@@ -164,13 +155,13 @@ func (v Validity) signEncode(w io.Writer) {
 }
 
 // IsRevoked returns true if the validity is revoked.
-func (v Validity) IsRevoked(t int64) bool { return v.Reason != "" }
+func (v Validity) IsRevoked() bool { return v.Reason != "" }
 
 // IsExpired returns true if the validity is expired.
 func (v Validity) IsExpired(t int64) bool { return v.Expires > 0 && v.Expires <= t }
 
 // IsValid returns true if the validity neither expired nor revoked.
-func (v Validity) IsValid(t int64) bool { return !v.IsRevoked(t) && !v.IsExpired(t) }
+func (v Validity) IsValid(t int64) bool { return !v.IsRevoked() && !v.IsExpired(t) }
 
 // Revoke returns a revoked copy of the validity.
 func (v Validity) Revoke(t int64, reason string) Validity {

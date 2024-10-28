@@ -22,22 +22,25 @@ type Scheme interface {
 
 	KeySize() int
 	IVSize() int
+	// BlockSize returns the block size if the cipher has a counter.
+	BlockSize() int
 
 	New(key, iv []byte) (Cipher, error)
 }
 
 // NewFunc represents the function to create a stream cipher.
-type NewFunc func(key, iv []byte) (Cipher, error)
+type NewFunc func(key, iv []byte) Cipher
 
 // New creates new cipher scheme.
 // It does not register the scheme.
 // The returned scheme guarantees the correct key and iv lengths
 // that are passed to the new.
-func New(name string, keySize, ivSize int, new NewFunc) Scheme {
+func New(name string, keySize, ivSize, blockSize int, new NewFunc) Scheme {
 	return baseScheme{
 		StringName: scheme.StringName(name),
 		keySize:    keySize,
 		ivSize:     ivSize,
+		blockSize:  blockSize,
 		newFunc:    new,
 	}
 }
@@ -46,13 +49,15 @@ var _ Scheme = baseScheme{}
 
 type baseScheme struct {
 	scheme.StringName
-	newFunc NewFunc
-	keySize int
-	ivSize  int
+	newFunc   NewFunc
+	keySize   int
+	ivSize    int
+	blockSize int
 }
 
-func (s baseScheme) KeySize() int { return s.keySize }
-func (s baseScheme) IVSize() int  { return s.ivSize }
+func (s baseScheme) KeySize() int   { return s.keySize }
+func (s baseScheme) IVSize() int    { return s.ivSize }
+func (s baseScheme) BlockSize() int { return s.blockSize }
 func (s baseScheme) New(key, iv []byte) (Cipher, error) {
 	if len(key) != s.keySize {
 		return nil, ErrKeySize
@@ -60,7 +65,7 @@ func (s baseScheme) New(key, iv []byte) (Cipher, error) {
 	if len(iv) != s.ivSize {
 		return nil, ErrIVSize
 	}
-	return s.newFunc(key, iv)
+	return s.newFunc(key, iv), nil
 }
 
 // errors

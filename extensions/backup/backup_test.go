@@ -6,13 +6,11 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/kem"
-	"github.com/karalef/quark/crypto/mac"
-	"github.com/karalef/quark/crypto/password"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
+	"github.com/karalef/quark/encrypted/password"
 	"github.com/karalef/quark/extensions/backup"
 	"github.com/karalef/quark/extensions/subkey"
 )
@@ -41,29 +39,30 @@ func TestBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b, err := backup.New(backup.BackupData{
-		Identity: ident,
-		Secret:   sk,
-		Subkeys:  []crypto.Key{ssk, ksk},
-	}, "password", encrypted.PassphraseParams{
-		Scheme: password.Build(aead.Build(cipher.AESCTR256, mac.BLAKE3), kdf.Argon2i),
-		Cost: kdf.Cost{
-			CPU:         1,
-			Memory:      1 * 1024,
-			Parallelism: 1,
-		},
+	bd := backup.BackupData{
+		Key:     ident,
+		Secret:  sk,
+		Subkeys: []crypto.Key{ssk, ksk},
+	}
+	scheme := password.Build(aead.ChaCha20Poly1305, kdf.Argon2i)
+	cost := &kdf.Argon2Cost{Time: 1, Memory: 1 * 1024, Threads: 1}
+	source := encrypted.NewCounter(uint8(scheme.AEAD().NonceSize()))
+
+	b, err := backup.New(bd, "password", source, encrypted.PassphraseParams{
+		Scheme:   scheme,
+		Cost:     cost,
 		SaltSize: 32,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	bd, err := b.Decrypt("password")
+	bd, err = b.Decrypt("password")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if bd.Identity.ID() != ident.ID() {
+	if bd.Key.ID() != ident.ID() {
 		t.Fatal("bad identity")
 	}
 }

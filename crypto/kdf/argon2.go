@@ -12,27 +12,31 @@ func init() {
 }
 
 // Argon2i KDF.
-var Argon2i = New("argon2i", argon2i, validateArgon2)
+var Argon2i = New("argon2i", argon2i)
 
 // Argon2id KDF.
-var Argon2id = New("argon2id", argon2id, validateArgon2)
+var Argon2id = New("argon2id", argon2id)
 
-func argon2i(password, salt []byte, size int, cost Cost) []byte {
-	return argon2.Key(password, salt, uint32(cost.CPU), uint32(cost.Memory), uint8(cost.Parallelism), uint32(size))
+func argon2i(password, salt []byte, size uint32, cost *Argon2Cost) []byte {
+	return argon2.Key(password, salt, cost.Time, cost.Memory, cost.Threads, size)
 }
 
-func argon2id(password, salt []byte, size int, cost Cost) []byte {
-	return argon2.IDKey(password, salt, uint32(cost.CPU), uint32(cost.Memory), uint8(cost.Parallelism), uint32(size))
+func argon2id(password, salt []byte, size uint32, cost *Argon2Cost) []byte {
+	return argon2.IDKey(password, salt, cost.Time, cost.Memory, cost.Threads, size)
 }
 
-func validateArgon2(cost Cost) error {
-	const maxUint8 = uint(^uint8(0))
-	const maxUint32 = uint(^uint32(0))
-	if cost.CPU < 1 || cost.Parallelism < 1 {
+// Argon2Cost represents the Argon2 key derivation function cost parameters.
+type Argon2Cost struct {
+	Time    uint32 `msgpack:"t"`
+	Memory  uint32 `msgpack:"m"`
+	Threads uint8  `msgpack:"p"`
+}
+
+func (cost *Argon2Cost) Validate() error {
+	if cost.Time < 1 || cost.Threads < 1 {
 		return errors.New("cost parameters too small")
-	}
-	if cost.CPU > maxUint32 || cost.Memory > maxUint32 || cost.Parallelism > maxUint8 {
-		return errors.New("cost parameters too large")
 	}
 	return nil
 }
+
+func (*Argon2Cost) New() Cost { return &Argon2Cost{} }

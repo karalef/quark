@@ -10,6 +10,7 @@ import (
 type Scheme interface {
 	scheme.Scheme
 	New() State
+	BlockSize() int
 }
 
 // State represents the state of hash function with arbitrary-length output.
@@ -31,7 +32,7 @@ type State interface {
 
 // New creates a new Scheme.
 // It does not register the scheme.
-func New(name string, new func() State) Scheme {
+func New(name string, bs int, new func() State) Scheme {
 	return xof{
 		StringName: scheme.StringName(name),
 		new:        new,
@@ -41,9 +42,11 @@ func New(name string, new func() State) Scheme {
 type xof struct {
 	scheme.StringName
 	new func() State
+	bs  int
 }
 
-func (s xof) New() State { return s.new() }
+func (s xof) New() State     { return s.new() }
+func (s xof) BlockSize() int { return s.bs }
 
 var xofs = make(scheme.Schemes[Scheme])
 

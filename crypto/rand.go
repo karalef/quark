@@ -2,8 +2,17 @@ package crypto
 
 import (
 	cryptorand "crypto/rand"
+	"encoding/binary"
 	"io"
 )
+
+// Reader returns r if it is not nil, otherwise crypto/rand.Reader.
+func Reader(r io.Reader) io.Reader {
+	if r != nil {
+		return r
+	}
+	return cryptorand.Reader
+}
 
 // RandRead allocates and reads a random byte slice of length size.
 // If rand is nil, crypto/rand is used.
@@ -21,9 +30,12 @@ func RandRead(rand io.Reader, size int) ([]byte, error) {
 // Rand allocates and reads a random byte slice of length size using crypto/rand.
 // Panics if crypto/rand returns an error.
 func Rand(size int) []byte {
-	buf, err := RandRead(nil, size)
-	if err != nil {
-		panic(err)
-	}
-	return buf
+	return OrPanic(RandRead(nil, size))
+}
+
+// RandUint64 reads a random uint64 using crypto/rand.
+func RandUint64() uint64 {
+	var b [8]byte
+	OrPanic(cryptorand.Read(b[:]))
+	return binary.BigEndian.Uint64(b[:])
 }

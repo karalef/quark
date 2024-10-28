@@ -5,9 +5,9 @@ import (
 	"errors"
 	"io"
 
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/hash"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/pkg/crockford"
 )
@@ -35,7 +35,7 @@ type Copier[T any] interface {
 // RawData represents a msgpack raw message and implements the Copier interface.
 type RawData []byte
 
-func (r RawData) Copy() RawData { return internal.Copy(r) }
+func (r RawData) Copy() RawData { return crypto.Copy(r) }
 
 func (r RawData) EncodeMsgpack(enc *pack.Encoder) error {
 	_, err := enc.Writer().Write(r)
@@ -126,7 +126,7 @@ func (c Certificate[Data]) CheckIntegrity() bool {
 
 // CalcID calculates the certificate ID.
 func (c Certificate[Data]) CalcID() (id CertID) {
-	h := hash.SHA3_256.New()
+	h := hash.SHA3.New()
 	h.Write([]byte(c.Type))
 	err := pack.EncodeBinary(h, c.Data)
 	if err != nil {
@@ -147,7 +147,7 @@ func (c Certificate[Data]) SignEncode(w io.Writer) error {
 }
 
 // Sign signs the certificate.
-func (c *Certificate[Data]) Sign(sk sign.StreamPrivateKey, v Validity) error {
+func (c *Certificate[Data]) Sign(sk sign.PrivateKey, v Validity) error {
 	sig, err := SignObject(sk, v, c)
 	if err != nil {
 		return err
@@ -157,9 +157,12 @@ func (c *Certificate[Data]) Sign(sk sign.StreamPrivateKey, v Validity) error {
 }
 
 // Verify verifies the certificate signature.
-func (c Certificate[Data]) Verify(pk sign.StreamPublicKey) (bool, error) {
+func (c Certificate[Data]) Verify(pk sign.PublicKey) (bool, error) {
 	return c.Signature.VerifyObject(pk, c)
 }
+
+// Validity returns the validity of the certificate.
+func (c Certificate[Data]) Validity() Validity { return c.Signature.Validity }
 
 // Validate validates the certificate.
 func (c Certificate[Data]) Validate() error {

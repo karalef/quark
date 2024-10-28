@@ -7,19 +7,15 @@ import (
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/mac"
 	"github.com/karalef/quark/crypto/xof"
 )
 
-func TestPassword(t *testing.T) {
+func TestSecret(t *testing.T) {
 	noncryptoRand := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
-	testScheme := Build(
-		aead.Build(cipher.AESCTR256, mac.BLAKE2b128),
-		xof.BLAKE2xb,
-	)
+	testScheme := Build(aead.ChaCha20Poly1305, xof.BLAKE3x)
 	testSecret, _ := crypto.RandRead(noncryptoRand, 32)
-	testIV, _ := crypto.RandRead(noncryptoRand, testScheme.AEAD().Cipher().IVSize())
+	testIV, _ := crypto.RandRead(noncryptoRand, testScheme.NonceSize())
 	testData := []byte("testing data")
 	testAD, _ := crypto.RandRead(noncryptoRand, 128)
 

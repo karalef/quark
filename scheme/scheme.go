@@ -3,8 +3,6 @@ package scheme
 import (
 	"errors"
 	"strings"
-
-	"github.com/karalef/quark/pack"
 )
 
 // Scheme interface.
@@ -65,23 +63,8 @@ func SplitN(scheme string, n uint) ([]string, error) {
 // ErrInvalidScheme is returned when scheme is invalid.
 var ErrInvalidScheme = errors.New("invalid scheme")
 
-// StringName implements the Scheme interface and can be msgpack en/decoded.
+// StringName implements the Scheme interface.
 type StringName string
 
 // Name returns the scheme name.
-func (n StringName) Name() string { return string(n) }
-
-// EncodeMsgpack implements pack.CustomEncoder.
-func (n StringName) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.EncodeString(string(n))
-}
-
-// DecodeMsgpack implements pack.CustomDecoder.
-func (n *StringName) DecodeMsgpack(dec *pack.Decoder) error {
-	s, err := dec.DecodeString()
-	if err != nil {
-		return err
-	}
-	*n = StringName(s)
-	return nil
-}
+func (n StringName) Name() string { return strings.ToUpper(string(n)) }

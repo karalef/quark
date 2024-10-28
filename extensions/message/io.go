@@ -1,16 +1,9 @@
-package internal
+package message
 
 import (
 	"errors"
 	"io"
 )
-
-// Copy copies b to a new slice.
-func Copy(b []byte) []byte {
-	cp := make([]byte, len(b))
-	copy(cp, b)
-	return cp
-}
 
 // NopCloser is analog of io.NopCloser but for io.Writer.
 func NopCloser(w io.Writer) io.WriteCloser {

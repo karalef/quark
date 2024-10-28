@@ -21,9 +21,9 @@ func init() {
 var _ pack.Packable = (*Key)(nil)
 
 // Encrypt encrypts a key with passphrase.
-func Encrypt(key crypto.Key, passphrase string, p encrypted.PassphraseParams) (*Key, error) {
+func Encrypt(key crypto.Key, passphrase string, nonce []byte, p encrypted.PassphraseParams) (*Key, error) {
 	fp := key.Fingerprint()
-	data, err := single.NewPassphraseData(passphrase, key.Pack(), fp.Bytes(), p)
+	data, err := single.NewPassphraseData(passphrase, key.Pack(), nonce, fp.Bytes(), p)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +37,8 @@ func Encrypt(key crypto.Key, passphrase string, p encrypted.PassphraseParams) (*
 // Key is used to store the private key encrypted with passphrase.
 type Key struct {
 	Algorithm string                `msgpack:"alg"`
-	FP        crypto.Fingerprint    `msgpack:"fp"`
 	Data      single.PassphraseData `msgpack:"data"`
+	FP        crypto.Fingerprint    `msgpack:"fp"`
 }
 
 func (*Key) PacketTag() pack.Tag { return PacketTagPrivateKey }

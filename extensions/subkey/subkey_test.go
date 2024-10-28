@@ -11,7 +11,7 @@ import (
 	"github.com/karalef/quark/extensions/subkey"
 )
 
-func TestIdentity(t *testing.T) {
+func TestKey(t *testing.T) {
 	id, sk, err := quark.Generate(sign.EDDilithium3, time.Now().Add(1000*time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
@@ -47,28 +47,28 @@ func TestIdentity(t *testing.T) {
 	printBindings(id.Bindings(), t)
 }
 
-func printBindings(binds []quark.RawBinding, t *testing.T) {
+func printBindings(binds []quark.RawCertificate, t *testing.T) {
 	for _, bind := range binds {
-		var key crypto.KeyID
-		switch bind.BindType() {
+		var key crypto.Key
+		switch bind.Type {
 		case subkey.TypeSignKey:
-			sub, err := quark.BindingAs[subkey.SignSubkey](bind)
+			sub, err := quark.CertificateAs[subkey.SignSubkey](bind)
 			if err != nil {
 				t.Fatal(err)
 			}
-			key = sub.GetData()
+			key = sub.Data.PublicKey
 		case subkey.TypeKEMKey:
-			sub, err := quark.BindingAs[subkey.KEMSubkey](bind)
+			sub, err := quark.CertificateAs[subkey.KEMSubkey](bind)
 			if err != nil {
 				t.Fatal(err)
 			}
-			key = sub.GetData()
+			key = sub.Data.PublicKey
 		}
 		bindid := bind.ID.ShortString()
-		t.Logf("binding %s: %s %s", bindid, bind.BindType(), key.ID().String())
-		if bind.Validity().IsRevoked(time.Now().Unix()) {
+		t.Logf("binding %s: %s %s", bindid, bind.Type, key.ID().String())
+		if bind.Validity().IsRevoked() {
 			t.Logf("revoked at %s because %s",
-				time.Unix(bind.Validity().Revoked, 0).Format(time.DateOnly),
+				time.Unix(bind.Validity().Created, 0).Format(time.DateOnly),
 				bind.Validity().Reason)
 		} else {
 			t.Logf("signed by %s and valid before %s",

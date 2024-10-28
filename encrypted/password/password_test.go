@@ -7,26 +7,22 @@ import (
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/mac"
 )
 
 func TestPassword(t *testing.T) {
 	noncryptoRand := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
-	testScheme := Build(
-		aead.Build(cipher.AESCTR256, mac.BLAKE2b128),
-		kdf.Argon2i,
-	)
+	testScheme := Build(aead.ChaCha20Poly1305, kdf.Argon2i)
 	testPassword := "password"
 	testData := []byte("testing data")
-	testIV, _ := crypto.RandRead(noncryptoRand, testScheme.AEAD().Cipher().IVSize())
-	testSalt, _ := crypto.RandRead(noncryptoRand, testScheme.AEAD().Cipher().KeySize())
+	testIV, _ := crypto.RandRead(noncryptoRand, testScheme.AEAD().NonceSize())
+	testSalt, _ := crypto.RandRead(noncryptoRand, 16)
 	testAD, _ := crypto.RandRead(noncryptoRand, 128)
-	testKDFParams := kdf.Cost{
-		CPU:         1,
-		Memory:      8 * 1024,
-		Parallelism: 1,
+	testKDFParams := &kdf.Argon2Cost{
+		Time:    1,
+		Memory:  8 * 1024,
+		Threads: 1,
 	}
 
 	encryptedBuffer := make([]byte, len(testData))

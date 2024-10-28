@@ -6,8 +6,8 @@ import (
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kem"
-	"github.com/karalef/quark/crypto/secret"
 	"github.com/karalef/quark/encrypted"
+	"github.com/karalef/quark/encrypted/secret"
 	"github.com/karalef/quark/encrypted/single"
 )
 
@@ -28,13 +28,13 @@ type Encryption struct {
 func (e *Encryption) IsEncapsulated() bool { return !e.ID.IsEmpty() }
 
 // Encapsulate generates and encapsulates a shared secret and creates an authenticated stream cipher.
-func Encapsulate(scheme secret.Scheme, recipient kem.PublicKey, associatedData []byte) (aead.Cipher, *Encryption, error) {
+func Encapsulate(scheme *secret.Scheme, recipient kem.PublicKey, associatedData []byte) (aead.Cipher, *Encryption, error) {
 	ciphertext, secret, err := kem.Encapsulate(recipient)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	sym, aead, err := single.New(scheme, secret, associatedData)
+	sym, aead, err := single.New(scheme, secret, crypto.Rand(scheme.AEAD().NonceSize()), associatedData)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -48,7 +48,7 @@ func Encapsulate(scheme secret.Scheme, recipient kem.PublicKey, associatedData [
 
 // Password uses password-based symmetric encryption to create an authenticated stream cipher.
 func Password(passphrase string, ad []byte, params encrypted.PassphraseParams) (aead.Cipher, *Encryption, error) {
-	sym, aead, err := single.NewWithPassphrase(passphrase, ad, params)
+	sym, aead, err := single.NewWithPassphrase(passphrase, crypto.Rand(params.Scheme.AEAD().NonceSize()), ad, params)
 	if err != nil {
 		return nil, nil, err
 	}

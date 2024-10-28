@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"hash"
+	"unsafe"
 
 	"github.com/karalef/quark/scheme"
 	"github.com/zeebo/blake3"
@@ -51,7 +52,7 @@ func (s baseScheme) New() State     { return s.new() }
 var (
 	SHA256     = New("SHA256", sha256.Size, sha256.BlockSize, sha256.New)
 	SHA512     = New("SHA512", sha512.Size, sha512.BlockSize, sha512.New)
-	SHA3_256   = New("SHA3_256", 32, 136, sha3.New256)
+	SHA3       = New("SHA3", 32, 136, sha3.New256)
 	SHA3_512   = New("SHA3_512", 64, 72, sha3.New512)
 	BLAKE2B128 = New("BLAKE2B_128", 16, blake2b.BlockSize, func() State {
 		h, _ := blake2b.New(16, nil)
@@ -65,22 +66,32 @@ var (
 		h, _ := blake2b.New512(nil)
 		return h
 	})
-	BLAKE3 = New("BLAKE3", 32, 64, func() State {
-		return blake3.New()
-	})
+	BLAKE3     = New("BLAKE3", 32, 64, func() State { return blake3.New() })
+	BLAKE3_128 = New("BLAKE3_128", 16, 64, blake3WithSize(16))
+	BLAKE3_512 = New("BLAKE3_512", 64, 64, blake3WithSize(64))
 )
+
+func blake3WithSize(size int) func() State {
+	return func() State {
+		h := blake3.New()
+		*(*int)(unsafe.Pointer(h)) = size
+		return h
+	}
+}
 
 var schemes = make(scheme.Schemes[Scheme])
 
 func init() {
 	Register(SHA256)
 	Register(SHA512)
-	Register(SHA3_256)
+	Register(SHA3)
 	Register(SHA3_512)
 	Register(BLAKE2B128)
 	Register(BLAKE2B256)
 	Register(BLAKE2B512)
 	Register(BLAKE3)
+	Register(BLAKE3_128)
+	Register(BLAKE3_512)
 }
 
 // Register registers a hash scheme.

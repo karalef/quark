@@ -9,13 +9,13 @@ import (
 
 // subkey bind types
 const (
-	TypeGroupQuarkKey quark.BindType = quark.BindTypeGroupQuark + ".key"
-	TypeSignKey       quark.BindType = TypeGroupQuarkKey + ".sign"
-	TypeKEMKey        quark.BindType = TypeGroupQuarkKey + ".kem"
+	TypeBindKey = "bind.key"
+	TypeSignKey = TypeBindKey + ".sign"
+	TypeKEMKey  = TypeBindKey + ".kem"
 )
 
-var _ quark.Bindable[SignSubkey] = SignSubkey{}
-var _ quark.Bindable[KEMSubkey] = KEMSubkey{}
+var _ quark.Certifyable[SignSubkey] = SignSubkey{}
+var _ quark.Certifyable[KEMSubkey] = KEMSubkey{}
 
 type SignSubkey struct {
 	sign.PublicKey
@@ -25,8 +25,8 @@ type KEMSubkey struct {
 	kem.PublicKey
 }
 
-func (SignSubkey) BindType() quark.BindType { return TypeSignKey }
-func (KEMSubkey) BindType() quark.BindType  { return TypeKEMKey }
+func (SignSubkey) CertType() string { return TypeSignKey }
+func (KEMSubkey) CertType() string  { return TypeKEMKey }
 func (s SignSubkey) Copy() SignSubkey {
 	b := s.PublicKey.Pack()
 	cpy, err := s.Scheme().(sign.Scheme).UnpackPublic(b)
@@ -85,35 +85,35 @@ func (k *KEMSubkey) DecodeMsgpack(dec *pack.Decoder) error {
 }
 
 // BindSign binds a subkey to an identity.
-func BindSign(id *quark.Key, sk sign.PrivateKey, subkey sign.PublicKey, expires int64) (quark.Binding[SignSubkey], error) {
+func BindSign(id *quark.Key, sk sign.PrivateKey, subkey sign.PublicKey, expires int64) (quark.Certificate[SignSubkey], error) {
 	if subkey == nil {
-		return quark.Binding[SignSubkey]{}, nil
+		return quark.Certificate[SignSubkey]{}, nil
 	}
 	return quark.Bind(id, sk, expires, SignSubkey{subkey})
 }
 
 // BindKEM binds a subkey to an identity.
-func BindKEM(id *quark.Key, sk sign.PrivateKey, subkey kem.PublicKey, expires int64) (quark.Binding[KEMSubkey], error) {
+func BindKEM(id *quark.Key, sk sign.PrivateKey, subkey kem.PublicKey, expires int64) (quark.Certificate[KEMSubkey], error) {
 	if subkey == nil {
-		return quark.Binding[KEMSubkey]{}, nil
+		return quark.Certificate[KEMSubkey]{}, nil
 	}
 	return quark.Bind(id, sk, expires, KEMSubkey{subkey})
 }
 
 // SignFrom extracts the public key from a binding.
-func SignFrom(b quark.RawBinding) (sign.PublicKey, error) {
-	k, err := quark.BindingAs[SignSubkey](b)
+func SignFrom(b quark.RawCertificate) (sign.PublicKey, error) {
+	k, err := quark.CertificateAs[SignSubkey](b)
 	if err != nil {
 		return nil, err
 	}
-	return k.GetData().PublicKey, nil
+	return k.Data.PublicKey, nil
 }
 
 // KEMFrom extracts the public key from a binding.
-func KEMFrom(b quark.RawBinding) (kem.PublicKey, error) {
-	k, err := quark.BindingAs[KEMSubkey](b)
+func KEMFrom(b quark.RawCertificate) (kem.PublicKey, error) {
+	k, err := quark.CertificateAs[KEMSubkey](b)
 	if err != nil {
 		return nil, err
 	}
-	return k.GetData().PublicKey, nil
+	return k.Data.PublicKey, nil
 }

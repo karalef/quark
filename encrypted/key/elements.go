@@ -10,10 +10,43 @@ import (
 	"github.com/karalef/quark/scheme"
 )
 
+// NewEncrypter returns a new multiple keys encrypter with nonce source.
+// If the nonce source is nil, LFSRNonce is used.
+func NewEncrypter(passphrase string,
+	source encrypted.NonceSource,
+	p encrypted.PassphraseParams,
+) (*Encrypter, encrypted.Passphrase, error) {
+	pp := encrypted.NewPassphrase(p)
+	crypter, err := pp.NewCrypter(passphrase)
+	if err != nil {
+		return nil, pp, err
+	}
+	if source == nil {
+		source = encrypted.NewLFSRNonce(uint8(p.Scheme.AEAD().NonceSize()), 0)
+	}
+	return &Encrypter{
+		crypter: crypter,
+		source:  source,
+	}, pp, nil
+}
+
+// Encrypter encrypts multiple keys using nonce source
+type Encrypter struct {
+	crypter *encrypted.Crypter
+	source  encrypted.NonceSource
+}
+
+func (e *Encrypter) Encrypt(key crypto.Key) (Element, error) {
+	if nonce, ok := e.source.Next(); ok {
+		return EncryptElement(key, e.crypter, nonce)
+	}
+	return Element{}, encrypted.ErrNonceSourceOverflow
+}
+
 // EncryptElement encrypts a key with the given crypter.
-func EncryptElement(key crypto.Key, crypter *encrypted.Crypter) (Element, error) {
+func EncryptElement(key crypto.Key, crypter *encrypted.Crypter, nonce []byte) (Element, error) {
 	fp := key.Fingerprint()
-	data, err := crypter.EncryptData(key.Pack(), fp.Bytes())
+	data, err := crypter.EncryptData(key.Pack(), nonce, fp.Bytes())
 	if err != nil {
 		return Element{}, err
 	}
@@ -27,8 +60,8 @@ func EncryptElement(key crypto.Key, crypter *encrypted.Crypter) (Element, error)
 // Element represents the one of the encrypted keys.
 type Element struct {
 	Algorithm string             `msgpack:"alg"`
-	FP        crypto.Fingerprint `msgpack:"fp"`
 	Data      encrypted.Data     `msgpack:"data"`
+	FP        crypto.Fingerprint `msgpack:"fp"`
 }
 
 // Decrypt decrypts the key with the given crypter.

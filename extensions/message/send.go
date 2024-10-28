@@ -7,10 +7,10 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kem"
-	"github.com/karalef/quark/crypto/secret"
+	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
+	"github.com/karalef/quark/encrypted/secret"
 	"github.com/karalef/quark/extensions/message/compress"
-	"github.com/karalef/quark/internal"
 	"github.com/karalef/quark/pack"
 )
 
@@ -19,7 +19,7 @@ type Opt func(*messageOpts)
 
 // WithEncryption enables encryption based on key encapsulation mechanism.
 // Panics if recipient is nil.
-func WithEncryption(recipient kem.PublicKey, scheme secret.Scheme) Opt {
+func WithEncryption(recipient kem.PublicKey, scheme *secret.Scheme) Opt {
 	if recipient == nil {
 		panic("nil recipient")
 	}
@@ -47,7 +47,7 @@ func WithPassword(passwd string, params encrypted.PassphraseParams) Opt {
 
 // WithSignature enables message signature.
 // Panics if sender is nil.
-func WithSignature(sender quark.PrivateKey, expiry ...int64) Opt {
+func WithSignature(sender sign.PrivateKey, expiry ...int64) Opt {
 	if sender == nil {
 		panic("nil sender")
 	}
@@ -78,11 +78,11 @@ func WithFileInfo(fi FileInfo) Opt {
 }
 
 type messageOpts struct {
-	sender quark.PrivateKey
+	sender sign.PrivateKey
 	expiry int64
 
 	recipient kem.PublicKey
-	scheme    secret.Scheme
+	scheme    *secret.Scheme
 
 	password       string
 	passwordParams encrypted.PassphraseParams
@@ -122,14 +122,14 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 	}
 
 	mw := &messageWriter{}
-	msgWriter := internal.NopCloser(mw)
+	msgWriter := NopCloser(mw)
 	if recipient := messageOpts.recipient; recipient != nil {
 		cipher, enc, err := Encapsulate(messageOpts.scheme, recipient, nil)
 		if err != nil {
 			return nil, err
 		}
 		msg.Header.Encryption = enc
-		msgWriter = internal.ChainCloser(msgWriter, messageEncrypter{
+		msgWriter = ChainCloser(msgWriter, messageEncrypter{
 			msg: msg,
 			Writer: aead.Writer{
 				AEAD: cipher,
@@ -142,7 +142,7 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 			return nil, err
 		}
 		msg.Header.Encryption = enc
-		msgWriter = internal.ChainCloser(msgWriter, messageEncrypter{
+		msgWriter = ChainCloser(msgWriter, messageEncrypter{
 			msg: msg,
 			Writer: aead.Writer{
 				AEAD: cipher,
@@ -157,7 +157,7 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 		if err != nil {
 			return nil, err
 		}
-		msgWriter = internal.ChainCloser(msgWriter, compressed)
+		msgWriter = ChainCloser(msgWriter, compressed)
 	}
 
 	msg.Data.WrapWriter(func(w io.Writer) io.WriteCloser {
@@ -168,12 +168,12 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 	return msg, nil
 }
 
-func signMessage(sender quark.PrivateKey, msg *Message, expiry int64) error {
+func signMessage(sender sign.PrivateKey, msg *Message, expiry int64) error {
 	msg.Header.Sender = sender.ID()
 	msg.Data.Reader = messageSigner{
 		r:      msg.Data.Reader,
 		msg:    msg,
-		signer: quark.SignStream(sender),
+		signer: quark.Sign(sender),
 		v:      quark.NewValidity(msg.Header.Time, expiry),
 	}
 	return nil

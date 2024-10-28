@@ -2,18 +2,18 @@ package single
 
 import (
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/secret"
 	"github.com/karalef/quark/encrypted"
+	"github.com/karalef/quark/encrypted/secret"
 )
 
 // NewSecret creates a new Secret with the given scheme and shared secret.
-func NewSecret(scheme secret.Scheme, sharedSecret, ad []byte) (Secret, aead.Cipher, error) {
+func NewSecret(scheme *secret.Scheme, sharedSecret, nonce, ad []byte) (Secret, aead.Cipher, error) {
 	sec := encrypted.NewSecret(scheme)
 	c, err := sec.NewCrypter(sharedSecret)
 	if err != nil {
 		return Secret{}, nil, err
 	}
-	stream, cipher, err := c.Encrypt(ad)
+	stream, cipher, err := c.Encrypt(nonce, ad)
 	if err != nil {
 		return Secret{}, nil, err
 	}
@@ -35,11 +35,11 @@ func (s Secret) Decrypt(sharedSecret, ad []byte) (aead.Cipher, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.Decrypt(s.Stream.IV, ad)
+	return c.Decrypt(s.Stream.Nonce, ad)
 }
 
 // NewSecretData creates a new SymmetricData with the given scheme and shared secret.
-func NewSecretData(scheme secret.Scheme, sharedSecret, data, ad []byte, buf ...bool) (SecretData, error) {
+func NewSecretData(scheme *secret.Scheme, sharedSecret, data, nonce, ad []byte, buf ...bool) (SecretData, error) {
 	s := encrypted.NewSecret(scheme)
 	c, err := s.NewCrypter(sharedSecret)
 	if err != nil {
@@ -49,9 +49,9 @@ func NewSecretData(scheme secret.Scheme, sharedSecret, data, ad []byte, buf ...b
 		Secret: s,
 	}
 	if len(buf) > 0 && buf[0] {
-		sd.Data, err = c.EncryptDataBuf(data, ad)
+		sd.Data, err = c.EncryptDataBuf(data, nonce, ad)
 	} else {
-		sd.Data, err = c.EncryptData(data, ad)
+		sd.Data, err = c.EncryptData(data, nonce, ad)
 	}
 	if err != nil {
 		return SecretData{}, err

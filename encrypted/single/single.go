@@ -2,12 +2,12 @@ package single
 
 import (
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/secret"
 	"github.com/karalef/quark/encrypted"
+	"github.com/karalef/quark/encrypted/secret"
 )
 
 // NewData creates a new Data with the given scheme and shared secret.
-func NewData(scheme secret.Scheme, sharedSecret, data, ad []byte, buf ...bool) (Data, error) {
+func NewData(scheme *secret.Scheme, sharedSecret, data, nonce, ad []byte, buf ...bool) (Data, error) {
 	sym := encrypted.New(scheme)
 	c, err := sym.NewCrypter(sharedSecret)
 	if err != nil {
@@ -17,9 +17,9 @@ func NewData(scheme secret.Scheme, sharedSecret, data, ad []byte, buf ...bool) (
 		Symmetric: sym,
 	}
 	if len(buf) > 0 && buf[0] {
-		d.Data, err = c.EncryptDataBuf(data, ad)
+		d.Data, err = c.EncryptDataBuf(data, nonce, ad)
 	} else {
-		d.Data, err = c.EncryptData(data, ad)
+		d.Data, err = c.EncryptData(data, nonce, ad)
 	}
 	if err != nil {
 		return Data{}, err
@@ -28,7 +28,7 @@ func NewData(scheme secret.Scheme, sharedSecret, data, ad []byte, buf ...bool) (
 }
 
 // NewDataWithPassphrase creates a new Data with the given scheme and shared secret.
-func NewDataWithPassphrase(passphrase string, data, ad []byte, p encrypted.PassphraseParams, buf ...bool) (Data, error) {
+func NewDataWithPassphrase(passphrase string, data, nonce, ad []byte, p encrypted.PassphraseParams, buf ...bool) (Data, error) {
 	sym := encrypted.NewWithPassphrase(p)
 	c, err := sym.NewPassphraseCrypter(passphrase)
 	if err != nil {
@@ -38,9 +38,9 @@ func NewDataWithPassphrase(passphrase string, data, ad []byte, p encrypted.Passp
 		Symmetric: sym,
 	}
 	if len(buf) > 0 && buf[0] {
-		d.Data, err = c.EncryptDataBuf(data, ad)
+		d.Data, err = c.EncryptDataBuf(data, nonce, ad)
 	} else {
-		d.Data, err = c.EncryptData(data, ad)
+		d.Data, err = c.EncryptData(data, nonce, ad)
 	}
 	if err != nil {
 		return Data{}, err
@@ -79,13 +79,13 @@ func (s Data) DecryptPassphrase(passphrase string, ad []byte, buf ...bool) ([]by
 }
 
 // New creates a new Stream with the given scheme and shared secret.
-func New(scheme secret.Scheme, sharedSecret, ad []byte) (Stream, aead.Cipher, error) {
+func New(scheme *secret.Scheme, sharedSecret, nonce, ad []byte) (Stream, aead.Cipher, error) {
 	sym := encrypted.New(scheme)
 	c, err := sym.NewCrypter(sharedSecret)
 	if err != nil {
 		return Stream{}, nil, err
 	}
-	stream, cipher, err := c.Encrypt(ad)
+	stream, cipher, err := c.Encrypt(nonce, ad)
 	if err != nil {
 		return Stream{}, nil, err
 	}
@@ -96,13 +96,13 @@ func New(scheme secret.Scheme, sharedSecret, ad []byte) (Stream, aead.Cipher, er
 }
 
 // NewWithPassphrase creates a new Stream with the given scheme and passphrase.
-func NewWithPassphrase(passphrase string, ad []byte, p encrypted.PassphraseParams) (Stream, aead.Cipher, error) {
+func NewWithPassphrase(passphrase string, nonce, ad []byte, p encrypted.PassphraseParams) (Stream, aead.Cipher, error) {
 	sym := encrypted.NewWithPassphrase(p)
 	c, err := sym.NewPassphraseCrypter(passphrase)
 	if err != nil {
 		return Stream{}, nil, err
 	}
-	stream, cipher, err := c.Encrypt(ad)
+	stream, cipher, err := c.Encrypt(nonce, ad)
 	if err != nil {
 		return Stream{}, nil, err
 	}
@@ -124,7 +124,7 @@ func (s Stream) Decrypt(sharedSecret, ad []byte) (aead.Cipher, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.Decrypt(s.Stream.IV, ad)
+	return c.Decrypt(s.Stream.Nonce, ad)
 }
 
 // DecryptPassphrase creates an authenticated cipher using passphrase.
@@ -133,5 +133,5 @@ func (s Stream) DecryptPassphrase(passphrase string, ad []byte) (aead.Cipher, er
 	if err != nil {
 		return nil, err
 	}
-	return c.Decrypt(s.Stream.IV, ad)
+	return c.Decrypt(s.Stream.Nonce, ad)
 }

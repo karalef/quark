@@ -12,8 +12,8 @@ func init() {
 
 // blake xofs.
 var (
-	BLAKE2xb = New("BLAKE2xb", NewBLAKE2xb)
-	BLAKE3x  = New("BLAKE3x", NewBLAKE3x)
+	BLAKE2xb = New("BLAKE2xb", 64, NewBLAKE2xb)
+	BLAKE3x  = New("BLAKE3x", 64, NewBLAKE3x)
 )
 
 // NewBLAKE2xb creates a new BLAKE2b variable-output-length State.

@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/mac"
-	"github.com/karalef/quark/crypto/secret"
+	"github.com/karalef/quark/encrypted/secret"
 )
 
 // Data contains encrypted data.
@@ -20,7 +18,7 @@ type Data struct {
 
 // Stream preceeds the encrypted stream.
 type Stream struct {
-	IV []byte `msgpack:"iv"`
+	Nonce []byte `msgpack:"nonce"`
 }
 
 // StreamTag contains the stream tag.
@@ -37,79 +35,56 @@ func (t StreamTag) Verify(o StreamTag) error {
 }
 
 // NewSecret creates a new Symmetric with the given secret scheme.
-func New(scheme secret.Scheme) Symmetric {
+func New(scheme *secret.Scheme) Symmetric {
 	sec := NewSecret(scheme)
-	return Symmetric{
-		Secret: &sec.Secret,
-		Scheme: sec.Scheme,
-	}
+	return Symmetric{Secret: &sec}
 }
 
 // NewWithPassphrase creates a new Symmetric with the given password scheme.
 func NewWithPassphrase(p PassphraseParams) Symmetric {
 	pass := NewPassphrase(p)
-	return Symmetric{
-		Passphrase: &pass.Passphrase,
-		Scheme:     pass.Scheme,
-	}
+	return Symmetric{Passphrase: &pass}
 }
 
 // Symmetric contains parameters for symmetric encryption based on key derivation.
 type Symmetric struct {
-	Passphrase *PassphraseHeader `msgpack:"passphrase,omitempty"`
-	Secret     *SecretHeader     `msgpack:"secret,omitempty"`
-
-	Scheme Scheme `msgpack:"scheme"`
+	Passphrase *Passphrase `msgpack:"passphrase,omitempty"`
+	Secret     *Secret     `msgpack:"secret,omitempty"`
 }
 
 // NewCrypter creates a new Crypter with the given shared secret.
 func (s Symmetric) NewCrypter(sharedSecret []byte) (*Crypter, error) {
-	return Secret{
-		Secret: *s.Secret,
-		Scheme: s.Scheme,
-	}.NewCrypter(sharedSecret)
+	return s.Secret.NewCrypter(sharedSecret)
 }
 
 // NewPassphraseCrypter creates a new Crypter with the given passphrase.
 func (s Symmetric) NewPassphraseCrypter(passphrase string) (*Crypter, error) {
-	return Passphrase{
-		Passphrase: *s.Passphrase,
-		Scheme:     s.Scheme,
-	}.NewCrypter(passphrase)
+	return s.Passphrase.NewCrypter(passphrase)
 }
 
 // NewCrypter creates a new AEAD crypter.
-func NewCrypter(scheme aead.Scheme, cipherKey, macKey []byte) (*Crypter, error) {
-	if len(cipherKey) != scheme.Cipher().KeySize() {
-		return nil, cipher.ErrKeySize
-	}
-	if err := mac.CheckKeySize(scheme.MAC(), len(macKey)); err != nil {
-		return nil, err
-	}
+func NewCrypter(scheme aead.Scheme, key []byte) (*Crypter, error) {
 	return &Crypter{
-		scheme:    scheme,
-		cipherKey: cipherKey,
-		macKey:    macKey,
+		scheme: scheme,
+		key:    key,
 	}, nil
 }
 
 // Crypter encrypts and decrypts data using AEAD scheme.
 type Crypter struct {
-	scheme            aead.Scheme
-	cipherKey, macKey []byte
+	scheme aead.Scheme
+	key    []byte
 }
 
-// Encrypt generates the iv and creates a new AEAD cipher with associated data.
-func (c *Crypter) Encrypt(ad []byte) (Stream, aead.Cipher, error) {
-	iv := crypto.Rand(c.scheme.Cipher().IVSize())
-	ciph, err := c.scheme.Crypter(iv, c.cipherKey, c.macKey, ad, false)
-	return Stream{iv}, ciph, err
+// Encrypt creates a new AEAD cipher with associated data.
+func (c *Crypter) Encrypt(nonce, ad []byte) (Stream, aead.Cipher, error) {
+	ciph, err := c.scheme.Encrypt(c.key, nonce, ad)
+	return Stream{nonce}, ciph, err
 }
 
-// EncryptDataBuf generates the iv and encrypts the data.
-// It has internal buffering so the provided data will not be modified.
-func (c *Crypter) EncryptDataBuf(data, ad []byte) (Data, error) {
-	iv, ciph, err := c.Encrypt(ad)
+// EncryptDataBuf encrypts the data.
+func (c *Crypter) EncryptDataBuf(data, nonce, ad []byte) (Data, error) {
+	stream, ciph, err := c.Encrypt(nonce, ad)
 	if err != nil {
 		return Data{}, err
 	}
@@ -121,36 +96,35 @@ func (c *Crypter) EncryptDataBuf(data, ad []byte) (Data, error) {
 		W:    buf,
 	}.Write(data)
 	return Data{
-		Stream:    iv,
+		Stream:    stream,
 		Data:      buf.Bytes(),
 		StreamTag: StreamTag{Tag: ciph.Tag(nil)},
 	}, nil
 }
 
-// EncryptData generates the iv and encrypts the data.
+// EncryptData encrypts the data.
 // It has no internal buffering so the provided data will be modified.
-func (c *Crypter) EncryptData(data, ad []byte) (Data, error) {
-	iv, ciph, err := c.Encrypt(ad)
+func (c *Crypter) EncryptData(data, nonce, ad []byte) (Data, error) {
+	stream, ciph, err := c.Encrypt(nonce, ad)
 	if err != nil {
 		return Data{}, err
 	}
 	ciph.Crypt(data, data)
 	return Data{
-		Stream:    iv,
+		Stream:    stream,
 		Data:      data,
 		StreamTag: StreamTag{Tag: ciph.Tag(nil)},
 	}, nil
 }
 
 // Decrypt creates a new AEAD cipher with associated data.
-func (c *Crypter) Decrypt(iv, ad []byte) (aead.Cipher, error) {
-	return c.scheme.Crypter(iv, c.cipherKey, c.macKey, ad, true)
+func (c *Crypter) Decrypt(nonce, ad []byte) (aead.Cipher, error) {
+	return c.scheme.Decrypt(c.key, nonce, ad)
 }
 
 // DecryptDataBuf decrypts the data.
-// It has internal buffering so the provided data will not be modified.
 func (c *Crypter) DecryptDataBuf(data Data, ad []byte) ([]byte, error) {
-	ciph, err := c.Decrypt(data.IV, ad)
+	ciph, err := c.Decrypt(data.Nonce, ad)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +142,7 @@ func (c *Crypter) DecryptDataBuf(data Data, ad []byte) ([]byte, error) {
 // DecryptData decrypts the data.
 // It has no internal buffering so the provided data will be modified.
 func (c *Crypter) DecryptData(data Data, ad []byte) ([]byte, error) {
-	ciph, err := c.Decrypt(data.IV, ad)
+	ciph, err := c.Decrypt(data.Nonce, ad)
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +150,4 @@ func (c *Crypter) DecryptData(data Data, ad []byte) ([]byte, error) {
 	return data.Data, StreamTag{Tag: ciph.Tag(nil)}.Verify(data.StreamTag)
 }
 
-var (
-	ErrInvalidParameters = errors.New("invalid parameters")
-)
+var ErrInvalidParameters = errors.New("invalid parameters")

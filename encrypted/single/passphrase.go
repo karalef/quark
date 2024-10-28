@@ -6,13 +6,13 @@ import (
 )
 
 // NewPassphrase creates a new Passphrase with the given scheme and passphrase.
-func NewPassphrase(passphrase string, ad []byte, p encrypted.PassphraseParams) (Passphrase, aead.Cipher, error) {
+func NewPassphrase(passphrase string, nonce, ad []byte, p encrypted.PassphraseParams) (Passphrase, aead.Cipher, error) {
 	pass := encrypted.NewPassphrase(p)
 	c, err := pass.NewCrypter(passphrase)
 	if err != nil {
 		return Passphrase{}, nil, err
 	}
-	stream, cipher, err := c.Encrypt(ad)
+	stream, cipher, err := c.Encrypt(nonce, ad)
 	if err != nil {
 		return Passphrase{}, nil, err
 	}
@@ -34,11 +34,11 @@ func (p Passphrase) Decrypt(passphrase string, ad []byte) (aead.Cipher, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.Decrypt(p.IV, ad)
+	return c.Decrypt(p.Nonce, ad)
 }
 
 // NewPassphraseData creates a new PassphraseData with the given scheme and passphrase.
-func NewPassphraseData(passphrase string, data, ad []byte, p encrypted.PassphraseParams, buf ...bool) (PassphraseData, error) {
+func NewPassphraseData(passphrase string, data, nonce, ad []byte, p encrypted.PassphraseParams, buf ...bool) (PassphraseData, error) {
 	pass := encrypted.NewPassphrase(p)
 	c, err := pass.NewCrypter(passphrase)
 	if err != nil {
@@ -48,9 +48,9 @@ func NewPassphraseData(passphrase string, data, ad []byte, p encrypted.Passphras
 		Passphrase: pass,
 	}
 	if len(buf) > 0 && buf[0] {
-		pd.Data, err = c.EncryptDataBuf(data, ad)
+		pd.Data, err = c.EncryptDataBuf(data, nonce, ad)
 	} else {
-		pd.Data, err = c.EncryptData(data, ad)
+		pd.Data, err = c.EncryptData(data, nonce, ad)
 	}
 	if err != nil {
 		return PassphraseData{}, err

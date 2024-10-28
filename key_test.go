@@ -9,15 +9,15 @@ import (
 
 type StringBind string
 
-func (s StringBind) BindType() BindType {
-	return "id.test"
+func (s StringBind) CertType() string {
+	return "bind.string"
 }
 
 func (s StringBind) Copy() StringBind {
 	return s
 }
 
-func TestIdentity(t *testing.T) {
+func TestKey(t *testing.T) {
 	id, sk, err := Generate(sign.EDDilithium3, time.Now().Add(1000*time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
@@ -44,15 +44,15 @@ func TestIdentity(t *testing.T) {
 
 	binds := id.Bindings()
 	for _, bind := range binds {
-		bind, err := BindingAs[StringBind](bind)
+		bind, err := CertificateAs[StringBind](bind)
 		if err != nil {
 			t.Fatal(err)
 		}
 		data := bind.Data
 		val := bind.Validity()
-		t.Logf("binding %s: %s %s", bind.ID.ShortString(), data.Type, data.Data)
-		if val.IsRevoked(time.Now().Unix()) {
-			t.Logf("revoked at %s because %s", time.Unix(val.Revoked, 0), val.Reason)
+		t.Logf("binding %s: %s %s", bind.ID.ShortString(), bind.Type, data)
+		if val.IsRevoked() {
+			t.Logf("revoked at %s because %s", time.Unix(val.Created, 0), val.Reason)
 		} else {
 			issuer := bind.Signature.Issuer.ID()
 			t.Logf("signed by %s and valid before %s", issuer.String(), time.Unix(val.Expires, 0))

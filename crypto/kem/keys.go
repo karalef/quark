@@ -21,7 +21,7 @@ type rawPrivateKey interface {
 }
 
 func newPub(r rawPublicKey) *publicKey {
-	return &publicKey{rawPublicKey: r}
+	return &publicKey{crypto.NewKeyID(r)}
 }
 
 func newKeys(pk rawPublicKey, sk rawPrivateKey) (PublicKey, PrivateKey) {
@@ -44,23 +44,11 @@ func newKeys(pk rawPublicKey, sk rawPrivateKey) (PublicKey, PrivateKey) {
 var _ PublicKey = &publicKey{}
 
 type publicKey struct {
-	rawPublicKey
-	id crypto.ID
-	fp crypto.Fingerprint
+	crypto.KeyID[rawPublicKey]
 }
 
-func (k *publicKey) ID() crypto.ID {
-	if k.id.IsEmpty() {
-		k.id = k.Fingerprint().ID()
-	}
-	return k.id
-}
-
-func (k *publicKey) Fingerprint() crypto.Fingerprint {
-	if k.fp.IsEmpty() {
-		k.fp = crypto.CalculateFingerprint(k.Scheme().Name(), k.Pack())
-	}
-	return k.fp
+func (k publicKey) Encapsulate(seed []byte) (ciphertext, secret []byte, err error) {
+	return k.PublicKey.Encapsulate(seed)
 }
 
 func (k *publicKey) Equal(pk PublicKey) bool {
@@ -71,20 +59,20 @@ func (k *publicKey) Equal(pk PublicKey) bool {
 	if !ok {
 		return false
 	}
-	return k.rawPublicKey.Equal(p.rawPublicKey)
+	if k == p { // the same pointer
+		return true
+	}
+	if k == nil || p == nil {
+		return false
+	}
+	return k.PublicKey.Equal(p.PublicKey)
 }
 
 func (k *publicKey) CorrespondsTo(priv PrivateKey) bool {
-	sk, ok := priv.(*privateKey)
-	if !ok {
+	if priv == nil {
 		return false
 	}
-	// the same pointer
-	if k == sk.pub {
-		return true
-	}
-
-	return k.rawPublicKey.Equal(sk.pub.rawPublicKey)
+	return k.Equal(priv.Public())
 }
 
 var _ PrivateKey = &privateKey{}
@@ -103,6 +91,12 @@ func (k *privateKey) Equal(sk PrivateKey) bool {
 	}
 	s, ok := sk.(*privateKey)
 	if !ok {
+		return false
+	}
+	if k == s { // the same pointer
+		return true
+	}
+	if k == nil || s == nil {
 		return false
 	}
 	return k.rawPrivateKey.Equal(s.rawPrivateKey)

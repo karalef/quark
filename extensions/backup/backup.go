@@ -20,28 +20,32 @@ func init() {
 
 // BackupData contains backup data.
 type BackupData struct {
-	Identity *quark.Key
-	Secret   sign.PrivateKey
-	Subkeys  []crypto.Key
+	Key     *quark.Key
+	Secret  sign.PrivateKey
+	Subkeys []crypto.Key
 }
 
 // New creates a new backup and encrypts it with the given passphrase.
-func New(data BackupData, passphrase string, params encrypted.PassphraseParams) (*Backup, error) {
+func New(data BackupData,
+	passphrase string,
+	source encrypted.NonceSource,
+	params encrypted.PassphraseParams,
+) (*Backup, error) {
+	enc, pp, err := key.NewEncrypter(passphrase, source, params)
+	if err != nil {
+		return nil, err
+	}
 	b := &Backup{
-		Identity:   data.Identity,
-		Passphrase: encrypted.NewPassphrase(params),
+		Key:        data.Key,
+		Passphrase: pp,
+		Subkeys:    make([]key.Element, len(data.Subkeys)),
 	}
-	crypter, err := b.Passphrase.NewCrypter(passphrase)
+	b.Secret, err = enc.Encrypt(data.Secret)
 	if err != nil {
 		return nil, err
 	}
-	b.Secret, err = key.EncryptElement(data.Secret, crypter)
-	if err != nil {
-		return nil, err
-	}
-	b.Subkeys = make([]key.Element, len(data.Subkeys))
 	for i, sub := range data.Subkeys {
-		b.Subkeys[i], err = key.EncryptElement(sub, crypter)
+		b.Subkeys[i], err = enc.Encrypt(sub)
 		if err != nil {
 			return nil, err
 		}
@@ -49,13 +53,12 @@ func New(data BackupData, passphrase string, params encrypted.PassphraseParams) 
 	return b, nil
 }
 
-// Backup contains the identity with encrypted private keys.
+// Backup contains the key with encrypted private keys.
 type Backup struct {
-	Identity *quark.Key `msgpack:"identity"`
-
 	encrypted.Passphrase
-	Secret  key.Element   `msgpack:"secret"`
+	Key     *quark.Key    `msgpack:"key"`
 	Subkeys []key.Element `msgpack:"subkeys"`
+	Secret  key.Element   `msgpack:"secret"`
 }
 
 // PacketTag returns the packet tag.
@@ -68,7 +71,7 @@ func (b Backup) Decrypt(passphrase string) (BackupData, error) {
 		return BackupData{}, err
 	}
 
-	bd := BackupData{Identity: b.Identity}
+	bd := BackupData{Key: b.Key}
 	key, err := b.Secret.Decrypt(crypter)
 	if err != nil {
 		return BackupData{}, err

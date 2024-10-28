@@ -9,9 +9,9 @@ import (
 func TestCompress(t *testing.T) {
 	testData := bytes.Repeat([]byte("data to be compressed"), 64)
 
-	cmp := ByName("lz4")
-	if cmp == nil {
-		t.Fatal("lz4 is unsupported")
+	cmp, err := ByName("lz4")
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	buf := new(bytes.Buffer)

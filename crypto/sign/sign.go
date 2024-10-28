@@ -38,20 +38,52 @@ type Scheme interface {
 
 // PrivateKey represents a signing private key.
 type PrivateKey interface {
+	// The scheme returned by Scheme() must implement the Scheme interface.
 	crypto.Key
 	Public() PublicKey
 	Equal(PrivateKey) bool
-
-	Sign([]byte) []byte
+	Sign() Signer
 }
 
 // PublicKey represents a signing public key.
 type PublicKey interface {
+	// The scheme returned by Scheme() must implement the Scheme interface.
 	crypto.Key
-	CorrespondsTo(PrivateKey) bool
 	Equal(PublicKey) bool
+	Verify() Verifier
+}
 
-	Verify(message, signature []byte) (bool, error)
+// CorrespondsTo returns true if public key corresponds to the given private key.
+func CorrespondsTo(pk PublicKey, sk PrivateKey) bool {
+	if pk == nil || sk == nil {
+		return false
+	}
+	return pk.Equal(sk.Public())
+}
+
+// Signer represents a signature state.
+type Signer interface {
+	io.Writer
+
+	// Reset resets the Signer.
+	Reset()
+
+	// Sign signs the written message and returns the signature.
+	Sign() []byte
+}
+
+// Verifier represents a signature verification state.
+type Verifier interface {
+	io.Writer
+
+	// Reset resets the Verifier.
+	Reset()
+
+	// Verify checks whether the given signature is a valid signature set by
+	// the private key corresponding to the specified public key on the
+	// written message.
+	// Returns an error if the signature does not match the scheme.
+	Verify(signature []byte) (bool, error)
 }
 
 // UnpackPublic unpacks a public key from the provided scheme name and key material.

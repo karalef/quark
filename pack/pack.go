@@ -1,6 +1,7 @@
 package pack
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -18,6 +19,17 @@ func Pack(out io.Writer, v Packable) error {
 	})
 }
 
+// PackArmored creates an armored encoder and packs the object.
+func PackArmored(out io.Writer, v Packable, headers map[string]string) error {
+	wc, err := ArmoredEncoder(out, v.PacketTag().BlockType(), headers)
+	if err != nil {
+		return err
+	}
+
+	err = Pack(wc, v)
+	return errors.Join(err, wc.Close())
+}
+
 // Unpack decodes the packet and unpacks the binary formatted object.
 // If the binary object cannot be unpacked, returns the *RawPacket with ErrUnknownTag error.
 func Unpack(in io.Reader) (Packable, error) {
@@ -27,6 +39,25 @@ func Unpack(in io.Reader) (Packable, error) {
 	}
 
 	return UnpackObject(p)
+}
+
+// UnpackArmored decodes an armored block and unpacks the object.
+func UnpackArmored(in io.Reader) (Packable, map[string]string, error) {
+	block, err := DecodeArmored(in)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	v, err := Unpack(block.Body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if v.PacketTag().BlockType() != block.Type {
+		return nil, nil, errors.New("wrong armor block type")
+	}
+
+	return v, block.Header, nil
 }
 
 // DecodePacket decodes the packet header from binary format.

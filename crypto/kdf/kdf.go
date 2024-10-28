@@ -10,8 +10,21 @@ import (
 type Scheme interface {
 	scheme.Scheme
 
+	// NewCost allocates a new typed Cost for this function and returns a pointer.
+	NewCost() Cost
+
 	// New creates a new KDF.
+	// Returns an error if the cost parameters are invalid for this scheme.
 	New(Cost) (KDF, error)
+}
+
+// Derive is an alias for Scheme.New and KDF.Derive.
+func Derive(s Scheme, c Cost, password string, salt []byte, size int) ([]byte, error) {
+	kdf, err := s.New(c)
+	if err != nil {
+		return nil, err
+	}
+	return kdf.Derive([]byte(password), salt, uint32(size)), nil
 }
 
 // KDF represents the key derivation function.
@@ -19,14 +32,16 @@ type KDF interface {
 	Cost() Cost
 	// Derive derives a key of the specified size from a password and salt.
 	// Panics if size is zero.
-	Derive(password, salt []byte, size int) []byte
+	Derive(password, salt []byte, size uint32) []byte
 }
 
 // Cost represents the key derivation function cost parameters.
-type Cost struct {
-	CPU         uint `msgpack:"cpu"`
-	Memory      uint `msgpack:"memory"`
-	Parallelism uint `msgpack:"parallelism"`
+// It must be msgpack en/decodable.
+type Cost interface {
+	Validate() error
+
+	// New allocates a new typed Cost and returns a pointer.
+	New() Cost
 }
 
 // ErrPassword is returned when the password is empty.
@@ -43,47 +58,56 @@ func (e ErrInvalidParams) Error() string {
 }
 
 // Func represents the KDF as function.
-type Func func(password, salt []byte, size int, cost Cost) []byte
-
-// FuncCost represents the Cost validator function.
-type FuncCost func(Cost) error
+type Func[T Cost] func(password, salt []byte, size uint32, cost T) []byte
 
 // New creates a new scheme.
 // It does not register the scheme.
 // The returned scheme ensures that the size are at least 1 and the Cost is correct.
-func New(name string, fn Func, cost FuncCost) Scheme {
-	return baseScheme{
+func New[T Cost](name string, fn Func[T]) Scheme {
+	return baseScheme[T]{
 		StringName: scheme.StringName(name),
-		cost:       cost,
 		derive:     fn,
 	}
 }
 
-type baseScheme struct {
+type baseScheme[T Cost] struct {
+	derive Func[T]
 	scheme.StringName
-	cost   FuncCost
-	derive Func
 }
 
-func (s baseScheme) New(cost Cost) (KDF, error) {
-	err := s.cost(cost)
-	if err != nil {
-		return nil, err
+func (s baseScheme[T]) NewCost() Cost {
+	var c T
+	return c.New()
+}
+
+func (s baseScheme[T]) New(cost Cost) (KDF, error) {
+	c, ok := cost.(T)
+	if !ok {
+		return nil, ErrInvalidParams{
+			KDF: s,
+			Err: errors.New("kdf: wrong cost type"),
+		}
 	}
-	return baseKDF{
+	if err := c.Validate(); err != nil {
+		return nil, ErrInvalidParams{
+			KDF: s,
+			Err: err,
+		}
+	}
+	return baseKDF[T]{
 		kdf:  s.derive,
-		cost: cost,
+		cost: c,
 	}, nil
 }
 
-type baseKDF struct {
-	cost Cost
-	kdf  Func
+type baseKDF[T Cost] struct {
+	cost T
+	kdf  Func[T]
 }
 
-func (kdf baseKDF) Cost() Cost { return kdf.cost }
+func (kdf baseKDF[T]) Cost() Cost { return kdf.cost }
 
-func (kdf baseKDF) Derive(password, salt []byte, size int) []byte {
+func (kdf baseKDF[T]) Derive(password, salt []byte, size uint32) []byte {
 	if size < 1 {
 		panic("kdf: size must be at least 1")
 	}

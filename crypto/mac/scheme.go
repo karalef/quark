@@ -1,6 +1,10 @@
 package mac
 
-import "github.com/karalef/quark/scheme"
+import (
+	"errors"
+
+	"github.com/karalef/quark/scheme"
+)
 
 // Scheme represents the MAC scheme.
 type Scheme interface {
@@ -37,6 +41,29 @@ func New(name string, keySize, maxKeySize, size, blockSize int, new NewFunc) Sch
 	}
 }
 
+// Fixed returns a fixed key size scheme.
+// Panics if s is already fixed and keySize is not equal to s.KeySize().
+func Fixed(s Scheme, keySize int) Scheme {
+	if ks := s.KeySize(); ks != 0 {
+		if keySize != ks {
+			panic("key size mismatch")
+		}
+		return s
+	}
+	if bs, ok := s.(baseScheme); ok {
+		bs.keySize = keySize
+		return bs
+	}
+	return fixed{s, keySize}
+}
+
+type fixed struct {
+	Scheme
+	keySize int
+}
+
+func (s fixed) KeySize() int { return s.keySize }
+
 type baseScheme struct {
 	scheme.StringName
 	new     NewFunc
@@ -56,6 +83,26 @@ func (s baseScheme) New(key []byte) State {
 	}
 	return s.new(key)
 }
+
+// CheckKeySize checks the key size.
+func CheckKeySize(s Scheme, size int) error {
+	fixed, max := s.KeySize(), s.MaxKeySize()
+	switch {
+	case fixed == 0 && max == 0:
+	case fixed != 0:
+		if size != fixed {
+			return errors.Join(ErrKeySize, errors.New("does not match fixed key size"))
+		}
+	default:
+		if size > max {
+			return errors.Join(ErrKeySize, errors.New("exceeds maximum key size"))
+		}
+	}
+	return nil
+}
+
+// ErrKeySize is returned when the key size is invalid.
+var ErrKeySize = errors.New("invalid key size")
 
 var schemes = make(scheme.Schemes[Scheme])
 

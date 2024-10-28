@@ -2,16 +2,19 @@ package mac
 
 import (
 	hmacpkg "crypto/hmac"
+	"unsafe"
 
 	"github.com/karalef/quark/crypto/hash"
+	"github.com/zeebo/blake3"
 	"golang.org/x/crypto/blake2b"
 )
 
 func init() {
 	Register(SHA256)
-	Register(SHA3_256)
+	Register(SHA3)
 	Register(BLAKE2b128)
-	Register(BLAKE2b256)
+	Register(BLAKE2b)
+	Register(BLAKE3_128)
 	Register(BLAKE3)
 }
 
@@ -23,32 +26,49 @@ type hmac struct {
 
 func (h hmac) Tag(b []byte) []byte { return h.State.Sum(b) }
 
-func newHMAC(h hash.Scheme) Scheme {
-	return New("HMAC_"+h.Name(), 0, 0, h.Size(), h.BlockSize(), func(key []byte) State {
-		return hmac{hmacpkg.New(h.New, key)}
-	})
-}
-
-func newCustom(h hash.Scheme, keySize, maxKeySize int, new func([]byte) hash.State) Scheme {
-	return New("HMAC_"+h.Name(), keySize, maxKeySize, h.Size(), h.BlockSize(), func(key []byte) State {
+// NewHMAC creates new MAC scheme from specified parameters and hash function.
+func NewHMAC(name string, size, blockSize int, keySize, maxKeySize int, new func([]byte) hash.State) Scheme {
+	return New(name, keySize, maxKeySize, size, blockSize, func(key []byte) State {
 		return hmac{new(key)}
 	})
 }
 
+// NewHMACFrom creates new MAC scheme from hash scheme.
+// It prepends "HMAC_" to the scheme name and uses the block size as a max key size.
+func NewHMACFrom(h hash.Scheme) Scheme {
+	bs := h.BlockSize()
+	return NewHMAC("HMAC_"+h.Name(), h.Size(), bs, 0, bs, func(key []byte) hash.State {
+		return hmacpkg.New(h.New, key)
+	})
+}
+
+func newHMAC(h hash.Scheme, keySize, maxKeySize int, new func([]byte) hash.State) Scheme {
+	return NewHMAC("HMAC_"+h.Name(), h.Size(), h.BlockSize(), keySize, maxKeySize, new)
+}
+
 // hmac schemes.
 var (
-	SHA256     = newHMAC(hash.SHA256)
-	SHA3_256   = newHMAC(hash.SHA3_256)
-	BLAKE2b128 = newCustom(hash.BLAKE2B128, 0, 64, func(key []byte) hash.State {
+	SHA256     = NewHMACFrom(hash.SHA256)
+	SHA3       = NewHMACFrom(hash.SHA3)
+	BLAKE2b128 = newHMAC(hash.BLAKE2B128, 0, 64, func(key []byte) hash.State {
 		h, _ := blake2b.New(16, key)
 		return h
 	})
-	BLAKE2b256 = newCustom(hash.BLAKE2B256, 0, 64, func(key []byte) hash.State {
+	BLAKE2b = newHMAC(hash.BLAKE2B256, 0, 64, func(key []byte) hash.State {
 		h, _ := blake2b.New256(key)
 		return h
 	})
-	BLAKE3 = newCustom(hash.BLAKE3, 0, 64, func(key []byte) hash.State {
-		h, _ := blake2b.New512(key)
+	BLAKE3_128 = newHMAC(hash.BLAKE3_128, 32, 0, blake3WithSize(16))
+	BLAKE3     = newHMAC(hash.BLAKE3, 32, 0, func(key []byte) hash.State {
+		h, _ := blake3.NewKeyed(key)
 		return h
 	})
 )
+
+func blake3WithSize(size int) func([]byte) hash.State {
+	return func(key []byte) hash.State {
+		h, _ := blake3.NewKeyed(key)
+		*(*int)(unsafe.Pointer(h)) = size
+		return h
+	}
+}

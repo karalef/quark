@@ -9,8 +9,8 @@ func init() {
 
 // shake schemes.
 var (
-	Shake128 = New("SHAKE128", NewShake128)
-	Shake256 = New("SHAKE256", NewShake256)
+	Shake128 = New("SHAKE128", 168, NewShake128)
+	Shake256 = New("SHAKE256", 136, NewShake256)
 )
 
 // NewShake128 creates a new SHAKE128 variable-output-length State.

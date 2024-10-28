@@ -44,15 +44,16 @@ type Compression struct {
 
 // EncodeMsgpack implements pack.CustomEncoder interface.
 func (c Compression) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.EncodeString(c.Compression.Name())
+	return enc.EncodeString(c.Name())
 }
 
 // DecodeMsgpack implements pack.CustomDecoder interface.
 func (c *Compression) DecodeMsgpack(dec *pack.Decoder) error {
 	name, err := dec.DecodeString()
-	if err == nil {
-		c.Compression = compress.ByName(name)
+	if err != nil {
+		return err
 	}
+	c.Compression, err = compress.ByName(name)
 	return err
 }
 
@@ -74,8 +75,10 @@ type Auth struct {
 	Tag       []byte          `msgpack:"auth,omitempty"`
 }
 
-var _ pack.Packable = (*Message)(nil)
-var _ pack.CustomDecoder = (*Message)(nil)
+var (
+	_ pack.Packable      = (*Message)(nil)
+	_ pack.CustomDecoder = (*Message)(nil)
+)
 
 // Message contains a message.
 type Message struct {

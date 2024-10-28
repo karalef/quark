@@ -1,6 +1,6 @@
 # Quark
 
-Quark is a post-quantum crypto-secure identity.
+Quark is a post-quantum crypto-secure crypto library.
 
 ## Why?
 
@@ -24,7 +24,7 @@ import (
 )
 
 func main() {
-    identity, err := quark.Generate(sign.EDDilithium3, 365*24*time.Hour)
+    key, err := quark.Generate(sign.EDDilithium3, 365*24*time.Hour)
     ...
 }
 ```
