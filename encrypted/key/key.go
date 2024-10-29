@@ -7,7 +7,6 @@ import (
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
-	"github.com/karalef/quark/encrypted/single"
 	"github.com/karalef/quark/pack"
 )
 
@@ -22,30 +21,41 @@ var _ pack.Packable = (*Key)(nil)
 
 // Encrypt encrypts a key with passphrase.
 func Encrypt(key crypto.Key, passphrase string, nonce []byte, p encrypted.PassphraseParams) (*Key, error) {
+	pass := encrypted.NewPassphrase(p)
+	crypter, err := pass.NewCrypter(passphrase)
+	if err != nil {
+		return nil, err
+	}
 	fp := key.Fingerprint()
-	data, err := single.NewPassphraseData(passphrase, key.Pack(), nonce, fp.Bytes(), p)
+	data, err := crypter.EncryptData(key.Pack(), nonce, fp.Bytes())
 	if err != nil {
 		return nil, err
 	}
 	return &Key{
-		Algorithm: strings.ToUpper(key.Scheme().Name()),
-		FP:        fp,
-		Data:      data,
+		Algorithm:  strings.ToUpper(key.Scheme().Name()),
+		FP:         fp,
+		Passphrase: pass,
+		Data:       data,
 	}, nil
 }
 
 // Key is used to store the private key encrypted with passphrase.
 type Key struct {
-	Algorithm string                `msgpack:"alg"`
-	Data      single.PassphraseData `msgpack:"data"`
-	FP        crypto.Fingerprint    `msgpack:"fp"`
+	Algorithm  string               `msgpack:"alg"`
+	Passphrase encrypted.Passphrase `msgpack:"passphrase"`
+	Data       encrypted.Data       `msgpack:"data"`
+	FP         crypto.Fingerprint   `msgpack:"fp"`
 }
 
 func (*Key) PacketTag() pack.Tag { return PacketTagPrivateKey }
 
 // Decrypt decrypts the key with passphrase.
 func (k *Key) Decrypt(passphrase string) ([]byte, error) {
-	return k.Data.Decrypt(passphrase, k.FP.Bytes(), true)
+	crypter, err := k.Passphrase.NewCrypter(passphrase)
+	if err != nil {
+		return nil, err
+	}
+	return crypter.DecryptDataBuf(k.Data, k.FP.Bytes())
 }
 
 // Decrypt decrypts the sign key with the given passphrase.

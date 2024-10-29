@@ -4,6 +4,7 @@ package password
 import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kdf"
+	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/scheme"
 )
 
@@ -81,4 +82,28 @@ func FromNames(aeadName, kdfName string) (*Scheme, error) {
 		return nil, err
 	}
 	return Build(aead, kdf), nil
+}
+
+var (
+	_ pack.CustomEncoder = (*Scheme)(nil)
+	_ pack.CustomDecoder = (*Scheme)(nil)
+)
+
+// EncodeMsgpack implements pack.CustomEncoder.
+func (s *Scheme) EncodeMsgpack(enc *pack.Encoder) error {
+	return enc.EncodeString(s.Name())
+}
+
+// DecodeMsgpack implements pack.CustomDecoder.
+func (s *Scheme) DecodeMsgpack(dec *pack.Decoder) error {
+	str, err := dec.DecodeString()
+	if err != nil {
+		return err
+	}
+	sch, err := FromName(str)
+	if err != nil {
+		return err
+	}
+	*s = *sch
+	return nil
 }

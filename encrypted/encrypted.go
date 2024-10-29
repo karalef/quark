@@ -11,9 +11,9 @@ import (
 
 // Data contains encrypted data.
 type Data struct {
-	Stream
-	Data []byte `msgpack:"data"`
-	StreamTag
+	Stream    `msgpack:",inline"`
+	Data      []byte `msgpack:"data"`
+	StreamTag `msgpack:",inline"`
 }
 
 // Stream preceeds the encrypted stream.
@@ -118,13 +118,13 @@ func (c *Crypter) EncryptData(data, nonce, ad []byte) (Data, error) {
 }
 
 // Decrypt creates a new AEAD cipher with associated data.
-func (c *Crypter) Decrypt(nonce, ad []byte) (aead.Cipher, error) {
-	return c.scheme.Decrypt(c.key, nonce, ad)
+func (c *Crypter) Decrypt(stream Stream, ad []byte) (aead.Cipher, error) {
+	return c.scheme.Decrypt(c.key, stream.Nonce, ad)
 }
 
 // DecryptDataBuf decrypts the data.
 func (c *Crypter) DecryptDataBuf(data Data, ad []byte) ([]byte, error) {
-	ciph, err := c.Decrypt(data.Nonce, ad)
+	ciph, err := c.Decrypt(data.Stream, ad)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (c *Crypter) DecryptDataBuf(data Data, ad []byte) ([]byte, error) {
 // DecryptData decrypts the data.
 // It has no internal buffering so the provided data will be modified.
 func (c *Crypter) DecryptData(data Data, ad []byte) ([]byte, error) {
-	ciph, err := c.Decrypt(data.Nonce, ad)
+	ciph, err := c.Decrypt(data.Stream, ad)
 	if err != nil {
 		return nil, err
 	}

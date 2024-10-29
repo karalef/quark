@@ -8,7 +8,6 @@ import (
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/encrypted"
 	"github.com/karalef/quark/encrypted/secret"
-	"github.com/karalef/quark/encrypted/single"
 )
 
 // Encryption contains encapsulated shared secret with symmetric encryption parameters.
@@ -17,8 +16,11 @@ type Encryption struct {
 	// If id is empty, only password-based symmetric encryption is used
 	ID crypto.ID `msgpack:"id,omitempty"`
 
+	// stream encryption parameters
+	Stream encrypted.Stream `msgpack:"stream"`
+
 	// symmetric encryption parameters
-	Symmetric single.Stream `msgpack:"symmetric"`
+	Symmetric encrypted.Symmetric `msgpack:"symmetric"`
 
 	// encapsulated shared secret
 	Secret []byte `msgpack:"secret,omitempty"`
@@ -34,13 +36,19 @@ func Encapsulate(scheme *secret.Scheme, recipient kem.PublicKey, associatedData 
 		return nil, nil, err
 	}
 
-	sym, aead, err := single.New(scheme, secret, crypto.Rand(scheme.AEAD().NonceSize()), associatedData)
+	sym := encrypted.New(scheme)
+	crypter, err := sym.NewCrypter(secret)
+	if err != nil {
+		return nil, nil, err
+	}
+	stream, aead, err := crypter.Encrypt(crypto.Rand(scheme.AEAD().NonceSize()), associatedData)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return aead, &Encryption{
 		ID:        recipient.ID(),
+		Stream:    stream,
 		Symmetric: sym,
 		Secret:    ciphertext,
 	}, err
@@ -48,12 +56,18 @@ func Encapsulate(scheme *secret.Scheme, recipient kem.PublicKey, associatedData 
 
 // Password uses password-based symmetric encryption to create an authenticated stream cipher.
 func Password(passphrase string, ad []byte, params encrypted.PassphraseParams) (aead.Cipher, *Encryption, error) {
-	sym, aead, err := single.NewWithPassphrase(passphrase, crypto.Rand(params.Scheme.AEAD().NonceSize()), ad, params)
+	sym := encrypted.NewWithPassphrase(params)
+	crypter, err := sym.NewPassphraseCrypter(passphrase)
+	if err != nil {
+		return nil, nil, err
+	}
+	stream, aead, err := crypter.Encrypt(crypto.Rand(params.Scheme.AEAD().NonceSize()), ad)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return aead, &Encryption{
+		Stream:    stream,
 		Symmetric: sym,
 	}, nil
 }
@@ -70,7 +84,11 @@ func (e *Encryption) Decapsulate(recipient kem.PrivateKey, ad []byte) (aead.Ciph
 	if err != nil {
 		return nil, err
 	}
-	return e.Symmetric.Decrypt(sharedSecret, ad)
+	crypter, err := e.Symmetric.NewCrypter(sharedSecret)
+	if err != nil {
+		return nil, err
+	}
+	return crypter.Decrypt(e.Stream, ad)
 }
 
 // Decrypt creates an authenticated cipher using password-based symmetric encryption.
@@ -78,5 +96,9 @@ func (e *Encryption) Decrypt(passphrase string, ad []byte) (aead.Cipher, error) 
 	if e.IsEncapsulated() {
 		return nil, errors.New("there is encapsulated shared secret (not password-encrypted)")
 	}
-	return e.Symmetric.DecryptPassphrase(passphrase, ad)
+	crypter, err := e.Symmetric.NewPassphraseCrypter(passphrase)
+	if err != nil {
+		return nil, err
+	}
+	return crypter.Decrypt(e.Stream, ad)
 }
