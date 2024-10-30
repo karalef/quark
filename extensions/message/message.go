@@ -71,8 +71,8 @@ type FileInfo struct {
 
 // Auth provides authentication and data integrity.
 type Auth struct {
-	Signature quark.Signature `msgpack:"signature,omitempty"`
 	Tag       []byte          `msgpack:"auth,omitempty"`
+	Signature quark.Signature `msgpack:"signature,omitempty"`
 }
 
 var (

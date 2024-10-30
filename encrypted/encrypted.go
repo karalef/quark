@@ -11,27 +11,9 @@ import (
 
 // Data contains encrypted data.
 type Data struct {
-	Stream    `msgpack:",inline"`
-	Data      []byte `msgpack:"data"`
-	StreamTag `msgpack:",inline"`
-}
-
-// Stream preceeds the encrypted stream.
-type Stream struct {
 	Nonce []byte `msgpack:"nonce"`
-}
-
-// StreamTag contains the stream tag.
-type StreamTag struct {
-	Tag []byte `msgpack:"tag"`
-}
-
-// Verify verifies the stream tag.
-func (t StreamTag) Verify(o StreamTag) error {
-	if mac.Equal(t.Tag, o.Tag) {
-		return nil
-	}
-	return mac.ErrMismatch
+	Data  []byte `msgpack:"data"`
+	Tag   []byte `msgpack:"tag"`
 }
 
 // NewSecret creates a new Symmetric with the given secret scheme.
@@ -77,14 +59,13 @@ type Crypter struct {
 }
 
 // Encrypt creates a new AEAD cipher with associated data.
-func (c *Crypter) Encrypt(nonce, ad []byte) (Stream, aead.Cipher, error) {
-	ciph, err := c.scheme.Encrypt(c.key, nonce, ad)
-	return Stream{nonce}, ciph, err
+func (c *Crypter) Encrypt(nonce, ad []byte) (aead.Cipher, error) {
+	return c.scheme.Encrypt(c.key, nonce, ad)
 }
 
 // EncryptDataBuf encrypts the data.
 func (c *Crypter) EncryptDataBuf(data, nonce, ad []byte) (Data, error) {
-	stream, ciph, err := c.Encrypt(nonce, ad)
+	ciph, err := c.Encrypt(nonce, ad)
 	if err != nil {
 		return Data{}, err
 	}
@@ -96,35 +77,35 @@ func (c *Crypter) EncryptDataBuf(data, nonce, ad []byte) (Data, error) {
 		W:    buf,
 	}.Write(data)
 	return Data{
-		Stream:    stream,
-		Data:      buf.Bytes(),
-		StreamTag: StreamTag{Tag: ciph.Tag(nil)},
+		Nonce: nonce,
+		Data:  buf.Bytes(),
+		Tag:   ciph.Tag(nil),
 	}, nil
 }
 
 // EncryptData encrypts the data.
 // It has no internal buffering so the provided data will be modified.
 func (c *Crypter) EncryptData(data, nonce, ad []byte) (Data, error) {
-	stream, ciph, err := c.Encrypt(nonce, ad)
+	ciph, err := c.Encrypt(nonce, ad)
 	if err != nil {
 		return Data{}, err
 	}
 	ciph.Crypt(data, data)
 	return Data{
-		Stream:    stream,
-		Data:      data,
-		StreamTag: StreamTag{Tag: ciph.Tag(nil)},
+		Nonce: nonce,
+		Data:  data,
+		Tag:   ciph.Tag(nil),
 	}, nil
 }
 
 // Decrypt creates a new AEAD cipher with associated data.
-func (c *Crypter) Decrypt(stream Stream, ad []byte) (aead.Cipher, error) {
-	return c.scheme.Decrypt(c.key, stream.Nonce, ad)
+func (c *Crypter) Decrypt(nonce, ad []byte) (aead.Cipher, error) {
+	return c.scheme.Decrypt(c.key, nonce, ad)
 }
 
 // DecryptDataBuf decrypts the data.
 func (c *Crypter) DecryptDataBuf(data Data, ad []byte) ([]byte, error) {
-	ciph, err := c.Decrypt(data.Stream, ad)
+	ciph, err := c.Decrypt(data.Nonce, ad)
 	if err != nil {
 		return nil, err
 	}
@@ -136,18 +117,25 @@ func (c *Crypter) DecryptDataBuf(data Data, ad []byte) ([]byte, error) {
 		R:    bytes.NewReader(data.Data),
 	}.Read(buf)
 
-	return buf, StreamTag{Tag: ciph.Tag(nil)}.Verify(data.StreamTag)
+	return buf, verifyTag(ciph, data.Tag)
 }
 
 // DecryptData decrypts the data.
 // It has no internal buffering so the provided data will be modified.
 func (c *Crypter) DecryptData(data Data, ad []byte) ([]byte, error) {
-	ciph, err := c.Decrypt(data.Stream, ad)
+	ciph, err := c.Decrypt(data.Nonce, ad)
 	if err != nil {
 		return nil, err
 	}
 	ciph.Crypt(data.Data, data.Data)
-	return data.Data, StreamTag{Tag: ciph.Tag(nil)}.Verify(data.StreamTag)
+	return data.Data, verifyTag(ciph, data.Tag)
+}
+
+func verifyTag(c aead.Cipher, tag []byte) error {
+	if !mac.Equal(c.Tag(nil), tag) {
+		return mac.ErrMismatch
+	}
+	return nil
 }
 
 var ErrInvalidParameters = errors.New("invalid parameters")

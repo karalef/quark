@@ -16,8 +16,8 @@ type Encryption struct {
 	// If id is empty, only password-based symmetric encryption is used
 	ID crypto.ID `msgpack:"id,omitempty"`
 
-	// stream encryption parameters
-	Stream encrypted.Stream `msgpack:"stream"`
+	// nonce
+	Nonce []byte `msgpack:"nonce"`
 
 	// symmetric encryption parameters
 	Symmetric encrypted.Symmetric `msgpack:"symmetric"`
@@ -41,14 +41,15 @@ func Encapsulate(scheme *secret.Scheme, recipient kem.PublicKey, associatedData 
 	if err != nil {
 		return nil, nil, err
 	}
-	stream, aead, err := crypter.Encrypt(crypto.Rand(scheme.AEAD().NonceSize()), associatedData)
+	nonce := crypto.Rand(scheme.AEAD().NonceSize())
+	aead, err := crypter.Encrypt(nonce, associatedData)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return aead, &Encryption{
 		ID:        recipient.ID(),
-		Stream:    stream,
+		Nonce:     nonce,
 		Symmetric: sym,
 		Secret:    ciphertext,
 	}, err
@@ -61,13 +62,14 @@ func Password(passphrase string, ad []byte, params encrypted.PassphraseParams) (
 	if err != nil {
 		return nil, nil, err
 	}
-	stream, aead, err := crypter.Encrypt(crypto.Rand(params.Scheme.AEAD().NonceSize()), ad)
+	nonce := crypto.Rand(params.Scheme.AEAD().NonceSize())
+	aead, err := crypter.Encrypt(nonce, ad)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return aead, &Encryption{
-		Stream:    stream,
+		Nonce:     nonce,
 		Symmetric: sym,
 	}, nil
 }
@@ -88,7 +90,7 @@ func (e *Encryption) Decapsulate(recipient kem.PrivateKey, ad []byte) (aead.Ciph
 	if err != nil {
 		return nil, err
 	}
-	return crypter.Decrypt(e.Stream, ad)
+	return crypter.Decrypt(e.Nonce, ad)
 }
 
 // Decrypt creates an authenticated cipher using password-based symmetric encryption.
@@ -100,5 +102,5 @@ func (e *Encryption) Decrypt(passphrase string, ad []byte) (aead.Cipher, error) 
 	if err != nil {
 		return nil, err
 	}
-	return crypter.Decrypt(e.Stream, ad)
+	return crypter.Decrypt(e.Nonce, ad)
 }
