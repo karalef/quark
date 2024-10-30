@@ -38,9 +38,9 @@ var ErrWrongOpts = errors.New("compress: wrong options type")
 
 // Deflate compression.
 var Deflate = compression[Opts]{
-	StringName: "deflate",
-	maxLevel:   uint(flate.BestCompression),
-	defLevel:   6,
+	String:   "deflate",
+	maxLevel: uint(flate.BestCompression),
+	defLevel: 6,
 	compress: func(w io.Writer, lvl uint, _ Opts) (io.WriteCloser, error) {
 		return flate.NewWriter(w, int(lvl))
 	},
@@ -51,9 +51,9 @@ var Deflate = compression[Opts]{
 
 // Gzip compression.
 var Gzip = compression[Opts]{
-	StringName: "gzip",
-	maxLevel:   uint(gzip.BestCompression),
-	defLevel:   0,
+	String:   "gzip",
+	maxLevel: uint(gzip.BestCompression),
+	defLevel: 0,
 	compress: func(w io.Writer, lvl uint, _ Opts) (io.WriteCloser, error) {
 		if lvl == 0 {
 			return gzip.NewWriter(w), nil
@@ -67,9 +67,9 @@ var Gzip = compression[Opts]{
 
 // LZ4 compression.
 var LZ4 = compression[LZ4Opts]{
-	StringName: "lz4",
-	maxLevel:   9,
-	defLevel:   0,
+	String:   "lz4",
+	maxLevel: 9,
+	defLevel: 0,
 	compress: func(w io.Writer, lvl uint, opts LZ4Opts) (io.WriteCloser, error) {
 		lz4lvl := lz4.Fast
 		if lvl > 0 {
@@ -98,9 +98,9 @@ func (LZ4Opts) CompressOpts() {}
 
 // ZSTD compression.
 var ZSTD = compression[Opts]{
-	StringName: "zstd",
-	maxLevel:   22,
-	defLevel:   uint(gozstd.DefaultCompressionLevel),
+	String:   "zstd",
+	maxLevel: 22,
+	defLevel: uint(gozstd.DefaultCompressionLevel),
 	compress: func(w io.Writer, lvl uint, _ Opts) (io.WriteCloser, error) {
 		return zstdWriter{gozstd.NewWriterLevel(w, int(lvl))}, nil
 	},
@@ -123,7 +123,7 @@ var _ Compression = compression[Opts]{}
 type compression[T Opts] struct {
 	compress   func(io.Writer, uint, T) (io.WriteCloser, error)
 	decompress func(io.Reader, T) (io.Reader, error)
-	scheme.StringName
+	scheme.String
 	maxLevel uint
 	defLevel uint
 }

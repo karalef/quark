@@ -34,13 +34,13 @@ type State interface {
 // It does not register the scheme.
 func New(name string, bs int, new func() State) Scheme {
 	return xof{
-		StringName: scheme.StringName(name),
-		new:        new,
+		String: scheme.String(name),
+		new:    new,
 	}
 }
 
 type xof struct {
-	scheme.StringName
+	scheme.String
 	new func() State
 	bs  int
 }

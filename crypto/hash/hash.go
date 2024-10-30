@@ -30,15 +30,15 @@ type NewFunc func() State
 // It does not register the scheme.
 func New(name string, size, blockSize int, new NewFunc) Scheme {
 	return baseScheme{
-		StringName: scheme.StringName(name),
-		new:        new,
-		size:       size,
-		blockSize:  blockSize,
+		String:    scheme.String(name),
+		new:       new,
+		size:      size,
+		blockSize: blockSize,
 	}
 }
 
 type baseScheme struct {
-	scheme.StringName
+	scheme.String
 	new       NewFunc
 	size      int
 	blockSize int
@@ -54,15 +54,15 @@ var (
 	SHA512     = New("SHA512", sha512.Size, sha512.BlockSize, sha512.New)
 	SHA3       = New("SHA3", 32, 136, sha3.New256)
 	SHA3_512   = New("SHA3_512", 64, 72, sha3.New512)
-	BLAKE2B128 = New("BLAKE2B_128", 16, blake2b.BlockSize, func() State {
+	BLAKE2b128 = New("BLAKE2b_128", 16, blake2b.BlockSize, func() State {
 		h, _ := blake2b.New(16, nil)
 		return h
 	})
-	BLAKE2B256 = New("BLAKE2B_256", blake2b.Size256, blake2b.BlockSize, func() State {
+	BLAKE2b256 = New("BLAKE2b_256", blake2b.Size256, blake2b.BlockSize, func() State {
 		h, _ := blake2b.New256(nil)
 		return h
 	})
-	BLAKE2B512 = New("BLAKE2B_512", blake2b.Size, blake2b.BlockSize, func() State {
+	BLAKE2b512 = New("BLAKE2b_512", blake2b.Size, blake2b.BlockSize, func() State {
 		h, _ := blake2b.New512(nil)
 		return h
 	})
@@ -86,9 +86,9 @@ func init() {
 	Register(SHA512)
 	Register(SHA3)
 	Register(SHA3_512)
-	Register(BLAKE2B128)
-	Register(BLAKE2B256)
-	Register(BLAKE2B512)
+	Register(BLAKE2b128)
+	Register(BLAKE2b256)
+	Register(BLAKE2b512)
 	Register(BLAKE3)
 	Register(BLAKE3_128)
 	Register(BLAKE3_512)

@@ -56,29 +56,34 @@ var (
 
 var (
 	// ChaCha20Poly1305 is the ChaCha20-Poly1305 stream AEAD scheme.
-	ChaCha20Poly1305 = New("CHACHA20POLY1305", chacha20poly1305.KeySize,
+	ChaCha20Poly1305 = New("ChaCha20_Poly1305", chacha20poly1305.KeySize,
 		chacha20poly1305.NonceSize, chacha20poly1305.TagSize,
 		chacha20poly1305.NewEncrypter, chacha20poly1305.NewDecrypter)
 
 	// XChaCha20Poly1305 is the XChaCha20-Poly1305 stream AEAD scheme.
-	XChaCha20Poly1305 = New("XCHACHA20POLY1305", chacha20poly1305.KeySize,
+	XChaCha20Poly1305 = New("XChaCha20_Poly1305", chacha20poly1305.KeySize,
 		chacha20poly1305.NonceSizeX, chacha20poly1305.TagSize,
 		chacha20poly1305.NewEncrypter, chacha20poly1305.NewDecrypter)
 
-	// ChaCha20Blake3 is the Encrypt-Then-MAC combination of ChaCha20 and BLAKE3.
-	ChaCha20Blake3 = etm.Build("CHACHA20BLAKE3", cipher.ChaCha20, mac.BLAKE3)
+	// ChaCha20BLAKE3 is the Encrypt-Then-MAC combination of ChaCha20 and BLAKE3.
+	ChaCha20BLAKE3 = etm.Build("ChaCha20_BLAKE3", cipher.ChaCha20, mac.BLAKE3)
 
-	// AES256Blake3 is the Encrypt-Then-MAC combination of AES256-CTR and BLAKE3.
-	AES256Blake3 = etm.Build("AES256BLAKE3", cipher.AESCTR256, mac.BLAKE3)
+	// ChaCha20SHA3 is the Encrypt-Then-MAC combination of ChaCha20 and SHA3.
+	ChaCha20SHA3 = etm.Build("ChaCha20_SHA3", cipher.ChaCha20, sha3k16)
+
+	// AES256BLAKE3 is the Encrypt-Then-MAC combination of AES256-CTR and BLAKE3.
+	AES256BLAKE3 = etm.Build("AES256CTR_BLAKE3", cipher.AESCTR256, mac.BLAKE3)
 
 	// AES256SHA3 is the Encrypt-Then-MAC combination of AES256-CTR and SHA3.
-	AES256SHA3 = etm.Build("AES256SHA3", cipher.AESCTR256, mac.Fixed(mac.SHA3, 16))
+	AES256SHA3 = etm.Build("AES256CTR_SHA3", cipher.AESCTR256, sha3k16)
+
+	sha3k16 = mac.Fixed(mac.SHA3, 16)
 )
 
 func init() {
 	Register(ChaCha20Poly1305)
-	Register(ChaCha20Blake3)
-	Register(AES256Blake3)
+	Register(ChaCha20BLAKE3)
+	Register(AES256BLAKE3)
 	Register(AES256SHA3)
 }
 

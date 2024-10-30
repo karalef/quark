@@ -12,10 +12,10 @@ func init() {
 }
 
 // Argon2i KDF.
-var Argon2i = New("argon2i", argon2i)
+var Argon2i = New("Argon2i", argon2i)
 
 // Argon2id KDF.
-var Argon2id = New("argon2id", argon2id)
+var Argon2id = New("Argon2id", argon2id)
 
 func argon2i(password, salt []byte, size uint32, cost *Argon2Cost) []byte {
 	return argon2.Key(password, salt, cost.Time, cost.Memory, cost.Threads, size)

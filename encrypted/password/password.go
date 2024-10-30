@@ -14,7 +14,7 @@ var _ scheme.Scheme = (*Scheme)(nil)
 type Scheme struct {
 	aead aead.Scheme
 	kdf  kdf.Scheme
-	name scheme.StringName
+	name scheme.String
 }
 
 // Name returns scheme name.
@@ -56,7 +56,7 @@ func Build(aead aead.Scheme, kdf kdf.Scheme) *Scheme {
 		panic("password.Build: nil scheme part")
 	}
 	return &Scheme{
-		name: scheme.StringName(scheme.Join(aead, kdf)),
+		name: scheme.String(scheme.Join(aead, kdf)),
 		aead: aead,
 		kdf:  kdf,
 	}

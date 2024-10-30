@@ -25,7 +25,7 @@ func init() {
 var _ Scheme = (*circlScheme)(nil)
 
 type circlScheme struct {
-	scheme.StringName
+	scheme.String
 	scheme circlsign.Scheme
 }
 

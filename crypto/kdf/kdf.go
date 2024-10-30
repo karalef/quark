@@ -65,14 +65,14 @@ type Func[T Cost] func(password, salt []byte, size uint32, cost T) []byte
 // The returned scheme ensures that the size are at least 1 and the Cost is correct.
 func New[T Cost](name string, fn Func[T]) Scheme {
 	return baseScheme[T]{
-		StringName: scheme.StringName(name),
-		derive:     fn,
+		String: scheme.String(name),
+		derive: fn,
 	}
 }
 
 type baseScheme[T Cost] struct {
 	derive Func[T]
-	scheme.StringName
+	scheme.String
 }
 
 func (s baseScheme[T]) NewCost() Cost {

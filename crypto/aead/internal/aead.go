@@ -25,17 +25,17 @@ type NewFunc func(key, nonce, associatedData []byte) Cipher
 // that are passed to the enc and dec functions.
 func New(name string, keySize, nonceSize, tagSize int, enc, dec NewFunc) *Scheme {
 	return &Scheme{
-		StringName: scheme.StringName(name),
-		keySize:    keySize,
-		nonceSize:  nonceSize,
-		tagSize:    tagSize,
-		enc:        enc,
-		dec:        dec,
+		String:    scheme.String(name),
+		keySize:   keySize,
+		nonceSize: nonceSize,
+		tagSize:   tagSize,
+		enc:       enc,
+		dec:       dec,
 	}
 }
 
 type Scheme struct {
-	scheme.StringName
+	scheme.String
 	keySize   int
 	nonceSize int
 	tagSize   int

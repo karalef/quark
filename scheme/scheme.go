@@ -63,8 +63,8 @@ func SplitN(scheme string, n uint) ([]string, error) {
 // ErrInvalidScheme is returned when scheme is invalid.
 var ErrInvalidScheme = errors.New("invalid scheme")
 
-// StringName implements the Scheme interface.
-type StringName string
+// String implements the Scheme interface.
+type String string
 
 // Name returns the scheme name.
-func (n StringName) Name() string { return strings.ToUpper(string(n)) }
+func (n String) Name() string { return string(n) }

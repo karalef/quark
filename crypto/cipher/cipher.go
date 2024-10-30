@@ -37,18 +37,18 @@ type NewFunc func(key, iv []byte) Cipher
 // that are passed to the new.
 func New(name string, keySize, ivSize, blockSize int, new NewFunc) Scheme {
 	return baseScheme{
-		StringName: scheme.StringName(name),
-		keySize:    keySize,
-		ivSize:     ivSize,
-		blockSize:  blockSize,
-		newFunc:    new,
+		String:    scheme.String(name),
+		keySize:   keySize,
+		ivSize:    ivSize,
+		blockSize: blockSize,
+		newFunc:   new,
 	}
 }
 
 var _ Scheme = baseScheme{}
 
 type baseScheme struct {
-	scheme.StringName
+	scheme.String
 	newFunc   NewFunc
 	keySize   int
 	ivSize    int

@@ -32,12 +32,12 @@ type NewFunc func(key []byte) State
 // The returned scheme guarantees the correct key length.
 func New(name string, keySize, maxKeySize, size, blockSize int, new NewFunc) Scheme {
 	return baseScheme{
-		StringName: scheme.StringName(name),
-		new:        new,
-		size:       size,
-		block:      blockSize,
-		keySize:    keySize,
-		maxSize:    maxKeySize,
+		String:  scheme.String(name),
+		new:     new,
+		size:    size,
+		block:   blockSize,
+		keySize: keySize,
+		maxSize: maxKeySize,
 	}
 }
 
@@ -65,7 +65,7 @@ type fixed struct {
 func (s fixed) KeySize() int { return s.keySize }
 
 type baseScheme struct {
-	scheme.StringName
+	scheme.String
 	new     NewFunc
 	size    int
 	block   int

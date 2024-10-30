@@ -16,14 +16,14 @@ func init() {
 
 // aes variants.
 var (
-	AESCTR256 = New("AES_CTR256", 32, aes.BlockSize, aes.BlockSize, newAESCTR)
-	AESOFB256 = New("AES_OFB256", 32, aes.BlockSize, aes.BlockSize, newAESOFB)
+	AESCTR256 = New("AES256CTR", 32, aes.BlockSize, aes.BlockSize, newAESCTR)
+	AESOFB256 = New("AES256OFB", 32, aes.BlockSize, aes.BlockSize, newAESOFB)
 )
 
 // chacha20 variants.
 var (
-	ChaCha20  = New("CHACHA20", chacha20.KeySize, chacha20.NonceSize, 64, newChaCha20)
-	XChaCha20 = New("XCHACHA20", chacha20.KeySize, chacha20.NonceSizeX, 64, newChaCha20)
+	ChaCha20  = New("ChaCha20", chacha20.KeySize, chacha20.NonceSize, 64, newChaCha20)
+	XChaCha20 = New("XChaCha20", chacha20.KeySize, chacha20.NonceSizeX, 64, newChaCha20)
 )
 
 func newAESCTR(key, iv []byte) Cipher {

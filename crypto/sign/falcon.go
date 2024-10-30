@@ -9,7 +9,7 @@ import (
 )
 
 // Falcon1024 signature scheme.
-var Falcon1024 = falconScheme{scheme.StringName("Falcon1024")}
+var Falcon1024 = falconScheme{scheme.String("Falcon1024")}
 
 func init() {
 	Register(Falcon1024)
@@ -18,7 +18,7 @@ func init() {
 var _ Scheme = falconScheme{}
 
 type falconScheme struct {
-	scheme.StringName
+	scheme.String
 }
 
 const (

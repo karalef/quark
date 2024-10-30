@@ -50,11 +50,11 @@ func newHMAC(h hash.Scheme, keySize, maxKeySize int, new func([]byte) hash.State
 var (
 	SHA256     = NewHMACFrom(hash.SHA256)
 	SHA3       = NewHMACFrom(hash.SHA3)
-	BLAKE2b128 = newHMAC(hash.BLAKE2B128, 0, 64, func(key []byte) hash.State {
+	BLAKE2b128 = newHMAC(hash.BLAKE2b128, 0, 64, func(key []byte) hash.State {
 		h, _ := blake2b.New(16, key)
 		return h
 	})
-	BLAKE2b = newHMAC(hash.BLAKE2B256, 0, 64, func(key []byte) hash.State {
+	BLAKE2b = newHMAC(hash.BLAKE2b256, 0, 64, func(key []byte) hash.State {
 		h, _ := blake2b.New256(key)
 		return h
 	})

@@ -30,8 +30,8 @@ func (schemes Schemes[T]) ByName(name string) (T, error) {
 
 func (schemes Schemes[T]) ListAll() []string {
 	all := make([]string, 0, len(schemes))
-	for k := range schemes {
-		all = append(all, k)
+	for _, s := range schemes {
+		all = append(all, s.Name())
 	}
 	return all
 }

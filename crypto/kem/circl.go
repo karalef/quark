@@ -28,7 +28,7 @@ var (
 var _ Scheme = circlScheme{}
 
 type circlScheme struct {
-	scheme.StringName
+	scheme.String
 	scheme circlkem.Scheme
 }
 
