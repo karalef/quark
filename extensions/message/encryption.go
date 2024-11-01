@@ -30,7 +30,7 @@ type Encryption struct {
 func (e *Encryption) IsEncapsulated() bool { return !e.ID.IsEmpty() }
 
 // Encapsulate generates and encapsulates a shared secret and creates an authenticated stream cipher.
-func Encapsulate(scheme *secret.Scheme, recipient kem.PublicKey, associatedData []byte) (aead.Cipher, *Encryption, error) {
+func Encapsulate(scheme secret.Scheme, recipient kem.PublicKey, associatedData []byte) (aead.Cipher, *Encryption, error) {
 	ciphertext, secret, err := kem.Encapsulate(recipient)
 	if err != nil {
 		return nil, nil, err

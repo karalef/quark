@@ -1,8 +1,6 @@
 package backup
 
 import (
-	"errors"
-
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/sign"
@@ -31,18 +29,22 @@ func New(data BackupData,
 	source encrypted.NonceSource,
 	params encrypted.PassphraseParams,
 ) (*Backup, error) {
-	enc, pp, err := key.NewEncrypter(passphrase, source, params)
+	pass := params.New()
+	enc, err := key.NewEncrypter(passphrase, source, pass)
+	if err != nil {
+		return nil, err
+	}
+	sec, err := enc.Encrypt(data.Secret)
 	if err != nil {
 		return nil, err
 	}
 	b := &Backup{
-		Key:        data.Key,
-		Passphrase: pp,
-		Subkeys:    make([]key.Element, len(data.Subkeys)),
-	}
-	b.Secret, err = enc.Encrypt(data.Secret)
-	if err != nil {
-		return nil, err
+		Key:     data.Key,
+		Subkeys: make([]key.Sub, len(data.Subkeys)),
+		Secret: key.Key{
+			Passphrase: pass,
+			Sub:        sec,
+		},
 	}
 	for i, sub := range data.Subkeys {
 		b.Subkeys[i], err = enc.Encrypt(sub)
@@ -55,10 +57,9 @@ func New(data BackupData,
 
 // Backup contains the key with encrypted private keys.
 type Backup struct {
-	encrypted.Passphrase
-	Key     *quark.Key    `msgpack:"key"`
-	Subkeys []key.Element `msgpack:"subkeys"`
-	Secret  key.Element   `msgpack:"secret"`
+	Key     *quark.Key `msgpack:"key"`
+	Subkeys []key.Sub  `msgpack:"subkeys"`
+	Secret  key.Key    `msgpack:"secret"`
 }
 
 // PacketTag returns the packet tag.
@@ -66,31 +67,26 @@ func (*Backup) PacketTag() pack.Tag { return PacketTagBackup }
 
 // Decrypt decrypts the backup with the given passphrase.
 func (b Backup) Decrypt(passphrase string) (BackupData, error) {
-	crypter, err := b.Passphrase.NewCrypter(passphrase)
+	crypter, err := b.Secret.Passphrase.NewCrypter(passphrase)
+	if err != nil {
+		return BackupData{}, err
+	}
+	secret, err := b.Secret.Sub.DecryptSign(crypter)
 	if err != nil {
 		return BackupData{}, err
 	}
 
-	bd := BackupData{Key: b.Key}
-	key, err := b.Secret.Decrypt(crypter)
-	if err != nil {
-		return BackupData{}, err
-	}
-	var ok bool
-	bd.Secret, ok = key.(sign.PrivateKey)
-	if !ok {
-		return BackupData{}, errInvalidKeyType
-	}
-
-	bd.Subkeys = make([]crypto.Key, len(b.Subkeys))
+	subkeys := make([]crypto.Key, len(b.Subkeys))
 	for i, sub := range b.Subkeys {
-		key, err := sub.Decrypt(crypter)
+		key, err := sub.DecryptKey(crypter)
 		if err != nil {
 			return BackupData{}, err
 		}
-		bd.Subkeys[i] = key
+		subkeys[i] = key
 	}
-	return bd, nil
+	return BackupData{
+		Key:     b.Key,
+		Secret:  secret,
+		Subkeys: subkeys,
+	}, nil
 }
-
-var errInvalidKeyType = errors.New("invalid key type")

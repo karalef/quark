@@ -1,7 +1,6 @@
 package encrypted
 
 import (
-	"bytes"
 	"errors"
 
 	"github.com/karalef/quark/crypto/aead"
@@ -17,9 +16,8 @@ type Data struct {
 }
 
 // NewSecret creates a new Symmetric with the given secret scheme.
-func New(scheme *secret.Scheme) Symmetric {
-	sec := NewSecret(scheme)
-	return Symmetric{Secret: &sec}
+func New(scheme secret.Scheme) Symmetric {
+	return Symmetric{Secret: (*Secret)(&scheme)}
 }
 
 // NewWithPassphrase creates a new Symmetric with the given password scheme.
@@ -58,6 +56,9 @@ type Crypter struct {
 	key    []byte
 }
 
+// NonceSize returns the nonce size for the AEAD scheme.
+func (c *Crypter) NonceSize() int { return c.scheme.NonceSize() }
+
 // Encrypt creates a new AEAD cipher with associated data.
 func (c *Crypter) Encrypt(nonce, ad []byte) (aead.Cipher, error) {
 	return c.scheme.Encrypt(c.key, nonce, ad)
@@ -69,16 +70,12 @@ func (c *Crypter) EncryptDataBuf(data, nonce, ad []byte) (Data, error) {
 	if err != nil {
 		return Data{}, err
 	}
-	buf := bytes.NewBuffer(make([]byte, 0, len(data)))
+	buf := make([]byte, len(data))
+	ciph.Crypt(buf, data)
 
-	//nolint:errcheck
-	_, _ = aead.BufferedWriter{
-		AEAD: ciph,
-		W:    buf,
-	}.Write(data)
 	return Data{
 		Nonce: nonce,
-		Data:  buf.Bytes(),
+		Data:  buf,
 		Tag:   ciph.Tag(nil),
 	}, nil
 }
@@ -110,12 +107,7 @@ func (c *Crypter) DecryptDataBuf(data Data, ad []byte) ([]byte, error) {
 		return nil, err
 	}
 	buf := make([]byte, len(data.Data))
-
-	//nolint:errcheck
-	aead.Reader{
-		AEAD: ciph,
-		R:    bytes.NewReader(data.Data),
-	}.Read(buf)
+	ciph.Crypt(buf, data.Data)
 
 	return buf, verifyTag(ciph, data.Tag)
 }

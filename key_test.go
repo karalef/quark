@@ -22,7 +22,7 @@ func TestKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := id.Verify(id.Key(), id.SelfSignature()); err != nil {
+	if err = id.Verify(id.Key(), id.SelfSignature()); err != nil {
 		t.Fatal(err)
 	}
 

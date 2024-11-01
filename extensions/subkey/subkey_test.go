@@ -16,7 +16,7 @@ func TestKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := id.Verify(id.Key(), id.SelfSignature()); err != nil {
+	if err = id.Verify(id.Key(), id.SelfSignature()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -24,7 +24,11 @@ func TestKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = subkey.BindSign(id, sk, spk, time.Now().Add(time.Hour).Unix())
+	sub, err := subkey.NewSign(spk, subkey.UsageSign)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = sub.BindTo(id, sk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +37,11 @@ func TestKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := subkey.BindKEM(id, sk, kpk, time.Now().Add(time.Hour).Unix())
+	sub, err = subkey.NewKEM(kpk, subkey.UsageEncrypt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := sub.BindTo(id, sk, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,18 +59,12 @@ func printBindings(binds []quark.RawCertificate, t *testing.T) {
 	for _, bind := range binds {
 		var key crypto.Key
 		switch bind.Type {
-		case subkey.TypeSignKey:
-			sub, err := quark.CertificateAs[subkey.SignSubkey](bind)
+		case subkey.TypeSignKey, subkey.TypeKEMKey:
+			sub, err := subkey.FromRaw(bind)
 			if err != nil {
 				t.Fatal(err)
 			}
-			key = sub.Data.PublicKey
-		case subkey.TypeKEMKey:
-			sub, err := quark.CertificateAs[subkey.KEMSubkey](bind)
-			if err != nil {
-				t.Fatal(err)
-			}
-			key = sub.Data.PublicKey
+			key = sub.Key()
 		}
 		bindid := bind.ID.ShortString()
 		t.Logf("binding %s: %s %s", bindid, bind.Type, key.ID().String())

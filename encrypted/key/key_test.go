@@ -3,12 +3,8 @@ package key_test
 import (
 	"testing"
 
-	"github.com/karalef/quark/crypto"
-	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted/key"
-	"github.com/karalef/quark/encrypted/password"
 )
 
 func TestKey(t *testing.T) {
@@ -16,8 +12,7 @@ func TestKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scheme := password.Build(aead.ChaCha20Poly1305, kdf.Argon2i)
-	k, err := key.Encrypt(sk, "password", crypto.Rand(scheme.AEAD().NonceSize()), passParams)
+	k, err := key.Encrypt(sk, "password", nil, passParams.New())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,37 +7,38 @@ import (
 	"github.com/karalef/quark/scheme"
 )
 
-var _ scheme.Scheme = (*Scheme)(nil)
+var _ scheme.Scheme = Scheme{}
 
+// Scheme is a shared secret-based authenticated encryption scheme.
 type Scheme struct {
 	aead aead.Scheme
 	xof  xof.Scheme
 	name scheme.String
 }
 
-func (s *Scheme) Name() string      { return s.name.Name() }
-func (s *Scheme) AEAD() aead.Scheme { return s.aead }
-func (s *Scheme) XOF() xof.Scheme   { return s.xof }
+func (s Scheme) Name() string      { return s.name.Name() }
+func (s Scheme) AEAD() aead.Scheme { return s.aead }
+func (s Scheme) XOF() xof.Scheme   { return s.xof }
 
-func (s *Scheme) NonceSize() int { return s.aead.NonceSize() }
-func (s *Scheme) TagSize() int   { return s.aead.TagSize() }
+func (s Scheme) NonceSize() int { return s.aead.NonceSize() }
+func (s Scheme) TagSize() int   { return s.aead.TagSize() }
 
 // Encrypter returns Cipher in encryption mode.
 // Panics if nonce is not of length NonceSize().
-func (s *Scheme) Encrypter(nonce, sharedSecret, associatedData []byte) (aead.Cipher, error) {
+func (s Scheme) Encrypter(nonce, sharedSecret, associatedData []byte) (aead.Cipher, error) {
 	return s.aead.Encrypt(s.DeriveKey(sharedSecret), nonce, associatedData)
 }
 
 // Decrypter returns Cipher in decryption mode.
 // Panics if nonce is not of length NonceSize().
-func (s *Scheme) Decrypter(nonce, sharedSecret, associatedData []byte) (aead.Cipher, error) {
+func (s Scheme) Decrypter(nonce, sharedSecret, associatedData []byte) (aead.Cipher, error) {
 	return s.aead.Decrypt(s.DeriveKey(sharedSecret), nonce, associatedData)
 }
 
 // DeriveKey returns key derived from shared secret.
 //
 //nolint:errcheck
-func (s *Scheme) DeriveKey(sharedSecret []byte) []byte {
+func (s Scheme) DeriveKey(sharedSecret []byte) []byte {
 	key := make([]byte, s.aead.KeySize())
 	xof := s.XOF().New()
 	xof.Write(sharedSecret)
@@ -45,48 +46,48 @@ func (s *Scheme) DeriveKey(sharedSecret []byte) []byte {
 	return key
 }
 
-// Build creates a password-based authenticated encryption scheme from AEAD and XOF schemes.
+// Build creates a shared secret-based authenticated encryption scheme from AEAD and XOF schemes.
 // Panics if one of the arguments is nil.
-func Build(aead aead.Scheme, xof xof.Scheme) *Scheme {
+func Build(aead aead.Scheme, xof xof.Scheme) Scheme {
 	if aead == nil || xof == nil {
 		panic("secret.Build: nil scheme part")
 	}
-	return &Scheme{
+	return Scheme{
 		name: scheme.String(scheme.Join(aead, xof)),
 		aead: aead,
 		xof:  xof,
 	}
 }
 
-// FromName creates a secret scheme from its name.
-func FromName(schemeName string) (*Scheme, error) {
+// FromName creates a shared secret-based authenticated encryption scheme from its name.
+func FromName(schemeName string) (Scheme, error) {
 	parts, err := scheme.SplitN(schemeName, 2)
 	if err != nil {
-		return nil, err
+		return Scheme{}, err
 	}
 	return FromNames(parts[0], parts[1])
 }
 
-// FromNames creates a secret scheme from AEAD and XOF scheme names.
-func FromNames(aeadName, xofName string) (*Scheme, error) {
+// FromNames creates a shared secret-based authenticated encryption scheme from AEAD and XOF scheme names.
+func FromNames(aeadName, xofName string) (Scheme, error) {
 	xof, err := xof.ByName(xofName)
 	if err != nil {
-		return nil, err
+		return Scheme{}, err
 	}
 	aead, err := aead.ByName(aeadName)
 	if err != nil {
-		return nil, err
+		return Scheme{}, err
 	}
 	return Build(aead, xof), nil
 }
 
 var (
-	_ pack.CustomEncoder = (*Scheme)(nil)
+	_ pack.CustomEncoder = Scheme{}
 	_ pack.CustomDecoder = (*Scheme)(nil)
 )
 
 // EncodeMsgpack implements pack.CustomEncoder.
-func (s *Scheme) EncodeMsgpack(enc *pack.Encoder) error {
+func (s Scheme) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.EncodeString(s.Name())
 }
 
@@ -100,6 +101,6 @@ func (s *Scheme) DecodeMsgpack(dec *pack.Decoder) error {
 	if err != nil {
 		return err
 	}
-	*s = *sch
+	*s = sch
 	return nil
 }

@@ -11,25 +11,27 @@ import (
 )
 
 // NewSecret creates a new Secret with the given scheme.
-func NewSecret(scheme *secret.Scheme) Secret {
-	return Secret{Secret: scheme}
-}
+func NewSecret(scheme secret.Scheme) Secret { return Secret(scheme) }
 
 // Secret contains shared secret based encryption parameters.
-type Secret struct {
-	Secret *secret.Scheme `msgpack:"secret"`
-}
+type Secret secret.Scheme
+
+// Scheme returns the secret scheme.
+func (s Secret) Scheme() secret.Scheme { return secret.Scheme(s) }
 
 // NewCrypter creates a new Crypter with the given shared secret.
 func (s Secret) NewCrypter(sharedSecret []byte) (*Crypter, error) {
-	return NewCrypter(s.Secret.AEAD(), s.Secret.DeriveKey(sharedSecret))
+	scheme := s.Scheme()
+	return NewCrypter(scheme.AEAD(), scheme.DeriveKey(sharedSecret))
 }
 
 type PassphraseParams struct {
-	Scheme   *password.Scheme
 	Cost     kdf.Cost
+	Scheme   password.Scheme
 	SaltSize int
 }
+
+func (p PassphraseParams) New() Passphrase { return NewPassphrase(p) }
 
 // NewPassphrase creates a new Passphrase with the given scheme, cost and salt size.
 func NewPassphrase(p PassphraseParams) Passphrase {
@@ -42,9 +44,18 @@ func NewPassphrase(p PassphraseParams) Passphrase {
 
 // Passphrase contains passphrase-based encryption parameters.
 type Passphrase struct {
-	Scheme *password.Scheme `msgpack:"scheme"`
-	Salt   []byte           `msgpack:"salt"`
-	Cost   kdf.Cost         `msgpack:"cost"`
+	Cost   kdf.Cost        `msgpack:"cost"`
+	Scheme password.Scheme `msgpack:"scheme"`
+	Salt   []byte          `msgpack:"salt"`
+}
+
+// Params returns the passphrase parameters.
+func (p Passphrase) Params() PassphraseParams {
+	return PassphraseParams{
+		Scheme:   p.Scheme,
+		Cost:     p.Cost,
+		SaltSize: len(p.Salt),
+	}
 }
 
 // NewCrypter creates a new Crypter with the given passphrase.
@@ -59,12 +70,11 @@ func (p Passphrase) NewCrypter(passphrase string) (*Crypter, error) {
 // DecodeMsgpack implements pack.CustomDecoder
 func (p *Passphrase) DecodeMsgpack(dec *pack.Decoder) error {
 	var m struct {
-		Scheme *password.Scheme `msgpack:"scheme"`
-		Salt   []byte           `msgpack:"salt"`
-		Cost   pack.Raw         `msgpack:"cost"`
+		Scheme password.Scheme `msgpack:"scheme"`
+		Salt   []byte          `msgpack:"salt"`
+		Cost   pack.Raw        `msgpack:"cost"`
 	}
-	err := dec.Decode(&m)
-	if err != nil {
+	if err := dec.Decode(&m); err != nil {
 		return err
 	}
 	p.Scheme = m.Scheme

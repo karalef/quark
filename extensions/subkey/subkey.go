@@ -2,6 +2,7 @@ package subkey
 
 import (
 	"github.com/karalef/quark"
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/pack"
@@ -14,106 +15,125 @@ const (
 	TypeKEMKey  = TypeBindKey + ".kem"
 )
 
-var _ quark.Certifyable[SignSubkey] = SignSubkey{}
-var _ quark.Certifyable[KEMSubkey] = KEMSubkey{}
-
-type SignSubkey struct {
-	sign.PublicKey
+func NewSign(k sign.PublicKey, usage Usage) (Subkey, error) {
+	if usage.Has(UsageEncrypt) {
+		return Subkey{}, ErrInvalidUsage
+	}
+	return Subkey{
+		typ:   TypeSignKey,
+		key:   k,
+		usage: usage,
+	}, nil
 }
 
-type KEMSubkey struct {
-	kem.PublicKey
+func NewKEM(k kem.PublicKey, usage Usage) (Subkey, error) {
+	if usage.Has(UsageSign | UsageCertify) {
+		return Subkey{}, ErrInvalidUsage
+	}
+	return Subkey{
+		typ:   TypeKEMKey,
+		key:   k,
+		usage: usage,
+	}, nil
 }
 
-func (SignSubkey) CertType() string { return TypeSignKey }
-func (KEMSubkey) CertType() string  { return TypeKEMKey }
-func (s SignSubkey) Copy() SignSubkey {
-	b := s.PublicKey.Pack()
-	cpy, err := s.Scheme().(sign.Scheme).UnpackPublic(b)
+// Subkey is a subkey.
+type Subkey struct {
+	key   crypto.Key
+	typ   string
+	usage Usage
+}
+
+func (s Subkey) Key() crypto.Key { return s.key }
+func (s Subkey) Usage() Usage    { return s.usage }
+
+type model struct {
+	typ            string `msgpack:"type"`
+	quark.KeyModel `msgpack:",inline"`
+	usage          Usage `msgpack:"usage"`
+}
+
+func (s Subkey) CertType() string { return s.typ }
+
+func (s Subkey) Copy() Subkey {
+	cp := s.key.Pack()
+	var err error
+	if s.typ == TypeKEMKey {
+		s.key, err = s.key.Scheme().(kem.Scheme).UnpackPublic(cp)
+	} else {
+		s.key, err = s.key.Scheme().(sign.Scheme).UnpackPublic(cp)
+	}
 	if err != nil {
 		panic(err)
 	}
-	return SignSubkey{cpy}
+	return s
 }
-func (k KEMSubkey) Copy() KEMSubkey {
-	b := k.PublicKey.Pack()
-	cpy, err := k.Scheme().(kem.Scheme).UnpackPublic(b)
-	if err != nil {
-		panic(err)
+
+func (s Subkey) BindTo(id *quark.Key, sk sign.PrivateKey, expires int64) (quark.Certificate[Subkey], error) {
+	if s.Key == nil {
+		return quark.Certificate[Subkey]{}, nil
 	}
-	return KEMSubkey{cpy}
+	return quark.Bind(id, sk, expires, s)
 }
 
-func (s SignSubkey) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.Encode(quark.KeyModel{
-		Algorithm: s.Scheme().Name(),
-		Key:       s.Pack(),
-	})
-}
-func (k KEMSubkey) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.Encode(quark.KeyModel{
-		Algorithm: k.Scheme().Name(),
-		Key:       k.Pack(),
+func (s Subkey) EncodeMsgpack(enc *pack.Encoder) error {
+	return enc.Encode(model{
+		typ:      s.typ,
+		usage:    s.usage,
+		KeyModel: quark.NewKeyModel(s.key),
 	})
 }
 
-func (s *SignSubkey) DecodeMsgpack(dec *pack.Decoder) error {
-	m := new(quark.KeyModel)
+func (s *Subkey) DecodeMsgpack(dec *pack.Decoder) error {
+	m := new(model)
 	err := dec.Decode(m)
 	if err != nil {
 		return err
 	}
-	key, err := sign.UnpackPublic(m.Algorithm, m.Key)
+	var key crypto.Key
+	if m.typ == TypeKEMKey {
+		key, err = kem.UnpackPublic(m.Algorithm, m.Key)
+	} else {
+		key, err = sign.UnpackPublic(m.Algorithm, m.Key)
+	}
 	if err != nil {
 		return err
 	}
-	s.PublicKey = key
-	return nil
-}
-func (k *KEMSubkey) DecodeMsgpack(dec *pack.Decoder) error {
-	m := new(quark.KeyModel)
-	err := dec.Decode(m)
-	if err != nil {
-		return err
+	*s = Subkey{
+		typ:   m.typ,
+		key:   key,
+		usage: m.usage,
 	}
-	key, err := kem.UnpackPublic(m.Algorithm, m.Key)
-	if err != nil {
-		return err
-	}
-	k.PublicKey = key
 	return nil
 }
 
-// BindSign binds a subkey to an identity.
-func BindSign(id *quark.Key, sk sign.PrivateKey, subkey sign.PublicKey, expires int64) (quark.Certificate[SignSubkey], error) {
-	if subkey == nil {
-		return quark.Certificate[SignSubkey]{}, nil
-	}
-	return quark.Bind(id, sk, expires, SignSubkey{subkey})
-}
-
-// BindKEM binds a subkey to an identity.
-func BindKEM(id *quark.Key, sk sign.PrivateKey, subkey kem.PublicKey, expires int64) (quark.Certificate[KEMSubkey], error) {
-	if subkey == nil {
-		return quark.Certificate[KEMSubkey]{}, nil
-	}
-	return quark.Bind(id, sk, expires, KEMSubkey{subkey})
-}
-
-// SignFrom extracts the public key from a binding.
-func SignFrom(b quark.RawCertificate) (sign.PublicKey, error) {
-	k, err := quark.CertificateAs[SignSubkey](b)
+// BindSign binds the sign subkey to the key.
+func BindSign(id *quark.Key, sk sign.PrivateKey, expires int64,
+	key sign.PublicKey, usage Usage,
+) (quark.Certificate[Subkey], error) {
+	s, err := NewSign(key, usage)
 	if err != nil {
-		return nil, err
+		return quark.Certificate[Subkey]{}, err
 	}
-	return k.Data.PublicKey, nil
+	return s.BindTo(id, sk, expires)
 }
 
-// KEMFrom extracts the public key from a binding.
-func KEMFrom(b quark.RawCertificate) (kem.PublicKey, error) {
-	k, err := quark.CertificateAs[KEMSubkey](b)
+// BindKEM binds the kem subkey to the key.
+func BindKEM(id *quark.Key, sk sign.PrivateKey, expires int64,
+	key kem.PublicKey, usage Usage,
+) (quark.Certificate[Subkey], error) {
+	s, err := NewKEM(key, usage)
 	if err != nil {
-		return nil, err
+		return quark.Certificate[Subkey]{}, err
 	}
-	return k.Data.PublicKey, nil
+	return s.BindTo(id, sk, expires)
+}
+
+// FromRaw extracts the public key from a raw certificate.
+func FromRaw(b quark.RawCertificate) (Subkey, error) {
+	c, err := quark.CertificateAs[Subkey](b)
+	if err != nil {
+		return Subkey{}, err
+	}
+	return c.Data, nil
 }

@@ -37,6 +37,24 @@ type Header struct {
 	File FileInfo `msgpack:"file,omitempty"`
 }
 
+// IsSigned returns true if message is signed.
+func (h Header) IsSigned() bool { return !h.Sender.IsEmpty() }
+
+// IsEncrypted returns true if message is encrypted.
+func (h Header) IsEncrypted() bool { return h.Encryption != nil }
+
+// IsEncapsulated returns true if message is encrypted using key encapsulation mechanism.
+func (h Header) IsEncapsulated() bool { return h.IsEncrypted() && !h.Encryption.ID.IsEmpty() }
+
+// IsPassphrased returns true if message is encrypted using password-based symmetric encryption.
+func (h Header) IsPassphrased() bool { return h.IsEncrypted() && h.Encryption.ID.IsEmpty() }
+
+// IsCompressed returns true if message is compressed.
+func (h Header) IsCompressed() bool { return h.Compression != nil }
+
+// IsFile returns true if message contains file info.
+func (h Header) IsFile() bool { return h.File != FileInfo{} }
+
 // Compression represents compression algorithm.
 type Compression struct {
 	compress.Compression

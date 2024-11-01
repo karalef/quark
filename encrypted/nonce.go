@@ -145,5 +145,13 @@ func (l *LFSR) Next() ([]byte, bool) {
 	return nonce, true
 }
 
+// Nonce is a single nonce.
+// It is used to encrypt only one data where the NonceSource is needed.
+// It never copies the nonce and always returns true.
+type Nonce []byte
+
+func (n Nonce) Size() uint8          { return uint8(len(n)) }
+func (n Nonce) Next() ([]byte, bool) { return n, true }
+
 // ErrNonceSourceOverflow is returned when the nonce source overflows.
 var ErrNonceSourceOverflow = errors.New("nonce source overflow")

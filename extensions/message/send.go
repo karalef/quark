@@ -19,12 +19,9 @@ type Opt func(*messageOpts)
 
 // WithEncryption enables encryption based on key encapsulation mechanism.
 // Panics if recipient is nil.
-func WithEncryption(recipient kem.PublicKey, scheme *secret.Scheme) Opt {
+func WithEncryption(recipient kem.PublicKey, scheme secret.Scheme) Opt {
 	if recipient == nil {
 		panic("nil recipient")
-	}
-	if scheme == nil {
-		panic("nil secret scheme")
 	}
 	return func(o *messageOpts) {
 		o.recipient = recipient
@@ -82,7 +79,7 @@ type messageOpts struct {
 	expiry int64
 
 	recipient kem.PublicKey
-	scheme    *secret.Scheme
+	scheme    secret.Scheme
 
 	password       string
 	passwordParams encrypted.PassphraseParams

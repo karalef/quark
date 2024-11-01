@@ -69,7 +69,7 @@ func TestMessage(t *testing.T) {
 	t.Log("kem:", ksk.Scheme().Name())
 
 	sym := received.Header.Encryption.Symmetric
-	t.Log("symmetric", sym.Secret.Secret.Name())
+	t.Log("symmetric", sym.Secret.Scheme().Name())
 	// t.Log("password encryption:", sym.Passphrase.Build(sym.Scheme).Name())
 
 	issuer := received.Auth.Signature.Issuer
