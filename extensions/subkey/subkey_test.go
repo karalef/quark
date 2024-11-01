@@ -24,11 +24,7 @@ func TestKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sub, err := subkey.NewSign(spk, subkey.UsageSign)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = sub.BindTo(id, sk, time.Now().Add(time.Hour).Unix())
+	b, err := subkey.Bind(id, sk, time.Now().Add(time.Hour).Unix(), spk)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,11 +33,7 @@ func TestKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sub, err = subkey.NewKEM(kpk, subkey.UsageEncrypt)
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, err := sub.BindTo(id, sk, time.Now().Add(time.Hour).Unix())
+	_, err = subkey.Bind(id, sk, time.Now().Add(time.Hour).Unix(), kpk)
 	if err != nil {
 		t.Fatal(err)
 	}

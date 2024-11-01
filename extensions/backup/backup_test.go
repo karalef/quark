@@ -25,7 +25,7 @@ func TestBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = subkey.BindSign(ident, sk, 0, spk, subkey.UsageSign)
+	_, err = subkey.Bind(ident, sk, 0, spk)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = subkey.BindKEM(ident, sk, 0, kpk, subkey.UsageEncrypt)
+	_, err = subkey.Bind(ident, sk, 0, kpk)
 	if err != nil {
 		t.Fatal(err)
 	}

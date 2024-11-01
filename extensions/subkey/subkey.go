@@ -15,42 +15,33 @@ const (
 	TypeKEMKey  = TypeBindKey + ".kem"
 )
 
-func NewSign(k sign.PublicKey, usage Usage) (Subkey, error) {
-	if usage.Has(UsageEncrypt) {
-		return Subkey{}, ErrInvalidUsage
-	}
+// NewSign returns a new sign subkey.
+func NewSign(k sign.PublicKey) Subkey {
 	return Subkey{
-		typ:   TypeSignKey,
-		key:   k,
-		usage: usage,
-	}, nil
+		typ: TypeSignKey,
+		key: k,
+	}
 }
 
-func NewKEM(k kem.PublicKey, usage Usage) (Subkey, error) {
-	if usage.Has(UsageSign | UsageCertify) {
-		return Subkey{}, ErrInvalidUsage
-	}
+// NewKEM returns a new kem subkey.
+func NewKEM(k kem.PublicKey) Subkey {
 	return Subkey{
-		typ:   TypeKEMKey,
-		key:   k,
-		usage: usage,
-	}, nil
+		typ: TypeKEMKey,
+		key: k,
+	}
 }
 
 // Subkey is a subkey.
 type Subkey struct {
-	key   crypto.Key
-	typ   string
-	usage Usage
+	key crypto.Key
+	typ string
 }
 
 func (s Subkey) Key() crypto.Key { return s.key }
-func (s Subkey) Usage() Usage    { return s.usage }
 
 type model struct {
 	typ            string `msgpack:"type"`
 	quark.KeyModel `msgpack:",inline"`
-	usage          Usage `msgpack:"usage"`
 }
 
 func (s Subkey) CertType() string { return s.typ }
@@ -70,7 +61,7 @@ func (s Subkey) Copy() Subkey {
 }
 
 func (s Subkey) BindTo(id *quark.Key, sk sign.PrivateKey, expires int64) (quark.Certificate[Subkey], error) {
-	if s.Key == nil {
+	if s.key == nil {
 		return quark.Certificate[Subkey]{}, nil
 	}
 	return quark.Bind(id, sk, expires, s)
@@ -79,7 +70,6 @@ func (s Subkey) BindTo(id *quark.Key, sk sign.PrivateKey, expires int64) (quark.
 func (s Subkey) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.Encode(model{
 		typ:      s.typ,
-		usage:    s.usage,
 		KeyModel: quark.NewKeyModel(s.key),
 	})
 }
@@ -100,33 +90,22 @@ func (s *Subkey) DecodeMsgpack(dec *pack.Decoder) error {
 		return err
 	}
 	*s = Subkey{
-		typ:   m.typ,
-		key:   key,
-		usage: m.usage,
+		typ: m.typ,
+		key: key,
 	}
 	return nil
 }
 
-// BindSign binds the sign subkey to the key.
-func BindSign(id *quark.Key, sk sign.PrivateKey, expires int64,
-	key sign.PublicKey, usage Usage,
-) (quark.Certificate[Subkey], error) {
-	s, err := NewSign(key, usage)
-	if err != nil {
-		return quark.Certificate[Subkey]{}, err
+// Bind binds the sign subkey to the key.
+func Bind(id *quark.Key, sk sign.PrivateKey, expires int64, key crypto.Key) (quark.Certificate[Subkey], error) {
+	typ := TypeSignKey
+	if _, ok := key.(kem.PublicKey); ok {
+		typ = TypeKEMKey
 	}
-	return s.BindTo(id, sk, expires)
-}
-
-// BindKEM binds the kem subkey to the key.
-func BindKEM(id *quark.Key, sk sign.PrivateKey, expires int64,
-	key kem.PublicKey, usage Usage,
-) (quark.Certificate[Subkey], error) {
-	s, err := NewKEM(key, usage)
-	if err != nil {
-		return quark.Certificate[Subkey]{}, err
-	}
-	return s.BindTo(id, sk, expires)
+	return Subkey{
+		typ: typ,
+		key: key,
+	}.BindTo(id, sk, expires)
 }
 
 // FromRaw extracts the public key from a raw certificate.
