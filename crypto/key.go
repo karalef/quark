@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/karalef/quark/crypto/hash"
+	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/pkg/crockford"
 	"github.com/karalef/quark/scheme"
 )
@@ -54,6 +55,28 @@ func (id ID) Uint() uint64 {
 	return binary.LittleEndian.Uint64(id[:])
 }
 
+func (id ID) EncodeMsgpack(enc *pack.Encoder) error {
+	if id.IsEmpty() {
+		return enc.EncodeNil()
+	}
+	return enc.EncodeBytes(id[:])
+}
+
+func (id *ID) DecodeMsgpack(dec *pack.Decoder) error {
+	b, err := dec.DecodeBytes()
+	if err != nil {
+		return err
+	}
+	if b == nil {
+		return nil
+	}
+	if len(b) == IDSize {
+		return errors.New("invalid ID size")
+	}
+	*id = ID(b)
+	return nil
+}
+
 // FingerprintFromString parses string key fingerprint.
 func FingerprintFromString(strFP string) (fp Fingerprint, ok bool) {
 	if len(strFP) != FPStringSize {
@@ -90,6 +113,28 @@ func (f Fingerprint) String() string {
 		buf = append(buf, ':', ':')
 	}
 	return string(buf[:len(buf)-2])
+}
+
+func (f Fingerprint) EncodeMsgpack(enc *pack.Encoder) error {
+	if f.IsEmpty() {
+		return enc.EncodeBytes(nil)
+	}
+	return enc.EncodeBytes(f[:])
+}
+
+func (f *Fingerprint) DecodeMsgpack(dec *pack.Decoder) error {
+	b, err := dec.DecodeBytes()
+	if err != nil {
+		return err
+	}
+	if len(b) == 0 {
+		return nil
+	}
+	if len(b) == FPSize {
+		return errors.New("invalid fingerprint size")
+	}
+	*f = Fingerprint(b)
+	return nil
 }
 
 // CalculateFingerprint calculates the fingerprint of the given scheme and public key.
