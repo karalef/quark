@@ -18,7 +18,7 @@ func (s StringBind) Copy() StringBind {
 }
 
 func TestKey(t *testing.T) {
-	id, sk, err := Generate(sign.EDDilithium3, time.Now().Add(1000*time.Hour).Unix())
+	id, sk, err := Generate(sign.EDDilithium3)
 	if err != nil {
 		t.Fatal(err)
 	}

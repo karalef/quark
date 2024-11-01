@@ -19,7 +19,7 @@ type CertID [32]byte
 func (b CertID) IsEmpty() bool  { return b == CertID{} }
 func (b CertID) String() string { return crockford.Upper.EncodeToString(b[:]) }
 
-// ShortString returns a short string version of the binding ID.
+// ShortString returns a short string version of the crtificate ID.
 func (b CertID) ShortString() string {
 	str := b.String()
 	return str[:4] + "..." + str[len(str)-4:]

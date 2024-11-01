@@ -11,8 +11,13 @@ import (
 )
 
 // Generate generates a new key using crypto/rand.
-func Generate(scheme sign.Scheme, expires int64) (*Key, sign.PrivateKey, error) {
-	return Derive(scheme, crypto.Rand(scheme.SeedSize()), NewValidity(time.Now().Unix(), expires))
+func Generate(scheme sign.Scheme) (*Key, sign.PrivateKey, error) {
+	return GenerateWithValidity(scheme, NewValidity(time.Now().Unix(), 0))
+}
+
+// GenerateWithValidity generates a new key using crypto/rand with given validity.
+func GenerateWithValidity(scheme sign.Scheme, v Validity) (*Key, sign.PrivateKey, error) {
+	return Derive(scheme, crypto.Rand(scheme.SeedSize()), v)
 }
 
 // Derive deterministically creates a new key.

@@ -82,7 +82,7 @@ func TestMessage(t *testing.T) {
 }
 
 func test_create(scheme sign.Scheme, kemScheme kem.Scheme) (*quark.Key, sign.PrivateKey, kem.PrivateKey, kem.PublicKey, error) {
-	id, sk, err := quark.Generate(scheme, 0)
+	id, sk, err := quark.Generate(scheme)
 	if err != nil {
 		return id, sk, nil, nil, err
 	}

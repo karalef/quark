@@ -16,7 +16,7 @@ import (
 )
 
 func TestBackup(t *testing.T) {
-	ident, sk, err := quark.Generate(sign.EDDilithium3, 0)
+	ident, sk, err := quark.Generate(sign.EDDilithium3)
 	if err != nil {
 		t.Fatal(err)
 	}
