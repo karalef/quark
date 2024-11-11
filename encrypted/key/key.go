@@ -36,6 +36,9 @@ type Key struct {
 	Sub        `msgpack:",inline"`
 }
 
+func (k Key) ID() crypto.ID                   { return k.Sub.FP.ID() }
+func (k Key) Fingerprint() crypto.Fingerprint { return k.Sub.FP }
+
 func (*Key) PacketTag() pack.Tag { return PacketTagPrivateKey }
 
 // Decrypt decrypts the key with passphrase.

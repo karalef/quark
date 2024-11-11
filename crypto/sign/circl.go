@@ -139,7 +139,7 @@ func (pub *circlPubKey) Equal(pk PublicKey) bool {
 	if pub == nil || p == nil {
 		return false
 	}
-	return pub.PublicKey.Equal(p.PublicKey)
+	return pub.PublicKey.Equal(p.PublicKey.PublicKey)
 }
 
 func (pub *circlPubKey) Verify() Verifier {

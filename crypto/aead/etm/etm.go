@@ -28,15 +28,15 @@ func Build(name string, cipher cipher.Scheme, mac mac.Scheme) *internal.Scheme {
 		})
 }
 
-type NewCipher func(key, nonce, additionalData []byte) (cipher.Cipher, mac.State)
+// NewCipher is a function that creates a cipher.Cipher and mac.State.
+type NewCipher = func(key, nonce, additionalData []byte) (cipher.Cipher, mac.State)
 
-// BuildCustom creates an AEAD scheme with custom cipher creation.
-// Schemes are used only to fill sizes.
-func BuildCustom(name string, cipher cipher.Scheme, mac mac.Scheme, newCipher NewCipher) *internal.Scheme {
-	if cipher == nil || mac == nil || newCipher == nil {
+// BuildCustom creates a custom Encrypt-Than-MAC AEAD scheme.
+func BuildCustom(name string, newCipher NewCipher, keySize, ivSize, macSize int) *internal.Scheme {
+	if name == "" || newCipher == nil || keySize == 0 || ivSize == 0 || macSize == 0 {
 		panic("nil scheme part")
 	}
-	return internal.New(name, cipher.KeySize(), cipher.IVSize(), mac.Size(),
+	return internal.New(name, keySize, ivSize, macSize,
 		func(key, nonce, associatedData []byte) internal.Cipher {
 			return NewEncrypter(newCipher(key, nonce, associatedData))
 		},
@@ -50,30 +50,34 @@ func newCipher(s cipher.Scheme, bs uint, m mac.Scheme, key, nonce, additionalDat
 	return cipher, NewMAC(m, macKey, additionalData)
 }
 
+// NewEncrypter creates a new aead encrypter using XORThenMAC.
 func NewEncrypter(cipher cipher.Cipher, mac mac.State) internal.Cipher {
-	return crypter{
+	return encrypter{
 		cipher: cipher,
-		mac:    mac,
-		crypt:  XORThenMAC,
+		State:  mac,
 	}
 }
 
+// NewDecrypter creates a new aead decrypter using MACThenXOR.
 func NewDecrypter(cipher cipher.Cipher, mac mac.State) internal.Cipher {
-	return crypter{
+	return decrypter{
 		cipher: cipher,
-		mac:    mac,
-		crypt:  MACThenXOR,
+		State:  mac,
 	}
 }
 
-type crypter struct {
+type encrypter struct {
 	cipher cipher.Cipher
-	mac    mac.State
-	crypt  func(cipher.Cipher, mac.State, []byte, []byte)
+	mac.State
 }
 
-func (c crypter) Crypt(dst, src []byte) { c.crypt(c.cipher, c.mac, dst, src) }
-func (c crypter) Tag(b []byte) []byte   { return c.mac.Tag(b) }
+type decrypter struct {
+	cipher cipher.Cipher
+	mac.State
+}
+
+func (e encrypter) Crypt(dst, src []byte) { XORThenMAC(e.cipher, e.State, dst, src) }
+func (d decrypter) Crypt(dst, src []byte) { MACThenXOR(d.cipher, d.State, dst, src) }
 
 //nolint:errcheck
 func XORThenMAC(cipher cipher.Cipher, mac mac.State, dst, src []byte) {

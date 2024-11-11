@@ -18,31 +18,31 @@ func (s StringBind) Copy() StringBind {
 }
 
 func TestKey(t *testing.T) {
-	id, sk, err := Generate(sign.EDDilithium3)
+	k, sk, err := Generate(sign.EDDilithium3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = id.Verify(id.Key(), id.SelfSignature()); err != nil {
+	if err = k.Verify(k.Key(), k.SelfSignature()); err != nil {
 		t.Fatal(err)
 	}
 
 	exp := time.Now().Add(time.Hour).Unix()
-	_, err = Bind(id, sk, exp, StringBind("karalef"))
+	_, err = Bind(k, sk, exp, StringBind("karalef"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	b, err := Bind(id, sk, exp, StringBind("trash"))
+	bid, err := Bind(k, sk, exp, StringBind("trash"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = id.RevokeBinding(b.ID, sk, "dont wanna see it")
+	err = k.RevokeBinding(bid, sk, "dont wanna see it")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	binds := id.Bindings()
+	binds := k.Bindings()
 	for _, bind := range binds {
 		bind, err := CertificateAs[StringBind](bind)
 		if err != nil {
@@ -50,7 +50,7 @@ func TestKey(t *testing.T) {
 		}
 		data := bind.Data
 		val := bind.Validity()
-		t.Logf("binding %s: %s %s", bind.ID.ShortString(), bind.Type, data)
+		t.Logf("binding %s: %s %s", bind.ID.ID().String(), bind.Type, data)
 		if val.IsRevoked() {
 			t.Logf("revoked at %s because %s", time.Unix(val.Created, 0), val.Reason)
 		} else {

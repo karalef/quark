@@ -1,6 +1,8 @@
 package subkey
 
 import (
+	"errors"
+
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/kem"
@@ -40,7 +42,7 @@ type Subkey struct {
 func (s Subkey) Key() crypto.Key { return s.key }
 
 type model struct {
-	typ            string `msgpack:"type"`
+	Type           string `msgpack:"type"`
 	quark.KeyModel `msgpack:",inline"`
 }
 
@@ -60,16 +62,16 @@ func (s Subkey) Copy() Subkey {
 	return s
 }
 
-func (s Subkey) BindTo(id *quark.Key, sk sign.PrivateKey, expires int64) (quark.Certificate[Subkey], error) {
+func (s Subkey) BindTo(k *quark.Key, sk sign.PrivateKey, expires int64) (quark.CertID, error) {
 	if s.key == nil {
-		return quark.Certificate[Subkey]{}, nil
+		return quark.CertID{}, nil
 	}
-	return quark.Bind(id, sk, expires, s)
+	return quark.Bind(k, sk, expires, s)
 }
 
 func (s Subkey) EncodeMsgpack(enc *pack.Encoder) error {
 	return enc.Encode(model{
-		typ:      s.typ,
+		Type:     s.typ,
 		KeyModel: quark.NewKeyModel(s.key),
 	})
 }
@@ -81,23 +83,26 @@ func (s *Subkey) DecodeMsgpack(dec *pack.Decoder) error {
 		return err
 	}
 	var key crypto.Key
-	if m.typ == TypeKEMKey {
-		key, err = kem.UnpackPublic(m.Algorithm, m.Key)
-	} else {
+	switch m.Type {
+	case TypeSignKey:
 		key, err = sign.UnpackPublic(m.Algorithm, m.Key)
+	case TypeKEMKey:
+		key, err = kem.UnpackPublic(m.Algorithm, m.Key)
+	default:
+		return errors.New("unknown subkey type")
 	}
 	if err != nil {
 		return err
 	}
 	*s = Subkey{
-		typ: m.typ,
+		typ: m.Type,
 		key: key,
 	}
 	return nil
 }
 
 // Bind binds the sign subkey to the key.
-func Bind(id *quark.Key, sk sign.PrivateKey, expires int64, key crypto.Key) (quark.Certificate[Subkey], error) {
+func Bind(k *quark.Key, sk sign.PrivateKey, expires int64, key crypto.Key) (quark.CertID, error) {
 	typ := TypeSignKey
 	if _, ok := key.(kem.PublicKey); ok {
 		typ = TypeKEMKey
@@ -105,7 +110,7 @@ func Bind(id *quark.Key, sk sign.PrivateKey, expires int64, key crypto.Key) (qua
 	return Subkey{
 		typ: typ,
 		key: key,
-	}.BindTo(id, sk, expires)
+	}.BindTo(k, sk, expires)
 }
 
 // FromRaw extracts the public key from a raw certificate.

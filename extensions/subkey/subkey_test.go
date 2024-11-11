@@ -12,11 +12,11 @@ import (
 )
 
 func TestKey(t *testing.T) {
-	id, sk, err := quark.Generate(sign.EDDilithium3)
+	k, sk, err := quark.Generate(sign.EDDilithium3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = id.Verify(id.Key(), id.SelfSignature()); err != nil {
+	if err = k.Verify(k.Key(), k.SelfSignature()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -24,7 +24,7 @@ func TestKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := subkey.Bind(id, sk, time.Now().Add(time.Hour).Unix(), spk)
+	bid, err := subkey.Bind(k, sk, time.Now().Add(time.Hour).Unix(), spk)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,18 +33,18 @@ func TestKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = subkey.Bind(id, sk, time.Now().Add(time.Hour).Unix(), kpk)
+	_, err = subkey.Bind(k, sk, time.Now().Add(time.Hour).Unix(), kpk)
 	if err != nil {
 		t.Fatal(err)
 	}
-	printBindings(id.Bindings(), t)
+	printBindings(k.Bindings(), t)
 
-	_, err = id.RevokeBinding(b.ID, sk, "dont wanna see it")
+	err = k.RevokeBinding(bid, sk, "dont wanna see it")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log()
-	printBindings(id.Bindings(), t)
+	printBindings(k.Bindings(), t)
 }
 
 func printBindings(binds []quark.RawCertificate, t *testing.T) {
@@ -58,7 +58,7 @@ func printBindings(binds []quark.RawCertificate, t *testing.T) {
 			}
 			key = sub.Key()
 		}
-		bindid := bind.ID.ShortString()
+		bindid := bind.ID.ID().String()
 		t.Logf("binding %s: %s %s", bindid, bind.Type, key.ID().String())
 		if bind.Validity().IsRevoked() {
 			t.Logf("revoked at %s because %s",

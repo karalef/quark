@@ -143,7 +143,7 @@ type Validity struct {
 	Created int64 `msgpack:"created"`
 	// expiration time
 	Expires int64 `msgpack:"expires,omitempty"`
-	// revokation reason
+	// revocation reason
 	Reason string `msgpack:"reason,omitempty"`
 }
 

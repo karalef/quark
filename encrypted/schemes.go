@@ -25,6 +25,11 @@ func (s Secret) NewCrypter(sharedSecret []byte) (*Crypter, error) {
 	return NewCrypter(scheme.AEAD(), scheme.DeriveKey(sharedSecret))
 }
 
+func (s Secret) EncodeMsgpack(enc *pack.Encoder) error { return s.Scheme().EncodeMsgpack(enc) }
+func (s *Secret) DecodeMsgpack(dec *pack.Decoder) error {
+	return (*secret.Scheme)(s).DecodeMsgpack(dec)
+}
+
 type PassphraseParams struct {
 	Cost     kdf.Cost
 	Scheme   password.Scheme

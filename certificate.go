@@ -6,24 +6,12 @@ import (
 	"io"
 
 	"github.com/karalef/quark/crypto"
-	"github.com/karalef/quark/crypto/hash"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/pack"
-	"github.com/karalef/quark/pkg/crockford"
 )
 
 // CertID represents a certificate ID.
-type CertID [32]byte
-
-// IsEmpty returns true if the ID is empty.
-func (b CertID) IsEmpty() bool  { return b == CertID{} }
-func (b CertID) String() string { return crockford.Upper.EncodeToString(b[:]) }
-
-// ShortString returns a short string version of the crtificate ID.
-func (b CertID) ShortString() string {
-	str := b.String()
-	return str[:4] + "..." + str[len(str)-4:]
-}
+type CertID = crypto.Fingerprint
 
 // Copier interface.
 type Copier[T any] interface {
@@ -108,7 +96,7 @@ func (c Certificate[Type]) Raw() RawCertificate {
 		ID:        c.ID,
 		Type:      c.Type,
 		Data:      RawCertifyable{Type: c.Type, RawData: b.Bytes()},
-		Signature: c.Signature,
+		Signature: c.Signature.Copy(),
 	}
 }
 
@@ -125,14 +113,13 @@ func (c Certificate[Data]) CheckIntegrity() bool {
 }
 
 // CalcID calculates the certificate ID.
-func (c Certificate[Data]) CalcID() (id CertID) {
-	h := hash.SHA3.New()
-	h.Write([]byte(c.Type))
-	err := pack.EncodeBinary(h, c.Data)
-	if err != nil {
-		panic("unexpected error: " + err.Error())
-	}
-	return CertID(h.Sum(id[:0]))
+func (c Certificate[Data]) CalcID() CertID {
+	return crypto.FingerprintFunc(func(w io.Writer) {
+		w.Write([]byte(c.Type))
+		if err := pack.EncodeBinary(w, c.Data); err != nil {
+			panic("unexpected error: " + err.Error())
+		}
+	})
 }
 
 // SignEncode implements Signable.
@@ -180,7 +167,7 @@ func CertificateAs[T Certifyable[T]](cert RawCertificate) (Certificate[T], error
 	constrained := Certificate[T]{
 		ID:        cert.ID,
 		Type:      cert.Type,
-		Signature: cert.Signature,
+		Signature: cert.Signature.Copy(),
 	}
 	err := pack.DecodeBinary(bytes.NewReader(cert.Data.RawData), &constrained.Data)
 	if err != nil {
