@@ -70,6 +70,25 @@ func (k *Key) CorrespondsTo(sk sign.PrivateKey) bool { return sign.CorrespondsTo
 // SelfSignature returns self-signature.
 func (k *Key) SelfSignature() Signature { return k.self.Copy() }
 
+// Copy creates a full independent copy of the key.
+func (k *Key) Copy() *Key {
+	cp := &Key{
+		pk:             k.pk,
+		bindings:       make(map[CertID]*RawCertificate, len(k.bindings)),
+		certifications: make([]Signature, len(k.certifications)),
+		self:           k.self.Copy(),
+		created:        k.created,
+	}
+	for id, bind := range k.bindings {
+		bcp := bind.Copy()
+		cp.bindings[id] = &bcp
+	}
+	for i, cert := range k.certifications {
+		cp.certifications[i] = cert.Copy()
+	}
+	return cp
+}
+
 // Validity returns key validity.
 func (k *Key) Validity() (int64, Validity) {
 	return k.created, k.self.Validity

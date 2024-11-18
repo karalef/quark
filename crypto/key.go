@@ -76,7 +76,7 @@ type Key interface {
 
 // Corresponds returns true if k1 and k2 have the same fingerprint.
 func Corresponds(k1, k2 Key) bool {
-	return k1.Fingerprint().IsEqual(k2.Fingerprint())
+	return k1.Fingerprint() == k2.Fingerprint()
 }
 
 // key errors.

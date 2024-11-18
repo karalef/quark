@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"crypto/subtle"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -128,11 +127,6 @@ func ParseFingerprint(strFP string) (fp Fingerprint, ok bool) {
 
 // Fingerprint represents the key fingerprint.
 type Fingerprint [FPSize]byte
-
-// IsEqual returns true if fingerprints are equal.
-func (f Fingerprint) IsEqual(o Fingerprint) bool {
-	return subtle.ConstantTimeCompare(f[:], o[:]) == 1
-}
 
 // IsEmpty returns true if fingerprint is empty.
 func (f Fingerprint) IsEmpty() bool { return f == Fingerprint{} }
