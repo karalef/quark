@@ -6,6 +6,7 @@ import (
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/pke"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/scheme"
@@ -69,6 +70,8 @@ func (pk *PublicKey[T]) DecodeMsgpack(dec *pack.Decoder) error {
 		key, err = sign.UnpackPublic(m.Algorithm, m.Key)
 	} else if _, ok := crypto.Key(emtpy).(kem.PublicKey); ok {
 		key, err = kem.UnpackPublic(m.Algorithm, m.Key)
+	} else if _, ok := crypto.Key(emtpy).(pke.PublicKey); ok {
+		key, err = pke.UnpackPublic(m.Algorithm, m.Key)
 	} else {
 		key, err = sign.UnpackPublic(m.Algorithm, m.Key)
 		if err == scheme.ErrUnknownScheme {

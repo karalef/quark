@@ -5,6 +5,7 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/pke"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/pack"
 )
@@ -14,6 +15,9 @@ const CertTypeSignSubkey = quark.CertTypeKey + ".subkey.sign"
 
 // KEM subkey certificate type.
 const CertTypeKEMSubkey = quark.CertTypeKey + ".subkey.kem"
+
+// PKE subkey certificate type.
+const CertTypePKESubkey = quark.CertTypeKey + ".subkey.pke"
 
 // PacketTagSubkey is a subkey packet tag.
 const PacketTagSubkey pack.Tag = 0x06
@@ -38,6 +42,15 @@ func GenerateSign(s sign.Scheme) (*Subkey, sign.PrivateKey, error) {
 // GenerateKEM generates a new KEM subkey.
 func GenerateKEM(s kem.Scheme) (*Subkey, kem.PrivateKey, error) {
 	sk, pk, err := kem.Generate(s, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	return New(pk), sk, nil
+}
+
+// GeneratePKE generates a new PKE subkey.
+func GeneratePKE(s pke.Scheme) (*Subkey, pke.PrivateKey, error) {
+	sk, pk, err := pke.Generate(s, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -104,6 +117,8 @@ func (pk PublicKey) CertType() string {
 		return CertTypeSignSubkey
 	} else if _, ok := k.(kem.PublicKey); ok {
 		return CertTypeKEMSubkey
+	} else if _, ok := k.(pke.PublicKey); ok {
+		return CertTypePKESubkey
 	}
 	panic("unknown key type")
 }

@@ -3,6 +3,7 @@ package quark
 import (
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/pke"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
 	"github.com/karalef/quark/pack"
@@ -71,7 +72,7 @@ func (k *PrivateKey[_]) DecryptKey(passphrase string) (crypto.Key, error) {
 	return k.Key.DecryptKey(crypter)
 }
 
-// Decrypt decrypts the sign key with the given passphrase.
+// DecryptSign decrypts the sign key with the given passphrase.
 func (k *PrivateKey[_]) DecryptSign(passphrase string) (sign.PrivateKey, error) {
 	crypter, err := k.Passphrase.NewCrypter(passphrase)
 	if err != nil {
@@ -80,11 +81,20 @@ func (k *PrivateKey[_]) DecryptSign(passphrase string) (sign.PrivateKey, error) 
 	return k.Key.DecryptSign(crypter)
 }
 
-// Decrypt decrypts the KEM key with the given passphrase.
+// DecryptKEM decrypts the KEM key with the given passphrase.
 func (k *PrivateKey[_]) DecryptKEM(passphrase string) (kem.PrivateKey, error) {
 	crypter, err := k.Passphrase.NewCrypter(passphrase)
 	if err != nil {
 		return nil, err
 	}
 	return k.Key.DecryptKEM(crypter)
+}
+
+// DecryptPKE decrypts the PKE key with the given passphrase.
+func (k *PrivateKey[_]) DecryptPKE(passphrase string) (pke.PrivateKey, error) {
+	crypter, err := k.Passphrase.NewCrypter(passphrase)
+	if err != nil {
+		return nil, err
+	}
+	return k.Key.DecryptPKE(crypter)
 }

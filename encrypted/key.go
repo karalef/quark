@@ -5,6 +5,7 @@ import (
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/pke"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/scheme"
 )
@@ -82,6 +83,8 @@ func (k *Key[T]) Decrypt(crypter *Crypter) (key T, err error) {
 		unpacked, err = sign.UnpackPrivate(k.Algorithm, material)
 	} else if _, ok := crypto.Key(key).(kem.PrivateKey); ok {
 		unpacked, err = kem.UnpackPrivate(k.Algorithm, material)
+	} else if _, ok := crypto.Key(key).(pke.PrivateKey); ok {
+		unpacked, err = pke.UnpackPrivate(k.Algorithm, material)
 	} else {
 		unpacked, err = k.unpackAny(material)
 	}
@@ -98,6 +101,9 @@ func (s *Key[_]) unpackAny(material []byte) (crypto.Key, error) {
 	if k, err := kem.UnpackPrivate(s.Algorithm, material); err == nil {
 		return k, nil
 	}
+	if k, err := pke.UnpackPrivate(s.Algorithm, material); err == nil {
+		return k, nil
+	}
 	return nil, scheme.ErrUnknownScheme
 }
 
@@ -110,7 +116,7 @@ func (s *Key[_]) DecryptKey(crypter *Crypter) (crypto.Key, error) {
 	return s.unpackAny(material)
 }
 
-// Decrypt decrypts the sign key with the given crypter.
+// DecryptSign decrypts the sign key with the given crypter.
 func (s *Key[_]) DecryptSign(crypter *Crypter) (sign.PrivateKey, error) {
 	material, err := s.DecryptMaterial(crypter)
 	if err != nil {
@@ -119,11 +125,20 @@ func (s *Key[_]) DecryptSign(crypter *Crypter) (sign.PrivateKey, error) {
 	return sign.UnpackPrivate(s.Algorithm, material)
 }
 
-// Decrypt decrypts the KEM key with the given crypter.
+// DecryptKEM decrypts the KEM key with the given crypter.
 func (s *Key[_]) DecryptKEM(crypter *Crypter) (kem.PrivateKey, error) {
 	material, err := s.DecryptMaterial(crypter)
 	if err != nil {
 		return nil, err
 	}
 	return kem.UnpackPrivate(s.Algorithm, material)
+}
+
+// DecryptPKE decrypts the PKE key with the given crypter.
+func (s *Key[_]) DecryptPKE(crypter *Crypter) (pke.PrivateKey, error) {
+	material, err := s.DecryptMaterial(crypter)
+	if err != nil {
+		return nil, err
+	}
+	return pke.UnpackPrivate(s.Algorithm, material)
 }
