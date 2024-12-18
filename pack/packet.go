@@ -2,6 +2,7 @@ package pack
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -12,9 +13,6 @@ type Packable interface {
 
 // Packet is a binary packet.
 type Packet[T any] struct {
-	//nolint:unused
-	_msgpack struct{} `msgpack:",as_array"`
-
 	Tag    Tag
 	Object T
 }
@@ -71,8 +69,8 @@ func RegisterPacketType(typ PacketType) {
 		panic("block type cannot be empty")
 	}
 
-	if _, ok := tagToType[typ.Tag]; ok {
-		panic("duplicate tag")
+	if reged, ok := tagToType[typ.Tag]; ok {
+		panic(fmt.Sprintf("pack: duplicate tag 0x%x (%s); already registered as %s", typ.Tag, typ.Name, reged.Name))
 	}
 
 	tagToType[typ.Tag] = typ
