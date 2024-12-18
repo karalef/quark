@@ -8,7 +8,7 @@ import (
 )
 
 // PacketTagMessage is a message packet tag.
-const PacketTagMessage = 0x03
+const PacketTagMessage = 0x05
 
 func init() {
 	pack.RegisterPacketType(pack.NewType(
@@ -21,8 +21,8 @@ func init() {
 // Header contains the signature information and encryption parameters.
 // It also contains the file info.
 type Header struct {
-	// If not empty, message is signed.
-	Sender crypto.ID `msgpack:"sender,omitempty"`
+	// Message sender.
+	Sender crypto.Fingerprint `msgpack:"sender,omitempty"`
 
 	// Time of the message creation.
 	Time int64 `msgpack:"time,omitempty"`
@@ -37,17 +37,14 @@ type Header struct {
 	File FileInfo `msgpack:"file,omitempty"`
 }
 
-// IsSigned returns true if message is signed.
-func (h Header) IsSigned() bool { return !h.Sender.IsEmpty() }
-
 // IsEncrypted returns true if message is encrypted.
 func (h Header) IsEncrypted() bool { return h.Encryption != nil }
 
 // IsEncapsulated returns true if message is encrypted using key encapsulation mechanism.
-func (h Header) IsEncapsulated() bool { return h.IsEncrypted() && !h.Encryption.ID.IsEmpty() }
+func (h Header) IsEncapsulated() bool { return h.IsEncrypted() && !h.Encryption.Recepient.IsEmpty() }
 
 // IsPassphrased returns true if message is encrypted using password-based symmetric encryption.
-func (h Header) IsPassphrased() bool { return h.IsEncrypted() && h.Encryption.ID.IsEmpty() }
+func (h Header) IsPassphrased() bool { return h.IsEncrypted() && h.Encryption.Recepient.IsEmpty() }
 
 // IsCompressed returns true if message is compressed.
 func (h Header) IsCompressed() bool { return h.Compression != nil }

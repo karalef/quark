@@ -16,7 +16,7 @@ import (
 // It can be counter, random generator, something hybrid or whatever.
 type NonceSource interface {
 	// Size returns the nonce size in bytes.
-	Size() uint8
+	Size() int
 
 	// Next return the next nonce and true if successful.
 	// Returns false if the next nonce may repeat the previous one.
@@ -24,8 +24,8 @@ type NonceSource interface {
 }
 
 // NewCounter creates a new nonce source which increments the value by 1.
-func NewCounter(size uint8) *Counter {
-	if size == 0 {
+func NewCounter(size int) *Counter {
+	if size < 1 {
 		panic(aead.ErrNonceSize)
 	}
 	return &Counter{
@@ -40,12 +40,12 @@ var _ NonceSource = (*Counter)(nil)
 type Counter struct {
 	value *big.Int
 	mut   sync.Mutex
-	size  uint8
+	size  int
 }
 
 var one = big.NewInt(1)
 
-func (n *Counter) Size() uint8 { return n.size }
+func (n *Counter) Size() int { return n.size }
 
 func (n *Counter) Next() ([]byte, bool) {
 	nonce := make([]byte, n.size)
@@ -61,7 +61,10 @@ func (n *Counter) Next() ([]byte, bool) {
 
 // NewRandomNonce creates a new nonce source that generates random bytes.
 // Uses rand.Reader if rnd is nil.
-func NewRandomNonce(size uint8, rnd io.Reader) *Random {
+func NewRandomNonce(size int, rnd io.Reader) *Random {
+	if size < 1 {
+		panic(aead.ErrNonceSize)
+	}
 	if rnd == nil {
 		rnd = rand.Reader
 	}
@@ -76,16 +79,16 @@ var _ NonceSource = (*Random)(nil)
 // Random is a nonce source that generates random bytes.
 type Random struct {
 	rand io.Reader
-	size uint8
+	size int
 	mut  sync.Mutex
 }
 
-func (r *Random) Size() uint8 { return r.size }
+func (r *Random) Size() int { return r.size }
 
 func (r *Random) Next() ([]byte, bool) {
 	nonce := make([]byte, r.size)
 	r.mut.Lock()
-	if _, err := r.rand.Read(nonce); err != nil {
+	if _, err := io.ReadFull(r.rand, nonce); err != nil {
 		panic(err)
 	}
 	r.mut.Unlock()
@@ -94,9 +97,9 @@ func (r *Random) Next() ([]byte, bool) {
 
 // NewLFSRNonce creates a new nonce source that uses LFSR.
 // If seed is 0, it will be obtained from crypto/rand.
-func NewLFSRNonce(size uint8, seed uint64) *LFSR {
-	if size == 0 {
-		panic("invalid nonce size")
+func NewLFSRNonce(size int, seed uint64) *LFSR {
+	if size < 1 {
+		panic(aead.ErrNonceSize)
 	}
 	if seed == 0 {
 		seed = crypto.RandUint64()
@@ -126,12 +129,12 @@ var _ NonceSource = (*LFSR)(nil)
 // LFSR is a nonce source that uses LFSR.
 type LFSR struct {
 	lfsr lfsr.Bytes
-	size uint8
+	size int
 	bs   int
 	mut  sync.Mutex
 }
 
-func (l *LFSR) Size() uint8 { return l.size }
+func (l *LFSR) Size() int { return l.size }
 
 func (l *LFSR) Next() ([]byte, bool) {
 	nonce := make([]byte, l.size)
@@ -145,12 +148,14 @@ func (l *LFSR) Next() ([]byte, bool) {
 	return nonce, true
 }
 
+var _ NonceSource = Nonce(nil)
+
 // Nonce is a single nonce.
 // It is used to encrypt only one data where the NonceSource is needed.
 // It never copies the nonce and always returns true.
 type Nonce []byte
 
-func (n Nonce) Size() uint8          { return uint8(len(n)) }
+func (n Nonce) Size() int            { return len(n) }
 func (n Nonce) Next() ([]byte, bool) { return n, true }
 
 // ErrNonceSourceOverflow is returned when the nonce source overflows.

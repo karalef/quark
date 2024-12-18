@@ -1,13 +1,13 @@
-package key_test
+package encrypted_test
 
 import (
 	"testing"
 
 	"github.com/karalef/quark/crypto/aead"
+	"github.com/karalef/quark/crypto/hash"
 	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
-	"github.com/karalef/quark/encrypted/key"
 	"github.com/karalef/quark/encrypted/password"
 )
 
@@ -24,15 +24,15 @@ var testKeys = func() []sign.PrivateKey {
 }()
 
 var passParams = encrypted.PassphraseParams{
-	Scheme:   password.Build(aead.ChaCha20Poly1305, kdf.Argon2i),
-	Cost:     &kdf.Argon2Cost{Time: 1, Memory: 1024, Threads: 1},
+	Scheme:   password.Build(aead.ChaCha20Poly1305, kdf.FromHash(hash.SHA256)),
+	Cost:     kdf.NewNoCost(),
 	SaltSize: 16,
 }
 
 func TestEncrypter(t *testing.T) {
-	subs := make([]key.Sub, len(testKeys))
+	subs := make([]encrypted.Key[sign.PrivateKey], len(testKeys))
 	pass := passParams.New()
-	enc, err := key.NewEncrypter("password", nil, pass)
+	enc, err := encrypted.NewKeyEncrypter[sign.PrivateKey]("password", nil, pass)
 	if err != nil {
 		t.Fatal(err)
 	}

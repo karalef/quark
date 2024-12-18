@@ -14,7 +14,7 @@ import (
 type Encryption struct {
 	// key id used for encapsulation.
 	// If id is empty, only password-based symmetric encryption is used
-	ID crypto.ID `msgpack:"id,omitempty"`
+	Recepient crypto.Fingerprint `msgpack:"id,omitempty"`
 
 	// nonce
 	Nonce []byte `msgpack:"nonce"`
@@ -27,7 +27,7 @@ type Encryption struct {
 }
 
 // IsEncapsulated returns true if there is encapsulated shared secret.
-func (e *Encryption) IsEncapsulated() bool { return !e.ID.IsEmpty() }
+func (e *Encryption) IsEncapsulated() bool { return !e.Recepient.IsEmpty() }
 
 // Encapsulate generates and encapsulates a shared secret and creates an authenticated stream cipher.
 func Encapsulate(scheme secret.Scheme, recipient kem.PublicKey, associatedData []byte) (aead.Cipher, *Encryption, error) {
@@ -48,7 +48,7 @@ func Encapsulate(scheme secret.Scheme, recipient kem.PublicKey, associatedData [
 	}
 
 	return aead, &Encryption{
-		ID:        recipient.ID(),
+		Recepient: recipient.Fingerprint(),
 		Nonce:     nonce,
 		Symmetric: sym,
 		Secret:    ciphertext,
@@ -79,7 +79,7 @@ func (e *Encryption) Decapsulate(recipient kem.PrivateKey, ad []byte) (aead.Ciph
 	if !e.IsEncapsulated() {
 		return nil, errors.New("there is no encapsulated shared secret")
 	}
-	if e.ID != recipient.ID() {
+	if e.Recepient != recipient.Fingerprint() {
 		return nil, errors.New("wrong recipient")
 	}
 	sharedSecret, err := recipient.Decapsulate(e.Secret)

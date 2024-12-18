@@ -5,6 +5,9 @@ import (
 	"github.com/karalef/quark/crypto/xof"
 )
 
+// NewNoCost creates a new NoCost.
+func NewNoCost() Cost { return (*NoCost)(nil) }
+
 // NoCost is used for not configurable KDFs.
 type NoCost struct{}
 

@@ -38,13 +38,18 @@ type PassphraseParams struct {
 
 func (p PassphraseParams) New() Passphrase { return NewPassphrase(p) }
 
-// NewPassphrase creates a new Passphrase with the given scheme, cost and salt size.
+// NewPassphrase creates a new Passphrase with the given passphrase parameters.
 func NewPassphrase(p PassphraseParams) Passphrase {
 	return Passphrase{
 		Scheme: p.Scheme,
 		Salt:   crypto.Rand(p.SaltSize),
 		Cost:   p.Cost,
 	}
+}
+
+// NewPassphraseFrom creates a new Passphrase with the given scheme, cost and salt size.
+func NewPassphraseFrom(scheme password.Scheme, cost kdf.Cost, saltSize int) Passphrase {
+	return NewPassphrase(PassphraseParams{Scheme: scheme, Cost: cost, SaltSize: saltSize})
 }
 
 // Passphrase contains passphrase-based encryption parameters.

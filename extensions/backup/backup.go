@@ -3,14 +3,12 @@ package backup
 import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto"
-	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
-	"github.com/karalef/quark/encrypted/key"
 	"github.com/karalef/quark/pack"
 )
 
 // PacketTagBackup is a backup packet tag.
-const PacketTagBackup = 0x04
+const PacketTagBackup = 0x07
 
 func init() {
 	pack.RegisterPacketType(pack.NewType((*Backup)(nil), "backup", "QUARK BACKUP"))
@@ -19,8 +17,8 @@ func init() {
 // BackupData contains backup data.
 type BackupData struct {
 	Key     *quark.Key
-	Secret  sign.PrivateKey
-	Subkeys []crypto.Key
+	Certs   []quark.Any
+	Secrets []crypto.Key
 }
 
 // New creates a new backup and encrypts it with the given passphrase.
@@ -29,25 +27,18 @@ func New(data BackupData,
 	source encrypted.NonceSource,
 	params encrypted.PassphraseParams,
 ) (*Backup, error) {
-	pass := params.New()
-	enc, err := key.NewEncrypter(passphrase, source, pass)
-	if err != nil {
-		return nil, err
-	}
-	sec, err := enc.Encrypt(data.Secret)
-	if err != nil {
-		return nil, err
-	}
 	b := &Backup{
-		Key:     data.Key,
-		Subkeys: make([]key.Sub, len(data.Subkeys)),
-		Secret: key.Key{
-			Passphrase: pass,
-			Sub:        sec,
-		},
+		Key:        data.Key,
+		Certs:      data.Certs,
+		Secrets:    make([]encrypted.Key[crypto.Key], len(data.Secrets)),
+		Passphrase: params.New(),
 	}
-	for i, sub := range data.Subkeys {
-		b.Subkeys[i], err = enc.Encrypt(sub)
+	enc, err := encrypted.NewKeyEncrypter[crypto.Key](passphrase, source, b.Passphrase)
+	if err != nil {
+		return nil, err
+	}
+	for i, sub := range data.Secrets {
+		b.Secrets[i], err = enc.Encrypt(sub)
 		if err != nil {
 			return nil, err
 		}
@@ -57,9 +48,10 @@ func New(data BackupData,
 
 // Backup contains the key with encrypted private keys.
 type Backup struct {
-	Key     *quark.Key `msgpack:"key"`
-	Subkeys []key.Sub  `msgpack:"subkeys"`
-	Secret  key.Key    `msgpack:"secret"`
+	Key        *quark.Key                  `msgpack:"key"`
+	Certs      []quark.Any                 `msgpack:"certs"`
+	Passphrase encrypted.Passphrase        `msgpack:"passphrase"`
+	Secrets    []encrypted.Key[crypto.Key] `msgpack:"secret"`
 }
 
 // PacketTag returns the packet tag.
@@ -67,26 +59,20 @@ func (*Backup) PacketTag() pack.Tag { return PacketTagBackup }
 
 // Decrypt decrypts the backup with the given passphrase.
 func (b Backup) Decrypt(passphrase string) (BackupData, error) {
-	crypter, err := b.Secret.Passphrase.NewCrypter(passphrase)
+	crypter, err := b.Passphrase.NewCrypter(passphrase)
 	if err != nil {
 		return BackupData{}, err
 	}
-	secret, err := b.Secret.Sub.DecryptSign(crypter)
-	if err != nil {
-		return BackupData{}, err
-	}
-
-	subkeys := make([]crypto.Key, len(b.Subkeys))
-	for i, sub := range b.Subkeys {
-		key, err := sub.DecryptKey(crypter)
+	secrets := make([]crypto.Key, len(b.Secrets))
+	for i, sub := range b.Secrets {
+		secrets[i], err = sub.DecryptKey(crypter)
 		if err != nil {
 			return BackupData{}, err
 		}
-		subkeys[i] = key
 	}
 	return BackupData{
 		Key:     b.Key,
-		Secret:  secret,
-		Subkeys: subkeys,
+		Certs:   b.Certs,
+		Secrets: secrets,
 	}, nil
 }

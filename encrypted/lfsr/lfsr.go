@@ -61,7 +61,7 @@ func New16(seed uint16) *Lfsr16 { return &Lfsr16{seed, seed} }
 
 var _ LFSR[uint16] = (*Lfsr16)(nil)
 
-// Lfsr16 represents an 16-bit lfsr.
+// Lfsr16 represents a 16-bit lfsr.
 type Lfsr16 struct {
 	state, seed uint16
 }
@@ -94,7 +94,7 @@ func New32(seed uint32) *Lfsr32 { return &Lfsr32{seed, seed} }
 
 var _ LFSR[uint32] = (*Lfsr32)(nil)
 
-// Lfsr32 represents an 32 bit linear feedback shift register
+// Lfsr32 represents a 32-bit lfsr.
 type Lfsr32 struct {
 	state, seed uint32
 }
@@ -127,7 +127,7 @@ func New64(seed uint64) *Lfsr64 { return &Lfsr64{seed, seed} }
 
 var _ LFSR[uint64] = (*Lfsr64)(nil)
 
-// Lfsr64 represents a 64 bit linear feedback shift register
+// Lfsr64 represents a 64-bit lfsr.
 type Lfsr64 struct {
 	state, seed uint64
 }

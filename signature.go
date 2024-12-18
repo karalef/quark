@@ -17,8 +17,7 @@ type Signable interface {
 // SignObject signs the object.
 func SignObject(sk sign.PrivateKey, v Validity, obj Signable) (Signature, error) {
 	signer := Sign(sk)
-	err := obj.SignEncode(signer)
-	if err != nil {
+	if err := obj.SignEncode(signer); err != nil {
 		return Signature{}, err
 	}
 	return signer.Sign(v)
@@ -51,25 +50,34 @@ func (s *Signer) Sign(v Validity) (Signature, error) {
 	if err := v.Validate(); err != nil {
 		return Signature{}, err
 	}
-	v.signEncode(s.Signer)
+	v.SignEncode(s.Signer)
 	s.sig.Validity = v
 	s.sig.Signature = s.Signer.Sign()
 	return s.sig, nil
 }
 
-// MarshalTime encodes a unix time into a byte array.
-func MarshalTime(time int64) []byte {
-	var binTime [8]byte
-	binary.LittleEndian.PutUint64(binTime[:], uint64(time))
-	return binTime[:]
+// ErrUnixNegative is returned when the unix time is negative.
+var ErrUnixNegative = errors.New("unix time is negative")
+
+// EncodeTime encodes a unix time into a byte slice.
+// Panics if time is negative.
+func EncodeTime(time int64) []byte {
+	if time < 0 {
+		panic(ErrUnixNegative)
+	}
+	var binTime [binary.MaxVarintLen64]byte
+	return binTime[:binary.PutVarint(binTime[:], time)]
 }
 
 // Signature represents a signature.
 type Signature struct {
-	Validity  Validity           `msgpack:"validity"`
 	Signature []byte             `msgpack:"sig"`
+	Validity  Validity           `msgpack:"validity"`
 	Issuer    crypto.Fingerprint `msgpack:"issuer"`
 }
+
+// IsRevoked returns true if the signature is revoked.
+func (s Signature) IsRevoked() bool { return s.Validity.IsRevoked() }
 
 // Copy returns a copy of the signature.
 func (s Signature) Copy() Signature {
@@ -95,8 +103,7 @@ func (s Signature) Validate() error {
 // VerifyObject verifies the signature.
 func (s Signature) VerifyObject(pk sign.PublicKey, obj Signable) (bool, error) {
 	verifier := Verify(pk)
-	err := obj.SignEncode(verifier)
-	if err != nil {
+	if err := obj.SignEncode(verifier); err != nil {
 		return false, err
 	}
 	return verifier.Verify(s)
@@ -104,14 +111,10 @@ func (s Signature) VerifyObject(pk sign.PublicKey, obj Signable) (bool, error) {
 
 // Verify creates a Verifier.
 // It is used if the signature is not available before the message is read.
-func Verify(pk sign.PublicKey) *Verifier {
-	return &Verifier{pk.Verify()}
-}
+func Verify(pk sign.PublicKey) *Verifier { return &Verifier{pk.Verify()} }
 
 // Verifier represents a signature verification state.
-type Verifier struct {
-	sign.Verifier
-}
+type Verifier struct{ sign.Verifier }
 
 // Verify checks whether the given signature is a valid signature set by
 // the private key corresponding to the specified public key on the
@@ -121,11 +124,12 @@ func (v *Verifier) Verify(sig Signature) (bool, error) {
 	if err := sig.Validate(); err != nil {
 		return false, err
 	}
-	sig.Validity.signEncode(v.Verifier)
+	sig.Validity.SignEncode(v.Verifier)
 	return v.Verifier.Verify(sig.Signature)
 }
 
 // NewValidity creates a new Validity.
+// Panics if the validity has incorrect values.
 func NewValidity(created, expires int64) Validity {
 	v := Validity{
 		Created: created,
@@ -139,23 +143,28 @@ func NewValidity(created, expires int64) Validity {
 
 // Validity contains the signature validity.
 type Validity struct {
+	// revocation reason
+	Reason string `msgpack:"reason,omitempty"`
+	// revocation time
+	Revoked int64 `msgpack:"revoked,omitempty"`
 	// creation time
 	Created int64 `msgpack:"created"`
 	// expiration time
 	Expires int64 `msgpack:"expires,omitempty"`
-	// revocation reason
-	Reason string `msgpack:"reason,omitempty"`
 }
 
+// SignEncode writes the validity to the sign writer.
+//
 //nolint:errcheck
-func (v Validity) signEncode(w io.Writer) {
-	w.Write(MarshalTime(v.Created))
-	w.Write(MarshalTime(v.Expires))
+func (v Validity) SignEncode(w io.Writer) {
+	w.Write(EncodeTime(v.Created))
+	w.Write(EncodeTime(v.Expires))
+	w.Write(EncodeTime(v.Revoked))
 	io.WriteString(w, v.Reason)
 }
 
 // IsRevoked returns true if the validity is revoked.
-func (v Validity) IsRevoked() bool { return v.Reason != "" }
+func (v Validity) IsRevoked() bool { return v.Revoked > 0 || v.Reason != "" }
 
 // IsExpired returns true if the validity is expired.
 func (v Validity) IsExpired(t int64) bool { return v.Expires > 0 && v.Expires <= t }
@@ -163,19 +172,31 @@ func (v Validity) IsExpired(t int64) bool { return v.Expires > 0 && v.Expires <=
 // IsValid returns true if the validity neither expired nor revoked.
 func (v Validity) IsValid(t int64) bool { return !v.IsRevoked() && !v.IsExpired(t) }
 
-// Revoke returns a revoked copy of the validity.
+// Revokes returns the revoked copy of the signature.
+// Does nothing is the validity is already revoked.
 func (v Validity) Revoke(t int64, reason string) Validity {
-	v.Created = t
-	v.Reason = reason
+	if !v.IsRevoked() {
+		v.Revoked = t
+		v.Reason = reason
+	}
 	return v
 }
 
 // Validate returns an error if the validity has incorrect values.
 func (v Validity) Validate() error {
-	if v.Created < 0 || v.Expires < 0 {
-		return errors.New("unix time is negative")
+	if v.Created < 0 || v.Expires < 0 || v.Revoked < 0 {
+		return ErrUnixNegative
 	} else if v.Expires > 0 && v.Expires < v.Created {
 		return errors.New("invalid expiration time")
+	} else if v.Revoked > 0 && v.Revoked < v.Created {
+		return errors.New("invalid revocation time")
 	}
 	return nil
 }
+
+// validity errors.
+var (
+	ErrExpired          = errors.New("signature is expired")
+	ErrRevoked          = errors.New("signature is revoked")
+	ErrExpiredOrRevoked = errors.New("signature is expired or revoked")
+)

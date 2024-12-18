@@ -166,7 +166,7 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 }
 
 func signMessage(sender sign.PrivateKey, msg *Message, expiry int64) error {
-	msg.Header.Sender = sender.ID()
+	msg.Header.Sender = sender.Fingerprint()
 	msg.Data.Reader = messageSigner{
 		r:      msg.Data.Reader,
 		msg:    msg,

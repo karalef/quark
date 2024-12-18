@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
@@ -16,7 +15,7 @@ import (
 )
 
 func TestMessage(t *testing.T) {
-	_, sk, ksk, kpk, err := test_create(sign.EDDilithium3, kem.Kyber768)
+	sk, ksk, kpk, err := test_create(sign.EDDilithium3, kem.Kyber768)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,16 +80,14 @@ func TestMessage(t *testing.T) {
 	t.Log(receivedPlaintext.String())
 }
 
-func test_create(scheme sign.Scheme, kemScheme kem.Scheme) (*quark.Key, sign.PrivateKey, kem.PrivateKey, kem.PublicKey, error) {
-	id, sk, err := quark.Generate(scheme)
+func test_create(scheme sign.Scheme, kemScheme kem.Scheme) (sign.PrivateKey, kem.PrivateKey, kem.PublicKey, error) {
+	sk, _, err := sign.Generate(scheme, nil)
 	if err != nil {
-		return id, sk, nil, nil, err
+		return sk, nil, nil, err
 	}
-
 	ksk, kpk, err := kem.Generate(kemScheme, nil)
 	if err != nil {
-		return id, sk, nil, nil, err
+		return sk, nil, nil, err
 	}
-
-	return id, sk, ksk, kpk, nil
+	return sk, ksk, kpk, nil
 }

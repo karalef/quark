@@ -33,7 +33,7 @@ func (s falconScheme) DeriveKey(seed []byte) (PrivateKey, PublicKey, error) {
 	}
 	pk := &falconPubKey{crypto.NewKeyID((*falconPublicKey)(&pub))}
 	sk := falconPrivateKey{priv, falconPublicKey(pub)}
-	return &falconPrivKey{sk, pk}, pk, nil
+	return &falconPrivKey{pk, sk}, pk, nil
 }
 
 func (s falconScheme) UnpackPublic(key []byte) (PublicKey, error) {
@@ -88,14 +88,14 @@ func (priv *falconPrivateKey) Sign(msg []byte) []byte {
 var _ PrivateKey = (*falconPrivKey)(nil)
 
 type falconPrivKey struct {
-	falconPrivateKey
 	pub *falconPubKey
+	falconPrivateKey
 }
 
-func (priv *falconPrivKey) ID() crypto.ID                   { return priv.pub.ID() }
-func (priv *falconPrivKey) Fingerprint() crypto.Fingerprint { return priv.pub.Fingerprint() }
-func (priv *falconPrivKey) Scheme() crypto.Scheme           { return priv.pub.Scheme() }
-func (priv *falconPrivKey) Public() PublicKey               { return priv.pub }
+func (priv falconPrivKey) ID() crypto.ID                   { return priv.pub.ID() }
+func (priv falconPrivKey) Fingerprint() crypto.Fingerprint { return priv.pub.Fingerprint() }
+func (priv falconPrivKey) Scheme() crypto.Scheme           { return priv.pub.Scheme() }
+func (priv falconPrivKey) Public() PublicKey               { return priv.pub }
 
 func (priv *falconPrivKey) Equal(p PrivateKey) bool {
 	if p == nil {
@@ -114,7 +114,7 @@ func (priv *falconPrivKey) Equal(p PrivateKey) bool {
 	return priv.falconPrivateKey.Equal(&pk.falconPrivateKey)
 }
 
-func (priv *falconPrivKey) Sign() Signer {
+func (priv falconPrivKey) Sign() Signer {
 	return stream.StreamSigner(&priv.falconPrivateKey, hash.SHA3_512)
 }
 
