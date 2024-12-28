@@ -5,7 +5,6 @@ import (
 
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/mac"
-	"github.com/karalef/quark/encrypted/secret"
 )
 
 // Data contains encrypted data.
@@ -13,33 +12,6 @@ type Data struct {
 	Nonce []byte `msgpack:"nonce"`
 	Data  []byte `msgpack:"data"`
 	Tag   []byte `msgpack:"tag"`
-}
-
-// NewSecret creates a new Symmetric with the given secret scheme.
-func New(scheme secret.Scheme) Symmetric {
-	return Symmetric{Secret: (*Secret)(&scheme)}
-}
-
-// NewWithPassphrase creates a new Symmetric with the given password scheme.
-func NewWithPassphrase(p PassphraseParams) Symmetric {
-	pass := NewPassphrase(p)
-	return Symmetric{Passphrase: &pass}
-}
-
-// Symmetric contains parameters for symmetric encryption based on key derivation.
-type Symmetric struct {
-	Passphrase *Passphrase `msgpack:"passphrase,omitempty"`
-	Secret     *Secret     `msgpack:"secret,omitempty"`
-}
-
-// NewCrypter creates a new Crypter with the given shared secret.
-func (s Symmetric) NewCrypter(sharedSecret []byte) (*Crypter, error) {
-	return s.Secret.NewCrypter(sharedSecret)
-}
-
-// NewPassphraseCrypter creates a new Crypter with the given passphrase.
-func (s Symmetric) NewPassphraseCrypter(passphrase string) (*Crypter, error) {
-	return s.Passphrase.NewCrypter(passphrase)
 }
 
 // NewCrypter creates a new AEAD crypter.

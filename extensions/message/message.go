@@ -31,7 +31,7 @@ type Header struct {
 	Encryption *Encryption `msgpack:"encryption,omitempty"`
 
 	// If not nil, message is compressed.
-	Compression *Compression `msgpack:"compression,omitempty"`
+	Compression *compress.Algorithm `msgpack:"compression,omitempty"`
 
 	// File info.
 	File FileInfo `msgpack:"file,omitempty"`
@@ -40,37 +40,11 @@ type Header struct {
 // IsEncrypted returns true if message is encrypted.
 func (h Header) IsEncrypted() bool { return h.Encryption != nil }
 
-// IsEncapsulated returns true if message is encrypted using key encapsulation mechanism.
-func (h Header) IsEncapsulated() bool { return h.IsEncrypted() && !h.Encryption.Recepient.IsEmpty() }
-
-// IsPassphrased returns true if message is encrypted using password-based symmetric encryption.
-func (h Header) IsPassphrased() bool { return h.IsEncrypted() && h.Encryption.Recepient.IsEmpty() }
-
 // IsCompressed returns true if message is compressed.
 func (h Header) IsCompressed() bool { return h.Compression != nil }
 
 // IsFile returns true if message contains file info.
 func (h Header) IsFile() bool { return h.File != FileInfo{} }
-
-// Compression represents compression algorithm.
-type Compression struct {
-	compress.Compression
-}
-
-// EncodeMsgpack implements pack.CustomEncoder interface.
-func (c Compression) EncodeMsgpack(enc *pack.Encoder) error {
-	return enc.EncodeString(c.Name())
-}
-
-// DecodeMsgpack implements pack.CustomDecoder interface.
-func (c *Compression) DecodeMsgpack(dec *pack.Decoder) error {
-	name, err := dec.DecodeString()
-	if err != nil {
-		return err
-	}
-	c.Compression, err = compress.ByName(name)
-	return err
-}
 
 // FileInfo contains the file info.
 type FileInfo struct {

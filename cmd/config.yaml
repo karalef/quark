@@ -1,0 +1,27 @@
+cipher: ChaCha20_Poly1305
+kdf:
+    default: Argon2i
+    argon2i:
+        time: 1
+        memory: 16384
+        threads: 8
+    scrypt:
+        "n": 32768
+        r: 8
+        p: 1
+    argon2id:
+        time: 1
+        memory: 16384
+        threads: 8
+    salt_size: 16
+messages:
+    xof: BLAKE3x
+    compression:
+        algorithm: lz4
+        threads: 8
+local:
+    kdf:
+        argon2i:
+            time: 2
+            memory: 1048576
+            threads: 8

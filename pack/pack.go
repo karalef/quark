@@ -9,6 +9,41 @@ import (
 // MAGIC is a magic bytes.
 const MAGIC = "QUARK"
 
+// NewHeader creates a new packet header.
+func NewHeader(tag Tag) Header {
+	var h Header
+	copy(h[:5], []byte(MAGIC))
+	h[5] = byte(tag)
+	return h
+}
+
+// Header is a packet header.
+type Header [6]byte
+
+// Tag extracts the tag from the header.
+func (h Header) Tag() Tag { return Tag(h[5]) }
+
+// WriteTo writes the header to the writer.
+func (h Header) WriteTo(w io.Writer) (int64, error) {
+	n, err := w.Write(h[:])
+	return int64(n), err
+}
+
+// ReadFrom reads the header from the reader.
+func (h Header) ReadFrom(r io.Reader) (int64, error) {
+	n, err := io.ReadFull(r, h[:])
+	return int64(n), err
+}
+
+// Validate checks if the header is valid.
+func (h Header) Validate() error {
+	if string(h[:5]) != MAGIC {
+		return ErrMagic
+	}
+	_, err := h.Tag().Type()
+	return err
+}
+
 // ErrMagic is returned when the magic bytes are wrong.
 var ErrMagic = errors.New("wrong magic bytes")
 
@@ -19,10 +54,7 @@ func Pack(out io.Writer, v Packable) error {
 		return err
 	}
 
-	var header [6]byte
-	copy(header[:5], []byte(MAGIC))
-	header[5] = byte(tag)
-	if _, err := out.Write(header[:]); err != nil {
+	if _, err := NewHeader(tag).WriteTo(out); err != nil {
 		return err
 	}
 
@@ -42,20 +74,15 @@ func PackArmored(out io.Writer, v Packable, headers map[string]string) error {
 // DecodePacket decodes the packet header from binary format.
 // Returns RawPacket even if the tag is unknown (with ErrUnknownTag error).
 func DecodePacket(in io.Reader) (*RawPacket, error) {
-	var header [6]byte
-	if _, err := io.ReadFull(in, header[:]); err != nil {
+	var header Header
+	if _, err := header.ReadFrom(in); err != nil {
 		return nil, err
 	}
-	if string(header[:5]) != MAGIC {
-		return nil, ErrMagic
-	}
 
-	tag := Tag(header[5])
-	_, err := tag.Type()
 	return &RawPacket{
-		Tag:    tag,
+		Tag:    header.Tag(),
 		Object: GetDecoder(in),
-	}, err
+	}, header.Validate()
 }
 
 // Unpack decodes the packet and unpacks the binary formatted object.

@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/kem"
+	"github.com/karalef/quark/crypto/pke"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/crypto/xof"
 	"github.com/karalef/quark/encrypted/secret"
@@ -14,18 +15,47 @@ import (
 	"github.com/karalef/quark/pack"
 )
 
+var keys = func() map[crypto.Fingerprint]pke.PrivateKey {
+	keys := make(map[crypto.Fingerprint]pke.PrivateKey)
+	for i := 0; i < 10; i++ {
+		var scheme pke.Scheme
+		switch i % 3 {
+		case 0:
+			scheme = pke.Kyber512
+		case 1:
+			scheme = pke.Kyber768
+		case 2:
+			scheme = pke.Kyber1024
+		}
+		sk, _, err := pke.Generate(scheme, nil)
+		if err != nil {
+			panic(err)
+		}
+		keys[sk.Fingerprint()] = sk
+	}
+	return keys
+}()
+
 func TestMessage(t *testing.T) {
-	sk, ksk, kpk, err := test_create(sign.EDDilithium3, kem.Kyber768)
+	sk, _, err := sign.Generate(sign.EDDilithium3, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	selected := func() []pke.PublicKey {
+		pk := make([]pke.PublicKey, 0, 3)
+		for _, sk := range keys {
+			pk = append(pk, sk.Public())
+		}
+		return pk
+	}()
 
 	now := time.Now()
 	plaintext := bytes.NewReader([]byte("some message"))
 	sent, err := New(plaintext,
 		WithSignature(sk, now.AddDate(1, 0, 0).Unix()),
 		WithCompression(compress.LZ4, 0, compress.LZ4Opts{Threads: 4}),
-		WithEncryption(kpk, secret.Build(aead.ChaCha20Poly1305, xof.BLAKE3x)),
+		WithGroupEncryption(selected, secret.Build(aead.ChaCha20Poly1305, xof.BLAKE3x)),
 		WithFileInfo(FileInfo{
 			Name:     "test.txt",
 			Created:  now.AddDate(-1, 0, 0).Unix(),
@@ -57,37 +87,21 @@ func TestMessage(t *testing.T) {
 
 	receivedPlaintext := new(bytes.Buffer)
 	err = received.Decrypt(receivedPlaintext, Decrypt{
-		Issuer:    sk.Public(),
-		Password:  "password",
-		Recipient: ksk,
+		Issuer:         sk.Public(),
+		GroupRecipient: keys[selected[1].Fingerprint()],
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log("kem:", ksk.Scheme().Name())
-
-	sym := received.Header.Encryption.Symmetric
-	t.Log("symmetric", sym.Secret.Scheme().Name())
-	// t.Log("password encryption:", sym.Passphrase.Build(sym.Scheme).Name())
+	header := received.Header
+	t.Log("symmetric", header.Encryption.GroupEncryption.Scheme.Scheme().Name())
 
 	issuer := received.Auth.Signature.Issuer
-	t.Log("signed with:", sk.Scheme().Name(), issuer.ID().String(), time.Unix(received.Header.Time, 0))
-	t.Log("compression:", received.Header.Compression.Name())
+	t.Log("signed with:", sk.Scheme().Name(), issuer.ID().String(), time.Unix(header.Time, 0))
+	t.Log("compression:", header.Compression.Name())
 	t.Logf("transmission size overhead: %.2f%%\n", float64(encoded)/float64(stock)*100-100)
-	file := received.Header.File
+	file := header.File
 	t.Logf("file %s created at %s, modified at %s\n", file.Name, time.Unix(file.Created, 0), time.Unix(file.Modified, 0))
 	t.Log(receivedPlaintext.String())
-}
-
-func test_create(scheme sign.Scheme, kemScheme kem.Scheme) (sign.PrivateKey, kem.PrivateKey, kem.PublicKey, error) {
-	sk, _, err := sign.Generate(scheme, nil)
-	if err != nil {
-		return sk, nil, nil, err
-	}
-	ksk, kpk, err := kem.Generate(kemScheme, nil)
-	if err != nil {
-		return sk, nil, nil, err
-	}
-	return sk, ksk, kpk, nil
 }
