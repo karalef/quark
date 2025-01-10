@@ -3,6 +3,8 @@ package pack
 import (
 	"bytes"
 	"testing"
+
+	"github.com/karalef/quark/pack/armor"
 )
 
 var _ Packable = (*testPack)(nil)
@@ -11,20 +13,17 @@ type testPack struct {
 	Test string `msgpack:"test"`
 }
 
-func (*testPack) PacketTag() Tag {
-	return 0x01
-}
+func (*testPack) PacketTag() Tag { return 65535 }
 
 func TestPacking(t *testing.T) {
-	RegisterPacketType(NewType((*testPack)(nil), "test", "TEST BLOCK"))
-
 	testValue := &testPack{
 		Test: "test",
 	}
+	RegisterPacketType(NewType(testValue, "test"))
 
 	buf := new(bytes.Buffer)
 
-	out, err := ArmoredEncoder(buf, testValue.PacketTag().BlockType(), map[string]string{"test": "test"})
+	out, err := armor.Encode(buf, testValue.PacketTag().BlockType(), map[string]string{"test": "test"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,15 +38,15 @@ func TestPacking(t *testing.T) {
 
 	t.Log("\n", buf.String())
 
-	blockType, header, in, err := Dearmor(buf)
+	block, err := armor.Dearmor(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if blockType != testValue.PacketTag().BlockType() || len(header) == 0 {
+	if block.Type != testValue.PacketTag().BlockType() || len(block.Header) == 0 {
 		t.Fatal("unexpected armor block")
 	}
 
-	v, err := Unpack(in)
+	v, err := Unpack(block.Body)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,11 +15,7 @@ const CertTypeIdentity = quark.CertTypeKey + ".bind.id"
 const PacketTagIdentity = 0x08
 
 func init() {
-	pack.RegisterPacketType(pack.NewType(
-		(*Identity)(nil),
-		"identity",
-		"QUARK IDENTITY",
-	))
+	pack.RegisterPacketType(pack.NewType((*Identity)(nil), "identity"))
 }
 
 // New creates a new identity.

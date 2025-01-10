@@ -23,11 +23,7 @@ const CertTypePKESubkey = quark.CertTypeKey + ".subkey.pke"
 const PacketTagSubkey pack.Tag = 0x06
 
 func init() {
-	pack.RegisterPacketType(pack.NewType(
-		(*Subkey)(nil),
-		"subkey",
-		"QUARK SUBKEY",
-	))
+	pack.RegisterPacketType(pack.NewType((*Subkey)(nil), "subkey"))
 }
 
 // GenerateSign generates a new sign subkey.

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
+	"sync"
 )
 
 // Packable represents a packable object.
@@ -18,7 +20,7 @@ type Packet[T any] struct {
 }
 
 // Tag is used to determine the binary packet type.
-type Tag byte
+type Tag uint16
 
 // TagInvalid is used to indicate an invalid tag.
 const TagInvalid Tag = 0x00
@@ -43,13 +45,16 @@ func (t Tag) String() string {
 	return typ.Name
 }
 
+// BlockTypePrefix is the prefix of the block type.
+const BlockTypePrefix = "QUARK"
+
 // BlockType returns the block type of the tag.
 func (t Tag) BlockType() string {
 	typ, err := t.Type()
 	if err != nil {
 		return "INVALID"
 	}
-	return typ.BlockType
+	return BlockTypePrefix + " " + strings.ToUpper(typ.Name)
 }
 
 var packableType = reflect.TypeOf((*Packable)(nil)).Elem()
@@ -65,15 +70,14 @@ func RegisterPacketType(typ PacketType) {
 	if typ.Name == "" {
 		panic("name cannot be empty")
 	}
-	if typ.BlockType == "" {
-		panic("block type cannot be empty")
-	}
 
+	tagToTypeMut.Lock()
 	if reged, ok := tagToType[typ.Tag]; ok {
 		panic(fmt.Sprintf("pack: duplicate tag 0x%x (%s); already registered as %s", typ.Tag, typ.Name, reged.Name))
 	}
 
 	tagToType[typ.Tag] = typ
+	tagToTypeMut.Unlock()
 }
 
 // RegisteredTypes returns all registered packet types.
@@ -85,26 +89,27 @@ func RegisteredTypes() []PacketType {
 	return types
 }
 
-var tagToType = make(map[Tag]PacketType)
+var (
+	tagToTypeMut sync.Mutex
+	tagToType    = make(map[Tag]PacketType)
+)
 
 // NewType creates a new packet type.
 // v must be a pointer.
 // Even if v is a typed nil pointer it must be able to return the packet tag.
-func NewType(v Packable, name, blockType string) PacketType {
+func NewType(v Packable, name string) PacketType {
 	return PacketType{
-		Tag:       v.PacketTag(),
-		Type:      reflect.TypeOf(v).Elem(),
-		Name:      name,
-		BlockType: blockType,
+		Tag:  v.PacketTag(),
+		Type: reflect.TypeOf(v).Elem(),
+		Name: name,
 	}
 }
 
 // PacketType represents a binary packet type.
 type PacketType struct {
-	Tag       Tag
-	Type      reflect.Type
-	Name      string
-	BlockType string
+	Tag  Tag
+	Type reflect.Type
+	Name string
 }
 
 func (t PacketType) new() Packable {

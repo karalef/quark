@@ -11,7 +11,7 @@ import (
 const PacketTagBackup = 0x07
 
 func init() {
-	pack.RegisterPacketType(pack.NewType((*Backup)(nil), "backup", "QUARK BACKUP"))
+	pack.RegisterPacketType(pack.NewType((*Backup)(nil), "backup"))
 }
 
 // BackupData contains backup data.
