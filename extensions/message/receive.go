@@ -8,6 +8,7 @@ import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/mac"
+	"github.com/karalef/quark/crypto/pke"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/pack"
 )
@@ -20,7 +21,8 @@ type messageReader struct {
 type Decrypt struct {
 	// Issuer is used to verify the signature.
 	Issuer sign.PublicKey
-
+	// GroupRecipient is used to decrypt the message.
+	GroupRecipient pke.PrivateKey
 	// Recipient is used to decrypt the message.
 	Recipient kem.PrivateKey
 	// Password is used to decrypt the message.
@@ -51,10 +53,18 @@ func (msg *Message) Decrypt(plain io.Writer, decrypt Decrypt) error {
 				return errors.New("message is public key encrypted but no recipient's private key provided")
 			}
 			cipher, err = enc.Decapsulate(decrypt.Recipient, nil)
-		} else if decrypt.Password != "" {
+		} else if enc.IsGroup() {
+			if decrypt.GroupRecipient == nil {
+				return errors.New("message is encrypted for group but no group recipient's private key provided")
+			}
+			cipher, err = enc.DecryptTo(decrypt.GroupRecipient, nil)
+		} else if enc.IsPassphrased() {
+			if decrypt.Password == "" {
+				return errors.New("message is encrypted with password but no password provided")
+			}
 			cipher, err = enc.Decrypt(decrypt.Password, nil)
 		} else {
-			err = errors.New("message is encrypted with password but no password provided")
+			err = errors.New("invalid message encryption")
 		}
 		if err != nil {
 			return err

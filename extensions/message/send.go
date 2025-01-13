@@ -6,10 +6,7 @@ import (
 
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/kem"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/encrypted"
-	"github.com/karalef/quark/encrypted/secret"
 	"github.com/karalef/quark/extensions/message/compress"
 	"github.com/karalef/quark/pack"
 )
@@ -17,29 +14,9 @@ import (
 // Opt is a message option.
 type Opt func(*messageOpts)
 
-// WithEncryption enables encryption based on key encapsulation mechanism.
-// Panics if recipient is nil.
-func WithEncryption(recipient kem.PublicKey, scheme secret.Scheme) Opt {
-	if recipient == nil {
-		panic("nil recipient")
-	}
-	return func(o *messageOpts) {
-		o.recipient = recipient
-		o.scheme = scheme
-	}
-}
-
-// WithPassword sets password-based authenticated encryption scheme.
-// WithEncryption always overrides WithPassword.
-// Panics if password is empty.
-func WithPassword(passwd string, params encrypted.PassphraseParams) Opt {
-	if len(passwd) == 0 {
-		panic("empty password")
-	}
-	return func(o *messageOpts) {
-		o.password = passwd
-		o.passwordParams = params
-	}
+// WithEncryption sets the encryption type.
+func WithEncryption(enc Encrypter) Opt {
+	return func(o *messageOpts) { o.enc = enc }
 }
 
 // WithSignature enables message signature.
@@ -69,20 +46,14 @@ func WithCompression(compression compress.Compression, lvl uint, opts ...compres
 
 // WithFileInfo sets the file info.
 func WithFileInfo(fi FileInfo) Opt {
-	return func(o *messageOpts) {
-		o.file = fi
-	}
+	return func(o *messageOpts) { o.file = fi }
 }
 
 type messageOpts struct {
 	sender sign.PrivateKey
 	expiry int64
 
-	recipient kem.PublicKey
-	scheme    secret.Scheme
-
-	password       string
-	passwordParams encrypted.PassphraseParams
+	enc Encrypter
 
 	compression  compress.Compression
 	compressOpts compress.Opts
@@ -120,36 +91,17 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 
 	mw := &messageWriter{}
 	msgWriter := NopCloser(mw)
-	if recipient := messageOpts.recipient; recipient != nil {
-		cipher, enc, err := Encapsulate(messageOpts.scheme, recipient, nil)
+	if messageOpts.enc != nil {
+		cipher, enc, err := messageOpts.enc.Encrypt(nil)
 		if err != nil {
 			return nil, err
 		}
 		msg.Header.Encryption = enc
-		msgWriter = ChainCloser(msgWriter, messageEncrypter{
-			msg: msg,
-			Writer: aead.Writer{
-				AEAD: cipher,
-				W:    msgWriter,
-			},
-		})
-	} else if messageOpts.password != "" {
-		cipher, enc, err := Password(messageOpts.password, nil, messageOpts.passwordParams)
-		if err != nil {
-			return nil, err
-		}
-		msg.Header.Encryption = enc
-		msgWriter = ChainCloser(msgWriter, messageEncrypter{
-			msg: msg,
-			Writer: aead.Writer{
-				AEAD: cipher,
-				W:    msgWriter,
-			},
-		})
+		msgWriter = newEncrypter(msgWriter, msg, cipher)
 	}
 
 	if comp := messageOpts.compression; comp != nil {
-		msg.Header.Compression = &Compression{comp}
+		msg.Header.Compression = &compress.Algorithm{Compression: comp}
 		compressed, err := comp.Compress(msgWriter, messageOpts.lvl, messageOpts.compressOpts)
 		if err != nil {
 			return nil, err
@@ -178,6 +130,16 @@ func signMessage(sender sign.PrivateKey, msg *Message, expiry int64) error {
 
 type messageWriter struct {
 	io.Writer
+}
+
+func newEncrypter(writer io.WriteCloser, msg *Message, cipher aead.Cipher) io.WriteCloser {
+	return ChainCloser(writer, messageEncrypter{
+		msg: msg,
+		Writer: aead.Writer{
+			AEAD: cipher,
+			W:    writer,
+		},
+	})
 }
 
 type messageEncrypter struct {

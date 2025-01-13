@@ -50,7 +50,7 @@ func New(data BackupData,
 type Backup struct {
 	Key        *quark.Key                  `msgpack:"key"`
 	Certs      []quark.Any                 `msgpack:"certs"`
-	Passphrase encrypted.Passphrase        `msgpack:"passphrase"`
+	Passphrase encrypted.Passphrased       `msgpack:"passphrase"`
 	Secrets    []encrypted.Key[crypto.Key] `msgpack:"secret"`
 }
 
@@ -59,7 +59,7 @@ func (*Backup) PacketTag() pack.Tag { return PacketTagBackup }
 
 // Decrypt decrypts the backup with the given passphrase.
 func (b Backup) Decrypt(passphrase string) (BackupData, error) {
-	crypter, err := b.Passphrase.NewCrypter(passphrase)
+	crypter, err := b.Passphrase.Crypter(passphrase)
 	if err != nil {
 		return BackupData{}, err
 	}

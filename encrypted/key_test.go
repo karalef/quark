@@ -8,7 +8,6 @@ import (
 	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
-	"github.com/karalef/quark/encrypted/password"
 )
 
 var testKeys = func() []sign.PrivateKey {
@@ -24,7 +23,7 @@ var testKeys = func() []sign.PrivateKey {
 }()
 
 var passParams = encrypted.PassphraseParams{
-	Scheme:   password.Build(aead.ChaCha20Poly1305, kdf.FromHash(hash.SHA256)),
+	Scheme:   encrypted.BuildPassphrase(aead.ChaCha20Poly1305, kdf.FromHash(hash.SHA256)),
 	Cost:     kdf.NewNoCost(),
 	SaltSize: 16,
 }
@@ -42,7 +41,7 @@ func TestEncrypter(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	crypter, err := pass.NewCrypter("password")
+	crypter, err := pass.Crypter("password")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,11 +1,8 @@
 package encrypted
 
 import (
-	"errors"
-
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/mac"
-	"github.com/karalef/quark/encrypted/secret"
 )
 
 // Data contains encrypted data.
@@ -13,33 +10,6 @@ type Data struct {
 	Nonce []byte `msgpack:"nonce"`
 	Data  []byte `msgpack:"data"`
 	Tag   []byte `msgpack:"tag"`
-}
-
-// NewSecret creates a new Symmetric with the given secret scheme.
-func New(scheme secret.Scheme) Symmetric {
-	return Symmetric{Secret: (*Secret)(&scheme)}
-}
-
-// NewWithPassphrase creates a new Symmetric with the given password scheme.
-func NewWithPassphrase(p PassphraseParams) Symmetric {
-	pass := NewPassphrase(p)
-	return Symmetric{Passphrase: &pass}
-}
-
-// Symmetric contains parameters for symmetric encryption based on key derivation.
-type Symmetric struct {
-	Passphrase *Passphrase `msgpack:"passphrase,omitempty"`
-	Secret     *Secret     `msgpack:"secret,omitempty"`
-}
-
-// NewCrypter creates a new Crypter with the given shared secret.
-func (s Symmetric) NewCrypter(sharedSecret []byte) (*Crypter, error) {
-	return s.Secret.NewCrypter(sharedSecret)
-}
-
-// NewPassphraseCrypter creates a new Crypter with the given passphrase.
-func (s Symmetric) NewPassphraseCrypter(passphrase string) (*Crypter, error) {
-	return s.Passphrase.NewCrypter(passphrase)
 }
 
 // NewCrypter creates a new AEAD crypter.
@@ -64,35 +34,29 @@ func (c *Crypter) Encrypt(nonce, ad []byte) (aead.Cipher, error) {
 	return c.scheme.Encrypt(c.key, nonce, ad)
 }
 
-// EncryptDataBuf encrypts the data.
-func (c *Crypter) EncryptDataBuf(data, nonce, ad []byte) (Data, error) {
+func (c *Crypter) encryptData(dst, src, nonce, ad []byte) (Data, error) {
 	ciph, err := c.Encrypt(nonce, ad)
 	if err != nil {
 		return Data{}, err
 	}
-	buf := make([]byte, len(data))
-	ciph.Crypt(buf, data)
-
+	ciph.Crypt(dst, src)
 	return Data{
 		Nonce: nonce,
-		Data:  buf,
+		Data:  dst,
 		Tag:   ciph.Tag(nil),
 	}, nil
+}
+
+// EncryptDataBuf encrypts the data.
+func (c *Crypter) EncryptDataBuf(data, nonce, ad []byte) (Data, error) {
+	buf := make([]byte, len(data))
+	return c.encryptData(buf, data, nonce, ad)
 }
 
 // EncryptData encrypts the data.
 // It has no internal buffering so the provided data will be modified.
 func (c *Crypter) EncryptData(data, nonce, ad []byte) (Data, error) {
-	ciph, err := c.Encrypt(nonce, ad)
-	if err != nil {
-		return Data{}, err
-	}
-	ciph.Crypt(data, data)
-	return Data{
-		Nonce: nonce,
-		Data:  data,
-		Tag:   ciph.Tag(nil),
-	}, nil
+	return c.encryptData(data, data, nonce, ad)
 }
 
 // Decrypt creates a new AEAD cipher with associated data.
@@ -100,34 +64,26 @@ func (c *Crypter) Decrypt(nonce, ad []byte) (aead.Cipher, error) {
 	return c.scheme.Decrypt(c.key, nonce, ad)
 }
 
-// DecryptDataBuf decrypts the data.
-func (c *Crypter) DecryptDataBuf(data Data, ad []byte) ([]byte, error) {
+func (c *Crypter) decryptData(dst []byte, data Data, ad []byte) ([]byte, error) {
 	ciph, err := c.Decrypt(data.Nonce, ad)
 	if err != nil {
 		return nil, err
 	}
-	buf := make([]byte, len(data.Data))
-	ciph.Crypt(buf, data.Data)
+	ciph.Crypt(dst, data.Data)
+	if !mac.Equal(ciph.Tag(nil), data.Tag) {
+		return nil, mac.ErrMismatch
+	}
+	return dst, nil
+}
 
-	return buf, verifyTag(ciph, data.Tag)
+// DecryptDataBuf decrypts the data.
+func (c *Crypter) DecryptDataBuf(data Data, ad []byte) ([]byte, error) {
+	buf := make([]byte, len(data.Data))
+	return c.decryptData(buf, data, ad)
 }
 
 // DecryptData decrypts the data.
 // It has no internal buffering so the provided data will be modified.
 func (c *Crypter) DecryptData(data Data, ad []byte) ([]byte, error) {
-	ciph, err := c.Decrypt(data.Nonce, ad)
-	if err != nil {
-		return nil, err
-	}
-	ciph.Crypt(data.Data, data.Data)
-	return data.Data, verifyTag(ciph, data.Tag)
+	return c.decryptData(data.Data, data, ad)
 }
-
-func verifyTag(c aead.Cipher, tag []byte) error {
-	if !mac.Equal(c.Tag(nil), tag) {
-		return mac.ErrMismatch
-	}
-	return nil
-}
-
-var ErrInvalidParameters = errors.New("invalid parameters")

@@ -12,8 +12,8 @@ import (
 
 // NewKeyEncrypter returns a new multiple keys encrypter with nonce source.
 // If the nonce source is nil, LFSRNonce is used.
-func NewKeyEncrypter[T crypto.Key](passphrase string, source NonceSource, p Passphrase) (*KeyEncrypter[T], error) {
-	crypter, err := p.NewCrypter(passphrase)
+func NewKeyEncrypter[T crypto.Key](passphrase string, source NonceSource, p Passphrased) (*KeyEncrypter[T], error) {
+	crypter, err := p.Crypter(passphrase)
 	if err != nil {
 		return nil, err
 	}

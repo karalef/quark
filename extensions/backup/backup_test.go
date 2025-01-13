@@ -10,7 +10,6 @@ import (
 	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
-	"github.com/karalef/quark/encrypted/password"
 	"github.com/karalef/quark/extensions/backup"
 	"github.com/karalef/quark/extensions/identity"
 	"github.com/karalef/quark/extensions/subkey"
@@ -38,7 +37,7 @@ func TestBackup(t *testing.T) {
 		Certs:   []quark.Any{sub.Certificate(), ident.Certificate()},
 		Secrets: []crypto.Key{sk, ssk},
 	}
-	scheme := password.Build(aead.ChaCha20Poly1305, kdf.FromHash(hash.SHA256))
+	scheme := encrypted.BuildPassphrase(aead.ChaCha20Poly1305, kdf.FromHash(hash.SHA256))
 	source := encrypted.NewCounter(scheme.AEAD().NonceSize())
 
 	b, err := backup.New(bd, "password", source, encrypted.PassphraseParams{

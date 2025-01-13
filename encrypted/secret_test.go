@@ -1,4 +1,4 @@
-package password
+package encrypted
 
 import (
 	mathrand "math/rand"
@@ -7,35 +7,29 @@ import (
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/mac"
+	"github.com/karalef/quark/crypto/xof"
 )
 
-func TestPassword(t *testing.T) {
+func TestSecret(t *testing.T) {
 	noncryptoRand := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
-	testScheme := Build(aead.ChaCha20Poly1305, kdf.Argon2i)
-	testPassword := "password"
+	testScheme := BuildSecret(aead.ChaCha20Poly1305, xof.BLAKE3x)
+	testSecret, _ := crypto.RandRead(noncryptoRand, 32)
+	testIV, _ := crypto.RandRead(noncryptoRand, testScheme.NonceSize())
 	testData := []byte("testing data")
-	testIV, _ := crypto.RandRead(noncryptoRand, testScheme.AEAD().NonceSize())
-	testSalt, _ := crypto.RandRead(noncryptoRand, 16)
 	testAD, _ := crypto.RandRead(noncryptoRand, 128)
-	testKDFParams := &kdf.Argon2Cost{
-		Time:    1,
-		Memory:  8 * 1024,
-		Threads: 1,
-	}
 
 	encryptedBuffer := make([]byte, len(testData))
 	decryptedBuffer := make([]byte, len(testData))
 
-	encrypter, err := testScheme.Encrypter(testPassword, testIV, testSalt, testAD, testKDFParams)
+	encrypter, err := testScheme.Encrypter(testIV, testSecret, testAD)
 	if err != nil {
 		t.Fatal(err)
 	}
 	encrypter.Crypt(encryptedBuffer, testData)
 	mac1 := encrypter.Tag(nil)
 
-	decrypter, err := testScheme.Decrypter(testPassword, testIV, testSalt, testAD, testKDFParams)
+	decrypter, err := testScheme.Decrypter(testIV, testSecret, testAD)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -13,10 +13,10 @@ var _ pack.Packable = (*PrivateKey[crypto.Key])(nil)
 
 // EncryptKey encrypts a private key with passphrase.
 // If nonce is nil, a random nonce will be generated.
-func EncryptKey[T crypto.Key](key T, passphrase string, nonce []byte, p encrypted.Passphrase) (*PrivateKey[T], error) {
+func EncryptKey[T crypto.Key](key T, passphrase string, nonce []byte, p encrypted.Passphrased) (*PrivateKey[T], error) {
 	src := encrypted.NonceSource(encrypted.Nonce(nonce))
 	if nonce == nil {
-		src = encrypted.NewRandomNonce(p.Scheme.NonceSize(), nil)
+		src = encrypted.NewRandomNonce(p.NonceSize(), nil)
 	}
 	enc, err := encrypted.NewKeyEncrypter[T](passphrase, src, p)
 	if err != nil {
@@ -31,7 +31,7 @@ func EncryptKey[T crypto.Key](key T, passphrase string, nonce []byte, p encrypte
 
 // PrivateKey is used to store the private key encrypted with passphrase.
 type PrivateKey[T crypto.Key] struct {
-	Passphrase       encrypted.Passphrase `msgpack:"passphrase"`
+	Passphrase       encrypted.Passphrased `msgpack:"passphrase"`
 	encrypted.Key[T] `msgpack:",inline"`
 }
 
@@ -46,7 +46,7 @@ func (k PrivateKey[_]) Fingerprint() crypto.Fingerprint { return k.Key.FP }
 
 // DecryptMaterial decrypts the key material with passphrase.
 func (k *PrivateKey[_]) DecryptMaterial(passphrase string) ([]byte, error) {
-	crypter, err := k.Passphrase.NewCrypter(passphrase)
+	crypter, err := k.Passphrase.Crypter(passphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (k *PrivateKey[_]) DecryptMaterial(passphrase string) ([]byte, error) {
 
 // Decrypt decrypts the key with the given passphrase.
 func (k *PrivateKey[T]) Decrypt(passphrase string) (T, error) {
-	crypter, err := k.Passphrase.NewCrypter(passphrase)
+	crypter, err := k.Passphrase.Crypter(passphrase)
 	if err != nil {
 		var empty T
 		return empty, err
@@ -65,7 +65,7 @@ func (k *PrivateKey[T]) Decrypt(passphrase string) (T, error) {
 
 // DecryptKey decrypts the key with the given passphrase.
 func (k *PrivateKey[_]) DecryptKey(passphrase string) (crypto.Key, error) {
-	crypter, err := k.Passphrase.NewCrypter(passphrase)
+	crypter, err := k.Passphrase.Crypter(passphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (k *PrivateKey[_]) DecryptKey(passphrase string) (crypto.Key, error) {
 
 // DecryptSign decrypts the sign key with the given passphrase.
 func (k *PrivateKey[_]) DecryptSign(passphrase string) (sign.PrivateKey, error) {
-	crypter, err := k.Passphrase.NewCrypter(passphrase)
+	crypter, err := k.Passphrase.Crypter(passphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (k *PrivateKey[_]) DecryptSign(passphrase string) (sign.PrivateKey, error) 
 
 // DecryptKEM decrypts the KEM key with the given passphrase.
 func (k *PrivateKey[_]) DecryptKEM(passphrase string) (kem.PrivateKey, error) {
-	crypter, err := k.Passphrase.NewCrypter(passphrase)
+	crypter, err := k.Passphrase.Crypter(passphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (k *PrivateKey[_]) DecryptKEM(passphrase string) (kem.PrivateKey, error) {
 
 // DecryptPKE decrypts the PKE key with the given passphrase.
 func (k *PrivateKey[_]) DecryptPKE(passphrase string) (pke.PrivateKey, error) {
-	crypter, err := k.Passphrase.NewCrypter(passphrase)
+	crypter, err := k.Passphrase.Crypter(passphrase)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,6 @@ import (
 	"github.com/karalef/quark/crypto/kdf"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/encrypted"
-	"github.com/karalef/quark/encrypted/password"
 )
 
 func TestKey(t *testing.T) {
@@ -17,8 +16,8 @@ func TestKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	k, err := quark.EncryptKey(sk, "password", nil, encrypted.NewPassphraseFrom(
-		password.Build(aead.ChaCha20Poly1305, kdf.FromHash(hash.SHA256)),
+	k, err := quark.EncryptKey(sk, "password", nil, encrypted.NewPassphrasedFrom(
+		encrypted.BuildPassphrase(aead.ChaCha20Poly1305, kdf.FromHash(hash.SHA256)),
 		kdf.NewNoCost(),
 		16,
 	))
