@@ -11,42 +11,40 @@ import (
 type Stream struct {
 	// Reader represents the data to be encoded.
 	Reader io.Reader
+	W      io.WriteCloser // if set, represents wrapped encodable stream.
 
 	// Writer represents the decoded data output.
 	Writer io.Writer
-
-	writerWrapper func(io.Writer) io.WriteCloser
-	readerWrapper func(io.Reader) io.Reader
+	R      io.Reader // if set, represents wrapped decodable stream.
 }
 
-// WrapWriter wraps the encoder's writer.
-func (s *Stream) WrapWriter(f func(io.Writer) io.WriteCloser) {
-	s.writerWrapper = f
-}
+// Read provides the io.Reader interface to wrap the decodable stream.
+// Call before decoding causes stack overflow or nil pointer dereference.
+func (s *Stream) Read(p []byte) (int, error) { return s.R.Read(p) }
 
-// WrapReader wraps the decoder's reader.
-func (s *Stream) WrapReader(f func(io.Reader) io.Reader) {
-	s.readerWrapper = f
-}
+// Write provides the io.Writer interface to wrap the encodable stream.
+// Call before encoding causes stack overflow or nil pointer dereference.
+func (s *Stream) Write(p []byte) (int, error) { return s.W.Write(p) }
 
 // EncodeMsgpack implements msgpack.CustomEncoder.
-func (s Stream) EncodeMsgpack(enc *Encoder) error {
+func (s *Stream) EncodeMsgpack(enc *Encoder) error {
 	if s.Reader == nil {
 		return errors.New("pack: Stream.Reader is nil")
 	}
-	sw := newStreamWriter(enc.Writer())
-	wc := io.WriteCloser(sw)
-	if s.writerWrapper != nil {
-		wc = s.writerWrapper(wc)
+	writer := s.W
+	sw := &streamWriter{w: enc.Writer()}
+	if writer == nil {
+		writer = sw
 	}
-	_, err := io.Copy(wc, s.Reader)
+	s.W = sw
+	_, err := io.Copy(writer, s.Reader)
 	if err != nil {
 		return err
 	}
-	if s.writerWrapper != nil {
-		err = wc.Close()
+	if writer != sw {
+		return errors.Join(writer.Close(), sw.Close())
 	}
-	return errors.Join(err, sw.Close())
+	return sw.Close()
 }
 
 // DecodeMsgpack implements msgpack.CustomDecoder.
@@ -54,47 +52,25 @@ func (s *Stream) DecodeMsgpack(dec *Decoder) error {
 	if s.Writer == nil {
 		return errors.New("pack: Stream.Writer is nil")
 	}
-	sr := newStreamReader(dec.Buffered())
-	r := io.Reader(sr)
-	if s.readerWrapper != nil {
-		r = s.readerWrapper(r)
+	br, ok := dec.Buffered().(byteReader)
+	if !ok {
+		br = bufio.NewReader(dec.Buffered())
 	}
-	_, err := io.Copy(s.Writer, r)
+	reader := s.R
+	sr := &streamReader{r: br}
+	if reader == nil {
+		reader = sr
+	}
+	s.R = sr
+	_, err := io.Copy(s.Writer, reader)
 	if err != nil {
 		return err
 	}
-	if s.readerWrapper == nil || sr.eof {
+	if sr.eof && sr == reader {
 		return nil
 	}
-	if sr.remaining > 0 {
-		return errors.New("pack.Stream: decoder stream has remaining bytes")
-	}
-	err = sr.readLen()
-	if err != io.EOF {
-		return errors.New("pack.Stream: decoder stream was not fully read")
-	}
-	return nil
+	return sr.Close()
 }
-
-func newStreamWriter(w io.Writer) *streamWriter {
-	return &streamWriter{
-		w: w,
-	}
-}
-
-func newStreamReader(r io.Reader) *streamReader {
-	var br byteReader
-	if b, ok := r.(byteReader); ok {
-		br = b
-	} else {
-		br = bufio.NewReader(r)
-	}
-	return &streamReader{
-		r: br,
-	}
-}
-
-var _ io.WriteCloser = (*streamWriter)(nil)
 
 type streamWriter struct {
 	w      io.Writer
@@ -167,4 +143,14 @@ func (sr *streamReader) Read(p []byte) (n int, err error) {
 	}
 	sr.remaining -= uint64(n)
 	return
+}
+
+func (sr *streamReader) Close() error {
+	if sr.remaining > 0 {
+		return errors.New("pack.Stream: decoder stream has remaining bytes")
+	}
+	if err := sr.readLen(); err != io.EOF {
+		return errors.New("pack.Stream: decoder stream was not fully read")
+	}
+	return nil
 }

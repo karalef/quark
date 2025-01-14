@@ -56,7 +56,7 @@ func TestMessage(t *testing.T) {
 	sent, err := New(plaintext,
 		WithSignature(sk, now.AddDate(1, 0, 0).Unix()),
 		WithCompression(compress.LZ4, 0, compress.LZ4Opts{Threads: 4}),
-		WithEncryption(Encrypt(encrypted.BuildSecret(aead.ChaCha20Poly1305, xof.BLAKE3x), selected)),
+		WithEncryption(EncryptFor(encrypted.BuildSecret(aead.ChaCha20Poly1305, xof.BLAKE3x), selected)),
 		WithFileInfo(FileInfo{
 			Name:     "test.txt",
 			Created:  now.AddDate(-1, 0, 0).Unix(),

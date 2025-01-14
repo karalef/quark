@@ -58,8 +58,8 @@ func (s secretEncrypter) Encrypt(ad []byte) (aead.Cipher, *Encryption, error) {
 }
 
 type groupEncrypter struct {
-	recipients []pke.PublicKey
 	scheme     encrypted.Secret
+	recipients []pke.PublicKey
 }
 
 // Encrypt generates and encapsulates a shared secret for each recipient and creates an authenticated stream cipher.
@@ -76,11 +76,33 @@ func (g groupEncrypter) Encrypt(ad []byte) (aead.Cipher, *Encryption, error) {
 	}, err
 }
 
+type derivedEncrypter struct {
+	scheme aead.Scheme
+	key    []byte
+}
+
+// Encrypt uses derived key to create an authenticated stream cipher.
+func (d derivedEncrypter) Encrypt(ad []byte) (aead.Cipher, *Encryption, error) {
+	nonce := crypto.Rand(d.scheme.NonceSize())
+	aead, err := d.scheme.Encrypt(d.key, nonce, ad)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return aead, &Encryption{
+		Nonce:   nonce,
+		Derived: d.scheme,
+	}, nil
+}
+
 // Encryption contains nonce and one of encryption types.
 type Encryption struct {
 	Passphase *encrypted.Passphrased  `msgpack:"passphase,omitempty"`
-	Secret    *encrypted.SharedSecret `msgpack:"key_establishment,omitempty"`
-	Group     *encrypted.GroupSecret  `msgpack:"group_encryption,omitempty"`
+	Secret    *encrypted.SharedSecret `msgpack:"secret,omitempty"`
+	Group     *encrypted.GroupSecret  `msgpack:"group,omitempty"`
+
+	// Derived is used when the shared secret is established and the key is derived.
+	Derived aead.Scheme `msgpack:"derived,omitempty"`
 
 	Nonce []byte `msgpack:"nonce"`
 }
@@ -94,8 +116,11 @@ func (e Encryption) IsEncapsulated() bool { return e.Secret != nil }
 // IsGroup returns true if message is encrypted using public key encryption.
 func (e Encryption) IsGroup() bool { return e.Group != nil }
 
-// Decrypt creates an authenticated cipher using passphrase-based symmetric encryption.
-func (e Encryption) Decrypt(passphrase string, ad []byte) (aead.Cipher, error) {
+// IsDerived returns true if message is encrypted using derived key.
+func (e Encryption) IsDerived() bool { return e.Derived != nil }
+
+// DecryptPassphrase creates an authenticated cipher using passphrase-based symmetric encryption.
+func (e Encryption) DecryptPassphrase(passphrase string, ad []byte) (aead.Cipher, error) {
 	return e.Passphase.Decrypter(passphrase, e.Nonce, ad)
 }
 
@@ -104,9 +129,14 @@ func (e Encryption) Decapsulate(recipient kem.PrivateKey, ad []byte) (aead.Ciphe
 	return e.Secret.Decapsulate(recipient, e.Nonce, ad)
 }
 
-// DecryptTo creates an authenticated cipher for provided recipient.
-func (e Encryption) DecryptTo(recipient pke.PrivateKey, ad []byte) (aead.Cipher, error) {
+// DecryptFor creates an authenticated cipher for provided recipient.
+func (e Encryption) DecryptFor(recipient pke.PrivateKey, ad []byte) (aead.Cipher, error) {
 	return e.Group.DecryptTo(recipient, e.Nonce, ad)
+}
+
+// Decrypt creates an authenticated cipher using derived key.
+func (e Encryption) Decrypt(key, ad []byte) (aead.Cipher, error) {
+	return e.Derived.Decrypt(key, e.Nonce, ad)
 }
 
 // Passphrase uses passhprase-based symmetric encryption to create an authenticated stream cipher.
@@ -125,10 +155,15 @@ func Encapsulate(scheme encrypted.Secret, recipient kem.PublicKey) Encrypter {
 	}
 }
 
-// Encrypt generates and encapsulates a shared secret for each recipient and creates an authenticated stream cipher.
-func Encrypt(scheme encrypted.Secret, recipients []pke.PublicKey) Encrypter {
+// EncryptFor generates and encapsulates a shared secret for each recipient and creates an authenticated stream cipher.
+func EncryptFor(scheme encrypted.Secret, recipients []pke.PublicKey) Encrypter {
 	return groupEncrypter{
 		recipients: recipients,
 		scheme:     scheme,
 	}
+}
+
+// Encrypt uses derived key to create an authenticated stream cipher.
+func Encrypt(scheme aead.Scheme, key []byte) Encrypter {
+	return derivedEncrypter{scheme: scheme, key: key}
 }

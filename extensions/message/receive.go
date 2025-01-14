@@ -13,10 +13,6 @@ import (
 	"github.com/karalef/quark/pack"
 )
 
-type messageReader struct {
-	io.Reader
-}
-
 // Decrypt contains the parameters to decrypt the message.
 type Decrypt struct {
 	// Issuer is used to verify the signature.
@@ -27,56 +23,58 @@ type Decrypt struct {
 	Recipient kem.PrivateKey
 	// Password is used to decrypt the message.
 	Password string
+	// Derived is used to decrypt the message.
+	Derived []byte
+}
+
+func (d Decrypt) decrypt(enc *Encryption) (aead.Cipher, error) {
+	switch {
+	case enc.IsEncapsulated():
+		if d.Recipient == nil {
+			return nil, errors.New("message is public key encrypted but no recipient's private key provided")
+		}
+		return enc.Decapsulate(d.Recipient, nil)
+	case enc.IsGroup():
+		if d.GroupRecipient == nil {
+			return nil, errors.New("message is encrypted for group but no group recipient's private key provided")
+		}
+		return enc.DecryptFor(d.GroupRecipient, nil)
+	case enc.IsPassphrased():
+		if d.Password == "" {
+			return nil, errors.New("message is encrypted with password but no password provided")
+		}
+		return enc.DecryptPassphrase(d.Password, nil)
+	case enc.IsDerived():
+		if d.Derived == nil {
+			return nil, errors.New("message is encrypted with derived key but no derived key provided")
+		}
+		return enc.Decrypt(d.Derived, nil)
+	}
+	return nil, errors.New("invalid message encryption")
 }
 
 func (msg *Message) Decrypt(plain io.Writer, decrypt Decrypt) error {
 	// Verify signature
-	verifier := NopCloser(plain)
+	var verifier *quark.Verifier
+	msg.Data.Writer = plain
 	if !msg.Header.Sender.IsEmpty() && decrypt.Issuer != nil {
-		verifier = messageVerifier{
-			w:   plain,
-			msg: msg,
-			v:   quark.Verify(decrypt.Issuer),
-		}
+		verifier = quark.Verify(decrypt.Issuer)
+		msg.Data.Writer = io.MultiWriter(plain, verifier)
 	}
-	msg.Data.Writer = verifier
 
 	// Decrypt
-	mr := &messageReader{}
-	var md messageDecrypter
-	msgReader := io.Reader(mr)
+	var cipher aead.Cipher
+	msgReader := io.Reader(&msg.Data)
 	if enc := msg.Header.Encryption; enc != nil {
-		var cipher aead.Cipher
 		var err error
-		if enc.IsEncapsulated() {
-			if decrypt.Recipient == nil {
-				return errors.New("message is public key encrypted but no recipient's private key provided")
-			}
-			cipher, err = enc.Decapsulate(decrypt.Recipient, nil)
-		} else if enc.IsGroup() {
-			if decrypt.GroupRecipient == nil {
-				return errors.New("message is encrypted for group but no group recipient's private key provided")
-			}
-			cipher, err = enc.DecryptTo(decrypt.GroupRecipient, nil)
-		} else if enc.IsPassphrased() {
-			if decrypt.Password == "" {
-				return errors.New("message is encrypted with password but no password provided")
-			}
-			cipher, err = enc.Decrypt(decrypt.Password, nil)
-		} else {
-			err = errors.New("invalid message encryption")
-		}
+		cipher, err = decrypt.decrypt(enc)
 		if err != nil {
 			return err
 		}
-		md = messageDecrypter{
-			msg: msg,
-			Reader: aead.Reader{
-				AEAD: cipher,
-				R:    msgReader,
-			},
+		msgReader = aead.Reader{
+			AEAD: cipher,
+			R:    msgReader,
 		}
-		msgReader = md
 	}
 
 	// Decompress
@@ -88,10 +86,7 @@ func (msg *Message) Decrypt(plain io.Writer, decrypt Decrypt) error {
 		msgReader = dec
 	}
 
-	msg.Data.WrapReader(func(r io.Reader) io.Reader {
-		mr.Reader = r
-		return msgReader
-	})
+	msg.Data.R = msgReader
 
 	dec := pack.GetDecoder(msg.Data.Reader)
 	defer pack.PutDecoder(dec)
@@ -105,43 +100,16 @@ func (msg *Message) Decrypt(plain io.Writer, decrypt Decrypt) error {
 		return err
 	}
 
-	return errors.Join(verifier.Close(), md.Close())
-}
-
-type messageDecrypter struct {
-	msg *Message
-	aead.Reader
-}
-
-func (d messageDecrypter) Close() error {
-	if d.msg == nil {
-		return nil
-	}
-	if !mac.Equal(d.msg.Auth.Tag, d.AEAD.Tag(nil)) {
+	// Verify tag
+	if !mac.Equal(msg.Auth.Tag, cipher.Tag(nil)) {
 		return mac.ErrMismatch
 	}
-	return nil
-}
 
-type messageVerifier struct {
-	w   io.Writer
-	msg *Message
-	v   *quark.Verifier
-}
-
-func (v messageVerifier) Write(p []byte) (n int, err error) {
-	n, err = v.w.Write(p)
-	if n != 0 {
-		_, verr := v.v.Write(p[:n])
-		if err == nil {
-			err = verr
-		}
+	// Verify signature
+	if verifier == nil {
+		return nil
 	}
-	return
-}
-
-func (v messageVerifier) Close() error {
-	ok, err := v.v.Verify(v.msg.Auth.Signature)
+	ok, err := verifier.Verify(msg.Auth.Signature)
 	if err != nil {
 		return err
 	}

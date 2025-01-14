@@ -30,12 +30,6 @@ func (h Header) WriteTo(w io.Writer) (int64, error) {
 	return int64(n), err
 }
 
-// ReadFrom reads the header from the reader.
-func (h Header) ReadFrom(r io.Reader) (int64, error) {
-	n, err := io.ReadFull(r, h[:])
-	return int64(n), err
-}
-
 // Validate checks if the header is valid.
 func (h Header) Validate() error {
 	if string(h[:5]) != MAGIC {
@@ -66,7 +60,7 @@ func Pack(out io.Writer, v Packable) error {
 // Returns RawPacket even if the tag is unknown (with ErrUnknownTag error).
 func DecodePacket(in io.Reader) (*RawPacket, error) {
 	var header Header
-	if _, err := header.ReadFrom(in); err != nil {
+	if _, err := io.ReadFull(in, header[:]); err != nil {
 		return nil, err
 	}
 

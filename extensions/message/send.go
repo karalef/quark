@@ -83,14 +83,16 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 	}
 
 	if sender := messageOpts.sender; sender != nil {
-		err := signMessage(sender, msg, messageOpts.expiry)
-		if err != nil {
-			return nil, err
+		msg.Header.Sender = sender.Fingerprint()
+		msg.Data.Reader = messageSigner{
+			r:      msg.Data.Reader,
+			msg:    msg,
+			signer: quark.Sign(sender),
+			v:      quark.NewValidity(msg.Header.Time, messageOpts.expiry),
 		}
 	}
 
-	mw := &messageWriter{}
-	msgWriter := NopCloser(mw)
+	msgWriter := NopCloser(&msg.Data)
 	if messageOpts.enc != nil {
 		cipher, enc, err := messageOpts.enc.Encrypt(nil)
 		if err != nil {
@@ -108,28 +110,9 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 		}
 		msgWriter = ChainCloser(msgWriter, compressed)
 	}
-
-	msg.Data.WrapWriter(func(w io.Writer) io.WriteCloser {
-		mw.Writer = w
-		return msgWriter
-	})
+	msg.Data.W = msgWriter
 
 	return msg, nil
-}
-
-func signMessage(sender sign.PrivateKey, msg *Message, expiry int64) error {
-	msg.Header.Sender = sender.Fingerprint()
-	msg.Data.Reader = messageSigner{
-		r:      msg.Data.Reader,
-		msg:    msg,
-		signer: quark.Sign(sender),
-		v:      quark.NewValidity(msg.Header.Time, expiry),
-	}
-	return nil
-}
-
-type messageWriter struct {
-	io.Writer
 }
 
 func newEncrypter(writer io.WriteCloser, msg *Message, cipher aead.Cipher) io.WriteCloser {
