@@ -88,6 +88,9 @@ func (k Subkey) KeyID() crypto.ID { return k.Data.ID() }
 // Fingerprint returns key fingerprint.
 func (k Subkey) Fingerprint() crypto.Fingerprint { return k.Data.Fingerprint() }
 
+// Validity returns key validity.
+func (k Subkey) Validity() quark.Validity { return k.Signature.Validity }
+
 // Certificate returns key as a certificate.
 func (k *Subkey) Certificate() *quark.Certificate[PublicKey] {
 	return (*quark.Certificate[PublicKey])(k)

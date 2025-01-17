@@ -43,6 +43,9 @@ func (i *Identity) PacketTag() pack.Tag                     { return i.Certifica
 func (i *Identity) Certificate() *quark.Certificate[UserID] { return (*quark.Certificate[UserID])(i) }
 func (i Identity) UserID() UserID                           { return i.Data }
 
+// Validity returns identity validity.
+func (i Identity) Validity() quark.Validity { return i.Signature.Validity }
+
 // NewUserID creates a new user identity.
 func NewUserID(name, email, comment string) UserID {
 	return UserID{Name: name, Email: email, Comment: comment}

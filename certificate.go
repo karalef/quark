@@ -198,8 +198,8 @@ func As[T Certifyable[T]](cert Raw) (Certificate[T], error) {
 	return typed, typed.Validate()
 }
 
-// To asserts the certificate type. Panics if the certificate type does not match.
-func To[T Certifyable[T]](cert Any) *Certificate[T] {
+// Assert asserts the certificate type. Panics if the certificate type does not match.
+func Assert[T Certifyable[T]](cert Any) *Certificate[T] {
 	t, ok := cert.(*Certificate[T])
 	if !ok {
 		panic("invalid certificate type assertion")

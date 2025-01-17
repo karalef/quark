@@ -70,12 +70,6 @@ func (k Key) CorrespondsTo(sk sign.PrivateKey) bool { return sign.CorrespondsTo(
 // Validity returns key validity.
 func (k *Key) Validity() Validity { return k.Signature.Validity }
 
-// SetValidity sets key validity.
-// If the key is not signed, creates a self-signature.
-func (k *Key) SetValidity(sk sign.PrivateKey, v Validity) error {
-	return k.Sign(sk, k.Certificate(), v)
-}
-
 // Verify verifies the specified signature created by this key.
 func (k Key) Verify(s Signable, sig Signature) error {
 	if sig.Issuer != k.Fingerprint() {
