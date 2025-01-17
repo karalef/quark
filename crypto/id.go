@@ -1,13 +1,13 @@
 package crypto
 
 import (
-	"encoding/binary"
+	stdbin "encoding/binary"
 	"errors"
 	"io"
 	"strings"
 
 	"github.com/karalef/quark/crypto/hash"
-	"github.com/karalef/quark/pack"
+	"github.com/karalef/quark/pack/binary"
 	"github.com/karalef/quark/pkg/crockford"
 )
 
@@ -32,7 +32,7 @@ func IDFromString(strID string) (id ID, ok bool) {
 
 // IDFromUint converts uint64 to ID.
 func IDFromUint(uintID uint64) (id ID) {
-	binary.LittleEndian.PutUint64(id[:], uintID)
+	stdbin.LittleEndian.PutUint64(id[:], uintID)
 	return
 }
 
@@ -51,23 +51,23 @@ func (id ID) String() string {
 
 // Uint returns key ID as uint64 in little endian order.
 func (id ID) Uint() uint64 {
-	return binary.LittleEndian.Uint64(id[:])
+	return stdbin.LittleEndian.Uint64(id[:])
 }
 
-// EncodeMsgpack implements pack.CustomEncoder.
+// EncodeMsgpack implements binary.CustomEncoder.
 // Replaces the the msgpack array encoding with bytes encoding
 // that is more compact in case where id is empty.
-func (id ID) EncodeMsgpack(enc *pack.Encoder) error {
+func (id ID) EncodeMsgpack(enc *binary.Encoder) error {
 	if id.IsEmpty() {
 		return enc.EncodeNil()
 	}
 	return enc.EncodeBytes(id[:])
 }
 
-// DecodeMsgpack implements pack.CustomDecoder.
+// DecodeMsgpack implements binary.CustomDecoder.
 // Replaces the the msgpack array encoding with bytes encoding
 // that is more compact in case where id is empty.
-func (id *ID) DecodeMsgpack(dec *pack.Decoder) error {
+func (id *ID) DecodeMsgpack(dec *binary.Decoder) error {
 	b, err := dec.DecodeBytes()
 	if err != nil {
 		return err
@@ -160,20 +160,20 @@ func (f Fingerprint) RegularString() string {
 	return string(reg[:])
 }
 
-// EncodeMsgpack implements pack.CustomEncoder.
+// EncodeMsgpack implements binary.CustomEncoder.
 // Replaces the the msgpack array encoding with bytes encoding
 // that is more compact in case where fingerprint is empty.
-func (f Fingerprint) EncodeMsgpack(enc *pack.Encoder) error {
+func (f Fingerprint) EncodeMsgpack(enc *binary.Encoder) error {
 	if f.IsEmpty() {
 		return enc.EncodeBytes(nil)
 	}
 	return enc.EncodeBytes(f[:])
 }
 
-// DecodeMsgpack implements pack.CustomDecoder.
+// DecodeMsgpack implements binary.CustomDecoder.
 // Replaces the the msgpack array encoding with bytes encoding
 // that is more compact in case where fingerprint is empty.
-func (f *Fingerprint) DecodeMsgpack(dec *pack.Decoder) error {
+func (f *Fingerprint) DecodeMsgpack(dec *binary.Decoder) error {
 	b, err := dec.DecodeBytes()
 	if err != nil {
 		return err

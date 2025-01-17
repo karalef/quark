@@ -8,7 +8,7 @@ import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/extensions/message/compress"
-	"github.com/karalef/quark/pack"
+	"github.com/karalef/quark/pack/binary"
 )
 
 // Opt is a message option.
@@ -77,7 +77,7 @@ func New(plaintext io.Reader, opts ...Opt) (*Message, error) {
 			Time: time.Now().Unix(),
 			File: messageOpts.file,
 		},
-		Data: pack.Stream{
+		Data: binary.Stream{
 			Reader: plaintext,
 		},
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/karalef/quark/crypto/pke"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/pack"
+	"github.com/karalef/quark/pack/binary"
 	"github.com/karalef/quark/scheme"
 )
 
@@ -52,13 +53,13 @@ func (pk PublicKey[_]) SignEncode(w io.Writer) error {
 	return NewKeyModel(pk.key).SignEncode(w)
 }
 
-// EncodeMsgpack implements pack.CustomEncoder.
-func (pk PublicKey[_]) EncodeMsgpack(enc *pack.Encoder) error {
+// EncodeMsgpack implements binary.CustomEncoder.
+func (pk PublicKey[_]) EncodeMsgpack(enc *binary.Encoder) error {
 	return enc.Encode(NewKeyModel(pk.key))
 }
 
-// DecodeMsgpack implements pack.CustomDecoder.
-func (pk *PublicKey[T]) DecodeMsgpack(dec *pack.Decoder) error {
+// DecodeMsgpack implements binary.CustomDecoder.
+func (pk *PublicKey[T]) DecodeMsgpack(dec *binary.Decoder) error {
 	m := new(KeyModel)
 	err := dec.Decode(m)
 	if err != nil {

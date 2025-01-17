@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/karalef/quark/pack/binary"
 )
 
 // MAGIC is a magic bytes.
@@ -16,6 +18,15 @@ func NewHeader(tag Tag) Header {
 	h[5] = byte(tag & 0xff)
 	h[6] = byte(tag >> 8)
 	return h
+}
+
+// ReadHeader reads the packet header from the reader.
+func ReadHeader(in io.Reader) (Header, error) {
+	var h Header
+	if _, err := io.ReadFull(in, h[:]); err != nil {
+		return h, err
+	}
+	return h, nil
 }
 
 // Header is a packet header.
@@ -42,24 +53,50 @@ func (h Header) Validate() error {
 // ErrMagic is returned when the magic bytes are wrong.
 var ErrMagic = errors.New("wrong magic bytes")
 
-// Pack encodes the packet contains the object into binary format.
-func Pack(out io.Writer, v Packable) error {
+// NewPacker returns a new packer.
+func NewPacker(w io.Writer) *Packer { return (*Packer)(binary.GetEncoder(w)) }
+
+// Packer encodes several packets with one encoder.
+type Packer binary.Encoder
+
+func (p *Packer) encoder() *binary.Encoder { return (*binary.Encoder)(p) }
+
+// Close returns the underlying encoder to the pool.
+func (p *Packer) Close() { binary.PutEncoder(p.encoder()) }
+
+// Pack packs the next packet.
+func (p *Packer) Pack(v Packable) error {
 	tag := v.PacketTag()
 	if _, err := tag.Type(); err != nil {
 		return err
 	}
 
-	if _, err := NewHeader(tag).WriteTo(out); err != nil {
+	enc := p.encoder()
+	if _, err := NewHeader(tag).WriteTo(enc.Writer()); err != nil {
 		return err
 	}
-
-	return EncodeBinary(out, v)
+	return enc.Encode(v)
 }
 
-// ReadHeader reads the packet header from the reader.
-func ReadHeader(in io.Reader) (Header, error) {
+// NewUnpacker returns a new unpacker.
+func NewUnpacker(r io.Reader) *Unpacker { return (*Unpacker)(binary.GetDecoder(r)) }
+
+// Unpacker decodes several packets with one decoder.
+type Unpacker binary.Decoder
+
+func (p *Unpacker) decoder() *binary.Decoder { return (*binary.Decoder)(p) }
+
+func (p *Unpacker) reader() binary.ByteReader {
+	return p.decoder().Buffered().(binary.ByteReader)
+}
+
+// Close returns the underlying decoder to the pool.
+func (p *Unpacker) Close() { binary.PutDecoder(p.decoder()) }
+
+// ReadHeader reads the next packet header.
+func (p *Unpacker) ReadHeader() (Header, error) {
 	var h Header
-	if _, err := io.ReadFull(in, h[:]); err != nil {
+	if _, err := io.ReadFull(p.reader(), h[:]); err != nil {
 		return h, err
 	}
 	return h, nil
@@ -67,27 +104,51 @@ func ReadHeader(in io.Reader) (Header, error) {
 
 // DecodePacket decodes the packet header from binary format.
 // Returns RawPacket even if the tag is unknown (with ErrUnknownTag error).
-func DecodePacket(in io.Reader) (*RawPacket, error) {
-	header, err := ReadHeader(in)
+func (p *Unpacker) DecodePacket() (*RawPacket, error) {
+	r := p.reader()
+	header, err := ReadHeader(r)
 	if err != nil {
 		return nil, err
 	}
 
 	return &RawPacket{
 		Tag:    header.Tag(),
-		Object: GetDecoder(in),
+		Object: binary.GetDecoder(r),
 	}, header.Validate()
 }
 
 // Unpack decodes the packet and unpacks the binary formatted object.
 // If the binary object cannot be unpacked, returns the *RawPacket with ErrUnknownTag error.
-func Unpack(in io.Reader) (Packable, error) {
-	p, err := DecodePacket(in)
+func (p *Unpacker) Unpack() (Packable, error) {
+	raw, err := p.DecodePacket()
 	if err != nil {
-		return p, err
+		return raw, err
 	}
 
-	return UnpackObject(p)
+	return UnpackObject(raw)
+}
+
+// Pack encodes the packet contains the object into binary format.
+func Pack(out io.Writer, v Packable) error {
+	p := NewPacker(out)
+	defer p.Close()
+	return p.Pack(v)
+}
+
+// DecodePacket decodes the packet header from binary format.
+// Returns RawPacket even if the tag is unknown (with ErrUnknownTag error).
+func DecodePacket(in io.Reader) (*RawPacket, error) {
+	u := NewUnpacker(in)
+	defer u.Close()
+	return u.DecodePacket()
+}
+
+// Unpack decodes the packet and unpacks the binary formatted object.
+// If the binary object cannot be unpacked, returns the *RawPacket with ErrUnknownTag error.
+func Unpack(in io.Reader) (Packable, error) {
+	u := NewUnpacker(in)
+	defer u.Close()
+	return u.Unpack()
 }
 
 // UnpackObject unpacks the binary formatted object from the decoded packet.
@@ -120,7 +181,7 @@ func (e ErrMismatchType) Error() string {
 var _ Packable = RawPacket{}
 
 // RawPacket represents a not unpacked binary packet.
-type RawPacket Packet[*Decoder]
+type RawPacket Packet[*binary.Decoder]
 
 // PacketTag implements pack.Packable interface.
 func (p RawPacket) PacketTag() Tag { return p.Tag }
@@ -134,6 +195,6 @@ func (p RawPacket) Unpack(v Packable) error {
 }
 
 func (p RawPacket) unpack(v Packable) error {
-	defer PutDecoder(p.Object)
+	defer binary.PutDecoder(p.Object)
 	return p.Object.Decode(v)
 }

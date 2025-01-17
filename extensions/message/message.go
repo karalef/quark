@@ -5,6 +5,7 @@ import (
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/extensions/message/compress"
 	"github.com/karalef/quark/pack"
+	"github.com/karalef/quark/pack/binary"
 )
 
 // PacketTagMessage is a message packet tag.
@@ -61,8 +62,8 @@ type Auth struct {
 }
 
 var (
-	_ pack.Packable      = (*Message)(nil)
-	_ pack.CustomDecoder = (*Message)(nil)
+	_ pack.Packable        = (*Message)(nil)
+	_ binary.CustomDecoder = (*Message)(nil)
 )
 
 // Message contains a message.
@@ -73,15 +74,15 @@ type Message struct {
 
 	// if the object is used for unpacking, it will be available only after decryption;
 	// Data.Reader is used to store the input stream before decryption.
-	Data pack.Stream
+	Data binary.Stream
 
 	// if the object is used for unpacking, it will be available only after decryption.
 	Auth Auth
 }
 
-// DecodeMsgpack implements pack.CustomDecoder interface.
+// DecodeMsgpack implements binary.CustomDecoder interface.
 // It decodes only a header and stores the input stream.
-func (m *Message) DecodeMsgpack(dec *pack.Decoder) error {
+func (m *Message) DecodeMsgpack(dec *binary.Decoder) error {
 	if _, err := dec.DecodeArrayLen(); err != nil {
 		return err
 	}

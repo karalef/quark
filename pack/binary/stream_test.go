@@ -1,4 +1,4 @@
-package pack
+package binary
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ func TestStream(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	err := EncodeBinary(buf, s)
+	err := Encode(buf, s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,7 +20,7 @@ func TestStream(t *testing.T) {
 	dataBuf := bytes.NewBuffer(make([]byte, 0, len(testData)))
 	s.Writer = dataBuf
 
-	err = DecodeBinary(buf, s)
+	err = Decode(buf, s)
 	if err != nil {
 		t.Fatal(err)
 	}

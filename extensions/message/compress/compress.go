@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/karalef/quark/pack"
+	"github.com/karalef/quark/pack/binary"
 	"github.com/karalef/quark/scheme"
 	"github.com/pierrec/lz4/v4"
 	"github.com/valyala/gozstd"
@@ -29,13 +29,13 @@ type Compression interface {
 // Algorithm contains compression and can be encoded and decoded.
 type Algorithm struct{ Compression }
 
-// EncodeMsgpack implements pack.CustomEncoder interface.
-func (a Algorithm) EncodeMsgpack(enc *pack.Encoder) error {
+// EncodeMsgpack implements binary.CustomEncoder interface.
+func (a Algorithm) EncodeMsgpack(enc *binary.Encoder) error {
 	return enc.EncodeString(a.Name())
 }
 
-// DecodeMsgpack implements pack.CustomDecoder interface.
-func (a *Algorithm) DecodeMsgpack(dec *pack.Decoder) error {
+// DecodeMsgpack implements binary.CustomDecoder interface.
+func (a *Algorithm) DecodeMsgpack(dec *binary.Decoder) error {
 	name, err := dec.DecodeString()
 	if err != nil {
 		return err

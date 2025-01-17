@@ -10,7 +10,7 @@ import (
 	"github.com/karalef/quark/crypto/mac"
 	"github.com/karalef/quark/crypto/pke"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/pack"
+	"github.com/karalef/quark/pack/binary"
 )
 
 // Decrypt contains the parameters to decrypt the message.
@@ -88,8 +88,8 @@ func (msg *Message) Decrypt(plain io.Writer, decrypt Decrypt) error {
 
 	msg.Data.R = msgReader
 
-	dec := pack.GetDecoder(msg.Data.Reader)
-	defer pack.PutDecoder(dec)
+	dec := binary.GetDecoder(msg.Data.Reader)
+	defer binary.PutDecoder(dec)
 
 	err := dec.Decode(&msg.Data)
 	if err != nil {

@@ -1,12 +1,10 @@
 package encrypted
 
 import (
-	"bytes"
-
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kdf"
-	"github.com/karalef/quark/pack"
+	"github.com/karalef/quark/pack/binary"
 )
 
 // PassphraseParams contains passphrase-based encryption parameters.
@@ -65,12 +63,12 @@ func (p Passphrased) Decrypter(passphrase string, nonce, ad []byte) (aead.Cipher
 	return p.Passphrase.Decrypter(passphrase, nonce, p.Salt, ad, p.Cost)
 }
 
-// DecodeMsgpack implements pack.CustomDecoder
-func (p *Passphrased) DecodeMsgpack(dec *pack.Decoder) error {
+// DecodeMsgpack implements binary.CustomDecoder
+func (p *Passphrased) DecodeMsgpack(dec *binary.Decoder) error {
 	var m struct {
 		Scheme Passphrase `msgpack:"scheme"`
 		Salt   []byte     `msgpack:"salt"`
-		Cost   pack.Raw   `msgpack:"cost"`
+		Cost   binary.Raw `msgpack:"cost"`
 	}
 	if err := dec.Decode(&m); err != nil {
 		return err
@@ -78,5 +76,5 @@ func (p *Passphrased) DecodeMsgpack(dec *pack.Decoder) error {
 	p.Passphrase = m.Scheme
 	p.Salt = m.Salt
 	p.Cost = p.KDF().NewCost()
-	return pack.DecodeBinary(bytes.NewReader(m.Cost), p.Cost)
+	return binary.DecodeBytes(m.Cost, p.Cost)
 }

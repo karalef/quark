@@ -3,7 +3,7 @@ package encrypted
 import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/xof"
-	"github.com/karalef/quark/pack"
+	"github.com/karalef/quark/pack/binary"
 	"github.com/karalef/quark/scheme"
 )
 
@@ -87,17 +87,17 @@ func SecretFromNames(aeadName, xofName string) (Secret, error) {
 }
 
 var (
-	_ pack.CustomEncoder = Secret{}
-	_ pack.CustomDecoder = (*Secret)(nil)
+	_ binary.CustomEncoder = Secret{}
+	_ binary.CustomDecoder = (*Secret)(nil)
 )
 
-// EncodeMsgpack implements pack.CustomEncoder.
-func (s Secret) EncodeMsgpack(enc *pack.Encoder) error {
+// EncodeMsgpack implements binary.CustomEncoder.
+func (s Secret) EncodeMsgpack(enc *binary.Encoder) error {
 	return enc.EncodeString(s.Name())
 }
 
-// DecodeMsgpack implements pack.CustomDecoder.
-func (s *Secret) DecodeMsgpack(dec *pack.Decoder) error {
+// DecodeMsgpack implements binary.CustomDecoder.
+func (s *Secret) DecodeMsgpack(dec *binary.Decoder) error {
 	str, err := dec.DecodeString()
 	if err != nil {
 		return err

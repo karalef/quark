@@ -3,7 +3,7 @@ package encrypted
 import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kdf"
-	"github.com/karalef/quark/pack"
+	"github.com/karalef/quark/pack/binary"
 	"github.com/karalef/quark/scheme"
 )
 
@@ -93,17 +93,17 @@ func PassphraseFromNames(aeadName, kdfName string) (Passphrase, error) {
 }
 
 var (
-	_ pack.CustomEncoder = Passphrase{}
-	_ pack.CustomDecoder = (*Passphrase)(nil)
+	_ binary.CustomEncoder = Passphrase{}
+	_ binary.CustomDecoder = (*Passphrase)(nil)
 )
 
-// EncodeMsgpack implements pack.CustomEncoder.
-func (p Passphrase) EncodeMsgpack(enc *pack.Encoder) error {
+// EncodeMsgpack implements binary.CustomEncoder.
+func (p Passphrase) EncodeMsgpack(enc *binary.Encoder) error {
 	return enc.EncodeString(p.Name())
 }
 
-// DecodeMsgpack implements pack.CustomDecoder.
-func (p *Passphrase) DecodeMsgpack(dec *pack.Decoder) error {
+// DecodeMsgpack implements binary.CustomDecoder.
+func (p *Passphrase) DecodeMsgpack(dec *binary.Decoder) error {
 	str, err := dec.DecodeString()
 	if err != nil {
 		return err

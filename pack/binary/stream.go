@@ -1,4 +1,4 @@
-package pack
+package binary
 
 import (
 	"bufio"
@@ -6,6 +6,12 @@ import (
 	"errors"
 	"io"
 )
+
+// ByteReader is an io.Reader and io.ByteReader interface.
+type ByteReader interface {
+	io.Reader
+	io.ByteReader
+}
 
 // Stream represents an de/encodable bytes stream.
 type Stream struct {
@@ -52,7 +58,7 @@ func (s *Stream) DecodeMsgpack(dec *Decoder) error {
 	if s.Writer == nil {
 		return errors.New("pack: Stream.Writer is nil")
 	}
-	br, ok := dec.Buffered().(byteReader)
+	br, ok := dec.Buffered().(ByteReader)
 	if !ok {
 		br = bufio.NewReader(dec.Buffered())
 	}
@@ -96,7 +102,7 @@ func (sw *streamWriter) Close() error {
 }
 
 type streamReader struct {
-	r         byteReader
+	r         ByteReader
 	remaining uint64
 	eof       bool
 }

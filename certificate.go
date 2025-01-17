@@ -1,13 +1,13 @@
 package quark
 
 import (
-	"bytes"
 	"errors"
 	"io"
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/pack"
+	"github.com/karalef/quark/pack/binary"
 )
 
 // CertID represents a certificate ID.
@@ -25,12 +25,12 @@ type RawData []byte
 
 func (r RawData) Copy() RawData { return crypto.Copy(r) }
 
-func (r RawData) EncodeMsgpack(enc *pack.Encoder) error {
+func (r RawData) EncodeMsgpack(enc *binary.Encoder) error {
 	_, err := enc.Writer().Write(r)
 	return err
 }
 
-func (r *RawData) DecodeMsgpack(dec *pack.Decoder) error {
+func (r *RawData) DecodeMsgpack(dec *binary.Decoder) error {
 	d, err := dec.DecodeRaw()
 	if err != nil {
 		return err
@@ -119,16 +119,16 @@ type Raw = Certificate[RawCertifyable]
 
 // Raw returns the certificate with raw data.
 func (c Certificate[_]) Raw() Raw {
-	b := bytes.NewBuffer(nil)
-	if err := pack.EncodeBinary(b, c.Data); err != nil {
-		// encoding error (not writer) means that the certificate
+	d, err := binary.EncodeBytes(c.Data)
+	if err != nil {
+		// encoding error means that the certificate
 		// data was not normally created.
 		panic("unexpected error: " + err.Error())
 	}
 	return Raw{
 		ID:        c.ID,
 		Type:      c.Type,
-		Data:      RawCertifyable{Type: c.Type, RawData: b.Bytes()},
+		Data:      RawCertifyable{Type: c.Type, RawData: d},
 		Signature: c.Signature.Copy(),
 	}
 }
@@ -191,7 +191,7 @@ func As[T Certifyable[T]](cert Raw) (Certificate[T], error) {
 		Type:      cert.Type,
 		Signature: cert.Signature.Copy(),
 	}
-	err := pack.DecodeBinary(bytes.NewReader(cert.Data.RawData), &typed.Data)
+	err := binary.DecodeBytes(cert.Data.RawData, &typed.Data)
 	if err != nil {
 		return Certificate[T]{}, err
 	}
