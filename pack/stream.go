@@ -95,11 +95,6 @@ func (sw *streamWriter) Close() error {
 	return err
 }
 
-type byteReader interface {
-	io.Reader
-	io.ByteReader
-}
-
 type streamReader struct {
 	r         byteReader
 	remaining uint64

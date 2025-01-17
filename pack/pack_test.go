@@ -1,25 +1,26 @@
-package pack
+package pack_test
 
 import (
 	"bytes"
 	"testing"
 
+	"github.com/karalef/quark/pack"
 	"github.com/karalef/quark/pack/armor"
 )
 
-var _ Packable = (*testPack)(nil)
+var _ pack.Packable = (*testPack)(nil)
 
 type testPack struct {
 	Test string `msgpack:"test"`
 }
 
-func (*testPack) PacketTag() Tag { return 65535 }
+func (*testPack) PacketTag() pack.Tag { return 65535 }
 
 func TestPacking(t *testing.T) {
 	testValue := &testPack{
 		Test: "test",
 	}
-	RegisterPacketType(NewType(testValue, "test"))
+	pack.RegisterPacketType(pack.NewType(testValue, "test"))
 
 	buf := new(bytes.Buffer)
 
@@ -28,7 +29,7 @@ func TestPacking(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = Pack(out, testValue)
+	err = pack.Pack(out, testValue)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +47,7 @@ func TestPacking(t *testing.T) {
 		t.Fatal("unexpected armor block")
 	}
 
-	v, err := Unpack(block.Body)
+	v, err := pack.Unpack(block.Body)
 	if err != nil {
 		t.Fatal(err)
 	}

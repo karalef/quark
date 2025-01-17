@@ -56,11 +56,20 @@ func Pack(out io.Writer, v Packable) error {
 	return EncodeBinary(out, v)
 }
 
+// ReadHeader reads the packet header from the reader.
+func ReadHeader(in io.Reader) (Header, error) {
+	var h Header
+	if _, err := io.ReadFull(in, h[:]); err != nil {
+		return h, err
+	}
+	return h, nil
+}
+
 // DecodePacket decodes the packet header from binary format.
 // Returns RawPacket even if the tag is unknown (with ErrUnknownTag error).
 func DecodePacket(in io.Reader) (*RawPacket, error) {
-	var header Header
-	if _, err := io.ReadFull(in, header[:]); err != nil {
+	header, err := ReadHeader(in)
+	if err != nil {
 		return nil, err
 	}
 
