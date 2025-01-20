@@ -94,26 +94,19 @@ func (p *Unpacker) reader() binary.ByteReader {
 func (p *Unpacker) Close() { binary.PutDecoder(p.decoder()) }
 
 // ReadHeader reads the next packet header.
-func (p *Unpacker) ReadHeader() (Header, error) {
-	var h Header
-	if _, err := io.ReadFull(p.reader(), h[:]); err != nil {
-		return h, err
-	}
-	return h, nil
-}
+func (p *Unpacker) ReadHeader() (Header, error) { return ReadHeader(p.reader()) }
 
 // DecodePacket decodes the packet header from binary format.
 // Returns RawPacket even if the tag is unknown (with ErrUnknownTag error).
 func (p *Unpacker) DecodePacket() (*RawPacket, error) {
-	r := p.reader()
-	header, err := ReadHeader(r)
+	header, err := p.ReadHeader()
 	if err != nil {
 		return nil, err
 	}
 
 	return &RawPacket{
 		Tag:    header.Tag(),
-		Object: binary.GetDecoder(r),
+		Object: binary.GetDecoder(p.reader()),
 	}, header.Validate()
 }
 
