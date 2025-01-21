@@ -4,6 +4,7 @@ import (
 	stdcipher "crypto/cipher"
 	"errors"
 
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/scheme"
 )
 
@@ -22,10 +23,13 @@ type Scheme interface {
 
 	KeySize() int
 	IVSize() int
+
 	// BlockSize returns the block size if the cipher has a counter.
 	BlockSize() int
 
-	New(key, iv []byte) (Cipher, error)
+	// New creates a new cipher.
+	// Panics if the key or iv length is wrong.
+	New(key, iv []byte) Cipher
 }
 
 // NewFunc represents the function to create a stream cipher.
@@ -58,14 +62,12 @@ type baseScheme struct {
 func (s baseScheme) KeySize() int   { return s.keySize }
 func (s baseScheme) IVSize() int    { return s.ivSize }
 func (s baseScheme) BlockSize() int { return s.blockSize }
-func (s baseScheme) New(key, iv []byte) (Cipher, error) {
-	if len(key) != s.keySize {
-		return nil, ErrKeySize
-	}
-	if len(iv) != s.ivSize {
-		return nil, ErrIVSize
-	}
-	return s.newFunc(key, iv), nil
+
+func (s baseScheme) New(key, iv []byte) Cipher {
+	crypto.LenOrPanic(key, s.keySize, ErrKeySize)
+	crypto.LenOrPanic(iv, s.ivSize, ErrIVSize)
+
+	return s.newFunc(key, iv)
 }
 
 // errors
@@ -74,7 +76,7 @@ var (
 	ErrIVSize  = errors.New("invalid iv size")
 )
 
-var schemes = make(scheme.Schemes[Scheme])
+var schemes = make(scheme.Map[Scheme])
 
 // Register registers a cipher scheme.
 func Register(scheme Scheme) { schemes.Register(scheme) }
@@ -82,8 +84,15 @@ func Register(scheme Scheme) { schemes.Register(scheme) }
 // ByName returns the cipher scheme by the provided name.
 func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
 
-// ListAll returns all registered cipher algorithms.
-func ListAll() []string { return schemes.ListAll() }
+// ListNames returns all registered cipher algorithms.
+func ListNames() []string { return schemes.ListNames() }
 
-// ListSchemes returns all registered cipher schemes.
-func ListSchemes() []Scheme { return schemes.ListSchemes() }
+// List returns all registered cipher schemes.
+func List() []Scheme { return schemes.List() }
+
+// Registry implements scheme.ByName.
+type Registry struct{}
+
+var _ scheme.ByName[Scheme] = Registry{}
+
+func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }

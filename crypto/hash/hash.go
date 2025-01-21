@@ -79,7 +79,7 @@ func blake3WithSize(size int) func() State {
 	}
 }
 
-var schemes = make(scheme.Schemes[Scheme])
+var schemes = make(scheme.Map[Scheme])
 
 func init() {
 	Register(SHA256)
@@ -100,8 +100,15 @@ func Register(scheme Scheme) { schemes.Register(scheme) }
 // ByName returns the hash scheme by the provided name.
 func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
 
-// ListAll returns all registered hash algorithms.
-func ListAll() []string { return schemes.ListAll() }
+// ListNames returns all registered hash algorithms.
+func ListNames() []string { return schemes.ListNames() }
 
-// ListSchemes returns all registered hash schemes.
-func ListSchemes() []Scheme { return schemes.ListSchemes() }
+// List returns all registered hash schemes.
+func List() []Scheme { return schemes.List() }
+
+// Registry implements scheme.ByName.
+type Registry struct{}
+
+var _ scheme.ByName[Scheme] = Registry{}
+
+func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }

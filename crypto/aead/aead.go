@@ -29,12 +29,21 @@ type Scheme interface {
 	TagSize() int
 
 	// Encrypt returns Cipher in encryption mode.
-	// Panics if nonce is not of length NonceSize().
-	Encrypt(key, nonce, associatedData []byte) (Cipher, error)
+	// Panics if parameters have wrong sizes.
+	Encrypt(key, nonce, associatedData []byte) Cipher
 
 	// Decrypt returns Cipher in decryption mode.
-	// Panics if nonce is not of length NonceSize().
-	Decrypt(key, nonce, associatedData []byte) (Cipher, error)
+	// Panics if parameters have wrong sizes.
+	Decrypt(key, nonce, associatedData []byte) Cipher
+}
+
+// Verify compares the cipher tag and the provided one.
+// Returns an error if MACs are not equal.
+func Verify(c Cipher, tag []byte) error {
+	if !mac.Equal(c.Tag(nil), tag) {
+		return mac.ErrMismatch
+	}
+	return nil
 }
 
 // NewFunc represents the function to create an AEAD cipher.
@@ -87,7 +96,7 @@ func init() {
 	Register(AES256SHA3)
 }
 
-var schemes = make(scheme.Schemes[Scheme])
+var schemes = make(scheme.Map[Scheme])
 
 // Register registers a AEAD scheme.
 func Register(scheme Scheme) { schemes.Register(scheme) }
@@ -95,8 +104,15 @@ func Register(scheme Scheme) { schemes.Register(scheme) }
 // ByName returns the AEAD scheme by the provided name.
 func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
 
-// ListAll returns all registered AEAD algorithms.
-func ListAll() []string { return schemes.ListAll() }
+// ListNames returns all registered AEAD algorithms.
+func ListNames() []string { return schemes.ListNames() }
 
-// ListSchemes returns all registered AEAD schemes.
-func ListSchemes() []Scheme { return schemes.ListSchemes() }
+// List returns all registered AEAD schemes.
+func List() []Scheme { return schemes.List() }
+
+// Registry implements scheme.ByName.
+type Registry struct{}
+
+var _ scheme.ByName[Scheme] = Registry{}
+
+func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }

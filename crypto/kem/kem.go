@@ -95,7 +95,7 @@ var (
 	ErrEncapsulationSeed = errors.New("invalid encapsulation seed size")
 )
 
-var schemes = make(scheme.Schemes[Scheme])
+var schemes = make(scheme.Map[Scheme])
 
 // Register registers a KEM scheme.
 func Register(scheme Scheme) { schemes.Register(scheme) }
@@ -103,8 +103,15 @@ func Register(scheme Scheme) { schemes.Register(scheme) }
 // ByName returns the KEM scheme by the provided name.
 func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
 
-// ListAll returns all registered KEM algorithms.
-func ListAll() []string { return schemes.ListAll() }
+// ListNames returns all registered KEM algorithms.
+func ListNames() []string { return schemes.ListNames() }
 
-// ListSchemes returns all registered KEM schemes.
-func ListSchemes() []Scheme { return schemes.ListSchemes() }
+// List returns all registered KEM schemes.
+func List() []Scheme { return schemes.List() }
+
+// Registry implements scheme.ByName.
+type Registry struct{}
+
+var _ scheme.ByName[Scheme] = Registry{}
+
+func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }

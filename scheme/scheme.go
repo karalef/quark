@@ -15,6 +15,11 @@ const (
 	Delimeter = '-'
 )
 
+// Normalize converts scheme name to uppercase.
+func Normalize(scheme string) string {
+	return strings.ToUpper(scheme)
+}
+
 // Join combines scheme names.
 func Join(schemes ...Scheme) string {
 	return join(schemes, Delimeter)
@@ -38,7 +43,7 @@ func join(schemes []Scheme, delim byte) string {
 		if name == "" {
 			continue
 		}
-		b.WriteString(strings.ToUpper(name))
+		b.WriteString(Normalize(name))
 		if i < len(schemes)-1 {
 			b.WriteByte(delim)
 		}

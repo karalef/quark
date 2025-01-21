@@ -84,10 +84,7 @@ type derivedEncrypter struct {
 // Encrypt uses derived key to create an authenticated stream cipher.
 func (d derivedEncrypter) Encrypt(ad []byte) (aead.Cipher, *Encryption, error) {
 	nonce := crypto.Rand(d.scheme.NonceSize())
-	aead, err := d.scheme.Encrypt(d.key, nonce, ad)
-	if err != nil {
-		return nil, nil, err
-	}
+	aead := d.scheme.Encrypt(d.key, nonce, ad)
 
 	return aead, &Encryption{
 		Nonce:   nonce,
@@ -136,7 +133,7 @@ func (e Encryption) DecryptFor(recipient pke.PrivateKey, ad []byte) (aead.Cipher
 
 // Decrypt creates an authenticated cipher using derived key.
 func (e Encryption) Decrypt(key, ad []byte) (aead.Cipher, error) {
-	return e.Derived.Decrypt(key, e.Nonce, ad)
+	return e.Derived.Decrypt(key, e.Nonce, ad), nil
 }
 
 // Passphrase uses passhprase-based symmetric encryption to create an authenticated stream cipher.

@@ -14,22 +14,25 @@ const MinMACKeySize = 16
 // DeriveMACKey derives the MAC key from the cipher key and nonce. It uses nonce
 // as IV and encrypts a zero block(s) to obtain the MAC key. Panics if size is
 // less than MinMACKeySize.
-func DeriveMACKey(cipher cipher.Scheme, key, nonce []byte, size uint) (cipher.Cipher, []byte, error) {
-	bs, err := CheckMACKeySize(cipher, size)
+func DeriveMACKey(scheme cipher.Scheme, key, nonce []byte, size uint) (cipher.Cipher, []byte, error) {
+	bs, err := CheckMACKeySize(scheme, size)
 	if err != nil {
 		panic(err)
 	}
-	stream, err := cipher.New(key, nonce)
-	if err != nil {
-		return nil, nil, err
+	if len(key) != scheme.KeySize() {
+		return nil, nil, cipher.ErrKeySize
 	}
+	if len(nonce) != scheme.IVSize() {
+		return nil, nil, cipher.ErrIVSize
+	}
+	stream := scheme.New(key, nonce)
 	return stream, deriveMACKey(stream, size, bs), nil
 }
 
 // CheckMacKeySize checks that size is at least MinMACKeySize.
 // Returns the block size of the cipher (for cases where the block size is unknown).
-func CheckMACKeySize(cipher cipher.Scheme, size uint) (uint, error) {
-	bs := cipher.BlockSize()
+func CheckMACKeySize(scheme cipher.Scheme, size uint) (uint, error) {
+	bs := scheme.BlockSize()
 	if bs == 0 {
 		bs = int(size)
 	}
@@ -43,24 +46,24 @@ var errMacKeySize = errors.New("mac key size must be in range [MinMACKeySize, ci
 
 // DeriveMACKeyFast is like DeriveMACKey but requires known block size and does
 // not verifies the sizes of the key, nonce and mac key.
-func DeriveMACKeyFast(cipher cipher.Scheme, key, nonce []byte, size uint) (cipher.Cipher, []byte) {
-	return deriveMACKeyFast(cipher, key, nonce, size, uint(cipher.BlockSize()))
+func DeriveMACKeyFast(scheme cipher.Scheme, key, nonce []byte, size uint) (cipher.Cipher, []byte) {
+	return deriveMACKeyFast(scheme, key, nonce, size, uint(scheme.BlockSize()))
 }
 
-func deriveMACKeyFast(cipher cipher.Scheme, key, nonce []byte, size, bs uint) (cipher.Cipher, []byte) {
-	stream, _ := cipher.New(key, nonce)
+func deriveMACKeyFast(scheme cipher.Scheme, key, nonce []byte, size, bs uint) (cipher.Cipher, []byte) {
+	stream := scheme.New(key, nonce)
 	return stream, deriveMACKey(stream, size, bs)
 }
 
 // deriveMACKey encrypts a zero blocks to obtain the MAC key.
 // even if the cipher has no block size the bs must be equal to size.
-func deriveMACKey(cipher cipher.Cipher, size, bs uint) []byte {
+func deriveMACKey(ciph cipher.Cipher, size, bs uint) []byte {
 	blocks := size / bs
 	if size%bs != 0 {
 		blocks++
 	}
 	zeros := make([]byte, bs*blocks)
-	cipher.XORKeyStream(zeros, zeros)
+	ciph.XORKeyStream(zeros, zeros)
 	return zeros[:size:size]
 }
 

@@ -21,3 +21,11 @@ func OrPanic[V any](v V, err error) V {
 	}
 	return v
 }
+
+// LenOrPanic compares the length of b to req and panics with err if they are
+// not equal.
+func LenOrPanic(b []byte, req int, err error) {
+	if len(b) != req {
+		panic(err)
+	}
+}

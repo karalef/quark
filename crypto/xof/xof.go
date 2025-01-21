@@ -48,7 +48,7 @@ type xof struct {
 func (s xof) New() State     { return s.new() }
 func (s xof) BlockSize() int { return s.bs }
 
-var xofs = make(scheme.Schemes[Scheme])
+var xofs = make(scheme.Map[Scheme])
 
 // Register registers a XOF.
 func Register(xof Scheme) { xofs.Register(xof) }
@@ -56,8 +56,15 @@ func Register(xof Scheme) { xofs.Register(xof) }
 // ByName returns the XOF by the provided name.
 func ByName(name string) (Scheme, error) { return xofs.ByName(name) }
 
-// ListAll returns all registered XOF names.
-func ListAll() []string { return xofs.ListAll() }
+// ListNames returns all registered XOF names.
+func ListNames() []string { return xofs.ListNames() }
 
-// ListSchemes returns all registered XOF schemes.
-func ListSchemes() []Scheme { return xofs.ListSchemes() }
+// List returns all registered XOF schemes.
+func List() []Scheme { return xofs.List() }
+
+// Registry implements scheme.ByName.
+type Registry struct{}
+
+var _ scheme.ByName[Scheme] = Registry{}
+
+func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }

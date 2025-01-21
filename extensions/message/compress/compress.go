@@ -172,7 +172,7 @@ func (c compression[T]) Decompress(r io.Reader, opts Opts) (io.Reader, error) {
 	return c.decompress(r, o)
 }
 
-var compressions = make(scheme.Schemes[Compression])
+var compressions = make(scheme.Map[Compression])
 
 func init() {
 	Register(Deflate)
@@ -188,8 +188,15 @@ func Register(c Compression) { compressions.Register(c) }
 // Returns nil if the name is not registered.
 func ByName(name string) (Compression, error) { return compressions.ByName(name) }
 
-// ListAll returns all registered compression algorithms.
-func ListAll() []string { return compressions.ListAll() }
+// ListNames returns all registered compression algorithms.
+func ListNames() []string { return compressions.ListNames() }
 
-// ListSchemes returns all registered compressions.
-func ListSchemes() []Compression { return compressions.ListSchemes() }
+// List returns all registered compressions.
+func List() []Compression { return compressions.List() }
+
+// Registry implements scheme.ByName.
+type Registry struct{}
+
+var _ scheme.ByName[Compression] = Registry{}
+
+func (Registry) ByName(name string) (Compression, error) { return ByName(name) }

@@ -3,6 +3,7 @@ package internal
 import (
 	"errors"
 
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/scheme"
 )
@@ -46,28 +47,16 @@ func (s *Scheme) KeySize() int   { return s.keySize }
 func (s *Scheme) NonceSize() int { return s.nonceSize }
 func (s *Scheme) TagSize() int   { return s.tagSize }
 
-func (s *Scheme) checkSizes(key, nonce []byte) error {
-	if len(nonce) != s.NonceSize() {
-		panic(ErrNonceSize)
-	}
-	if len(key) != s.KeySize() {
-		return ErrKeySize
-	}
-	return nil
+func (s *Scheme) Encrypt(key, nonce, associatedData []byte) Cipher {
+	crypto.LenOrPanic(key, s.keySize, ErrKeySize)
+	crypto.LenOrPanic(nonce, s.nonceSize, ErrNonceSize)
+	return s.enc(key, nonce, associatedData)
 }
 
-func (s *Scheme) Encrypt(key, nonce, associatedData []byte) (Cipher, error) {
-	if err := s.checkSizes(key, nonce); err != nil {
-		return nil, err
-	}
-	return s.enc(key, nonce, associatedData), nil
-}
-
-func (s *Scheme) Decrypt(key, nonce, associatedData []byte) (Cipher, error) {
-	if err := s.checkSizes(key, nonce); err != nil {
-		return nil, err
-	}
-	return s.dec(key, nonce, associatedData), nil
+func (s *Scheme) Decrypt(key, nonce, associatedData []byte) Cipher {
+	crypto.LenOrPanic(key, s.keySize, ErrKeySize)
+	crypto.LenOrPanic(nonce, s.nonceSize, ErrNonceSize)
+	return s.dec(key, nonce, associatedData)
 }
 
 // errors.

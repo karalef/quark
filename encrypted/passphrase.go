@@ -30,7 +30,7 @@ func (p Passphrase) Encrypter(passphrase string, nonce, salt, ad []byte, cost kd
 	if err != nil {
 		return nil, err
 	}
-	return p.aead.Encrypt(key, nonce, ad)
+	return p.aead.Encrypt(key, nonce, ad), nil
 }
 
 // Decrypter returns Cipher in decryption mode.
@@ -40,7 +40,7 @@ func (p Passphrase) Decrypter(passphrase string, nonce, salt, ad []byte, cost kd
 	if err != nil {
 		return nil, err
 	}
-	return p.aead.Decrypt(key, nonce, ad)
+	return p.aead.Decrypt(key, nonce, ad), nil
 }
 
 // Crypter creates a new Crypter with the given passphrase.

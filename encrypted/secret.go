@@ -26,13 +26,13 @@ func (s Secret) TagSize() int   { return s.aead.TagSize() }
 // Encrypter returns Cipher in encryption mode.
 // Panics if nonce is not of length NonceSize().
 func (s Secret) Encrypter(nonce, sharedSecret, associatedData []byte) (aead.Cipher, error) {
-	return s.aead.Encrypt(s.DeriveKey(sharedSecret), nonce, associatedData)
+	return s.aead.Encrypt(s.DeriveKey(sharedSecret), nonce, associatedData), nil
 }
 
 // Decrypter returns Cipher in decryption mode.
 // Panics if nonce is not of length NonceSize().
 func (s Secret) Decrypter(nonce, sharedSecret, associatedData []byte) (aead.Cipher, error) {
-	return s.aead.Decrypt(s.DeriveKey(sharedSecret), nonce, associatedData)
+	return s.aead.Decrypt(s.DeriveKey(sharedSecret), nonce, associatedData), nil
 }
 
 // Crypter creates a new Crypter with the given shared secret.

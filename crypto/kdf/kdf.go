@@ -114,7 +114,7 @@ func (kdf baseKDF[T]) Derive(password, salt []byte, size uint32) []byte {
 	return kdf.kdf(password, salt, size, kdf.cost)
 }
 
-var kdfs = make(scheme.Schemes[Scheme])
+var kdfs = make(scheme.Map[Scheme])
 
 // Register registers a KDF.
 func Register(kdf Scheme) { kdfs.Register(kdf) }
@@ -122,8 +122,15 @@ func Register(kdf Scheme) { kdfs.Register(kdf) }
 // ByName returns the KDF by the provided name.
 func ByName(name string) (Scheme, error) { return kdfs.ByName(name) }
 
-// ListAll returns all registered KDF algorithms.
-func ListAll() []string { return kdfs.ListAll() }
+// ListNames returns all registered KDF algorithms.
+func ListNames() []string { return kdfs.ListNames() }
 
-// ListSchemes returns all registered KDF schemes.
-func ListSchemes() []Scheme { return kdfs.ListSchemes() }
+// List returns all registered KDF schemes.
+func List() []Scheme { return kdfs.List() }
+
+// Registry implements scheme.ByName.
+type Registry struct{}
+
+var _ scheme.ByName[Scheme] = Registry{}
+
+func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
