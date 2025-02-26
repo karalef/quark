@@ -20,7 +20,7 @@ type Scheme interface {
 	MaxKeySize() int
 
 	// New returns a new MAC instance.
-	// Panics if key is not of length KeySize().
+	// Panics if key is not of valid length.
 	New(key []byte) State
 }
 

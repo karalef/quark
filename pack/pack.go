@@ -15,8 +15,8 @@ const MAGIC = "QUARK"
 func NewHeader(tag Tag) Header {
 	var h Header
 	copy(h[:5], MAGIC)
-	h[5] = byte(tag & 0xff)
 	h[6] = byte(tag >> 8)
+	h[7] = byte(tag & 0xff)
 	return h
 }
 
@@ -30,10 +30,10 @@ func ReadHeader(in io.Reader) (Header, error) {
 }
 
 // Header is a packet header.
-type Header [7]byte
+type Header [8]byte
 
 // Tag extracts the tag from the header.
-func (h Header) Tag() Tag { return Tag(h[5]) | Tag(h[6])<<8 }
+func (h Header) Tag() Tag { return Tag(h[6])<<8 | Tag(h[7]) }
 
 // WriteTo writes the header to the writer.
 func (h Header) WriteTo(w io.Writer) (int64, error) {

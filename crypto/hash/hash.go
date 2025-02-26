@@ -2,6 +2,7 @@ package hash
 
 import (
 	"crypto/sha256"
+	"crypto/sha3"
 	"crypto/sha512"
 	"hash"
 	"unsafe"
@@ -9,7 +10,6 @@ import (
 	"github.com/karalef/quark/scheme"
 	"github.com/zeebo/blake3"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/crypto/sha3"
 )
 
 // State is an stdlib hash.Hash alias.
@@ -52,8 +52,8 @@ func (s baseScheme) New() State     { return s.new() }
 var (
 	SHA256     = New("SHA256", sha256.Size, sha256.BlockSize, sha256.New)
 	SHA512     = New("SHA512", sha512.Size, sha512.BlockSize, sha512.New)
-	SHA3       = New("SHA3", 32, 136, sha3.New256)
-	SHA3_512   = New("SHA3_512", 64, 72, sha3.New512)
+	SHA3       = New("SHA3", 32, 136, func() State { return sha3.New256() })
+	SHA3_512   = New("SHA3_512", 64, 72, func() State { return sha3.New512() })
 	BLAKE2b128 = New("BLAKE2b_128", 16, blake2b.BlockSize, func() State {
 		h, _ := blake2b.New(16, nil)
 		return h

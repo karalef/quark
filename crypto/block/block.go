@@ -1,4 +1,4 @@
-package cipher
+package block
 
 import (
 	stdcipher "crypto/cipher"
@@ -8,42 +8,34 @@ import (
 	"github.com/karalef/quark/scheme"
 )
 
-// Cipher represents a stream cipher.
-type Cipher = stdcipher.Stream
-
-// Reader represents a stream cipher reader.
-type Reader = stdcipher.StreamReader
-
-// Writer represents a stream cipher writer.
-type Writer = stdcipher.StreamWriter
+// Cipher represents a block cipher.
+type Cipher = stdcipher.Block
 
 // Scheme type.
 type Scheme interface {
 	scheme.Scheme
 
 	KeySize() int
-	IVSize() int
 
-	// BlockSize returns the block size if the cipher has a counter.
+	// BlockSize returns the block size.
 	BlockSize() int
 
 	// New creates a new cipher.
-	// Panics if the key or iv length is wrong.
-	New(key, iv []byte) Cipher
+	// Panics if the key length is wrong.
+	New(key []byte) Cipher
 }
 
 // NewFunc represents the function to create a stream cipher.
-type NewFunc func(key, iv []byte) Cipher
+type NewFunc func(key []byte) Cipher
 
-// New creates new cipher scheme.
+// New creates new block cipher scheme.
 // It does not register the scheme.
-// The returned scheme guarantees the correct key and iv lengths
-// that are passed to the new.
-func New(name string, keySize, ivSize, blockSize int, new NewFunc) Scheme {
+// The returned scheme guarantees the correct key length that are passed to the
+// new.
+func New(name string, keySize, blockSize int, new NewFunc) Scheme {
 	return baseScheme{
 		String:    scheme.String(name),
 		keySize:   keySize,
-		ivSize:    ivSize,
 		blockSize: blockSize,
 		newFunc:   new,
 	}
@@ -55,37 +47,19 @@ type baseScheme struct {
 	scheme.String
 	newFunc   NewFunc
 	keySize   int
-	ivSize    int
 	blockSize int
 }
 
 func (s baseScheme) KeySize() int   { return s.keySize }
-func (s baseScheme) IVSize() int    { return s.ivSize }
 func (s baseScheme) BlockSize() int { return s.blockSize }
 
-func (s baseScheme) New(key, iv []byte) Cipher {
+func (s baseScheme) New(key []byte) Cipher {
 	crypto.LenOrPanic(key, s.keySize, ErrKeySize)
-	crypto.LenOrPanic(iv, s.ivSize, ErrIVSize)
-
-	return s.newFunc(key, iv)
+	return s.newFunc(key)
 }
 
-// VerifySizes verifies the key and iv sizes.
-func VerifySizes(s Scheme, key, iv []byte) error {
-	if len(key) != s.KeySize() {
-		return ErrKeySize
-	}
-	if len(iv) != s.IVSize() {
-		return ErrIVSize
-	}
-	return nil
-}
-
-// errors
-var (
-	ErrKeySize = errors.New("invalid key size")
-	ErrIVSize  = errors.New("invalid iv size")
-)
+// ErrKeySize is returned when the key size is invalid.
+var ErrKeySize = errors.New("invalid key size")
 
 var schemes = make(scheme.Map[Scheme])
 

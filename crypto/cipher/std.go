@@ -8,20 +8,14 @@ import (
 )
 
 func init() {
-	Register(AESCTR256)
-	Register(AESOFB256)
+	Register(AESCTR)
 	Register(ChaCha20)
 	Register(XChaCha20)
 }
 
-// aes variants.
+// variants.
 var (
-	AESCTR256 = New("AES256CTR", 32, aes.BlockSize, aes.BlockSize, newAESCTR)
-	AESOFB256 = New("AES256OFB", 32, aes.BlockSize, aes.BlockSize, newAESOFB)
-)
-
-// chacha20 variants.
-var (
+	AESCTR    = New("AESCTR", 32, aes.BlockSize, aes.BlockSize, newAESCTR)
 	ChaCha20  = New("ChaCha20", chacha20.KeySize, chacha20.NonceSize, 64, newChaCha20)
 	XChaCha20 = New("XChaCha20", chacha20.KeySize, chacha20.NonceSizeX, 64, newChaCha20)
 )
@@ -29,11 +23,6 @@ var (
 func newAESCTR(key, iv []byte) Cipher {
 	block, _ := aes.NewCipher(key)
 	return stdcipher.NewCTR(block, iv)
-}
-
-func newAESOFB(key, iv []byte) Cipher {
-	block, _ := aes.NewCipher(key)
-	return stdcipher.NewOFB(block, iv)
 }
 
 func newChaCha20(key, iv []byte) Cipher {

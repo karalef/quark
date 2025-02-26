@@ -15,6 +15,19 @@ const (
 	Delimeter = '-'
 )
 
+// IsEqual returns true if s1 and s2 are equal.
+func IsEqual(s1, s2 Scheme) bool {
+	eq := false
+	func() {
+		defer func() { _ = recover() }()
+		eq = s1 == s2
+	}()
+	return eq || Normalize(s1.Name()) == Normalize(s2.Name())
+}
+
+// ErrDifferent is returned when schemes are different.
+var ErrDifferent = errors.New("schemes are different")
+
 // Normalize converts scheme name to uppercase.
 func Normalize(scheme string) string {
 	return strings.ToUpper(scheme)

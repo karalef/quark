@@ -4,16 +4,30 @@
 package aead
 
 import (
-	"github.com/karalef/quark/crypto/aead/chacha20poly1305"
-	"github.com/karalef/quark/crypto/aead/etm"
-	"github.com/karalef/quark/crypto/aead/internal"
+	"crypto/aes"
+
+	"github.com/karalef/aead"
+	"github.com/karalef/aead/chacha20poly1305"
+	"github.com/karalef/aead/gcm"
 	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/mac"
 	"github.com/karalef/quark/scheme"
 )
 
 // Cipher represents authenticated cipher.
-type Cipher = internal.Cipher
+type Cipher = aead.Stream
+
+type (
+	// Reader wraps a Cipher into an io.Reader.
+	Reader = aead.Reader
+
+	// Writer wraps a Cipher into an io.Writer.
+	Writer = aead.Writer
+
+	// BufferedWriter wraps a Cipher into an io.Writer. It allocates a buffer
+	// on each Write call (like crypto/cipher.StreamWriter).
+	BufferedWriter = aead.BufferedWriter
+)
 
 // Scheme represents an AEAD scheme.
 type Scheme interface {
@@ -46,52 +60,60 @@ func Verify(c Cipher, tag []byte) error {
 	return nil
 }
 
-// NewFunc represents the function to create an AEAD cipher.
-type NewFunc = internal.NewFunc
-
-// New creates new AEAD scheme.
-// It does not register the scheme.
-// The returned scheme guarantees the correct key and nonce lengths
-// that are passed to the enc and dec functions.
-func New(name string, keySize, nonceSize, tagSize int, enc, dec NewFunc) Scheme {
-	return internal.New(name, keySize, nonceSize, tagSize, enc, dec)
+// VerifySizes checks the key and nonce sizes.
+func VerifySizes(s Scheme, key, nonce []byte) error {
+	if s.KeySize() != len(key) {
+		return ErrKeySize
+	}
+	if s.NonceSize() != len(nonce) {
+		return ErrNonceSize
+	}
+	return nil
 }
 
-// errors.
 var (
-	ErrKeySize   = internal.ErrKeySize
-	ErrNonceSize = internal.ErrNonceSize
-)
+	// AESGCM is the AES-GCM stream AEAD scheme.
+	AESGCM = New("AESGCM", 32, gcm.NonceSize, gcm.TagSize,
+		func(key, nonce, ad []byte) aead.Cipher {
+			b, _ := aes.NewCipher(key)
+			return gcm.NewCipher(b, nonce, ad, gcm.TagSize)
+		})
 
-var (
 	// ChaCha20Poly1305 is the ChaCha20-Poly1305 stream AEAD scheme.
 	ChaCha20Poly1305 = New("ChaCha20_Poly1305", chacha20poly1305.KeySize,
 		chacha20poly1305.NonceSize, chacha20poly1305.TagSize,
-		chacha20poly1305.NewEncrypter, chacha20poly1305.NewDecrypter)
+		func(key, nonce, ad []byte) aead.Cipher {
+			return chacha20poly1305.New(key, nonce, ad)
+		})
 
 	// XChaCha20Poly1305 is the XChaCha20-Poly1305 stream AEAD scheme.
 	XChaCha20Poly1305 = New("XChaCha20_Poly1305", chacha20poly1305.KeySize,
 		chacha20poly1305.NonceSizeX, chacha20poly1305.TagSize,
-		chacha20poly1305.NewEncrypter, chacha20poly1305.NewDecrypter)
+		func(key, nonce, ad []byte) aead.Cipher {
+			return chacha20poly1305.New(key, nonce, ad)
+		})
 
 	// ChaCha20BLAKE3 is the Encrypt-Then-MAC combination of ChaCha20 and BLAKE3.
-	ChaCha20BLAKE3 = etm.Build("ChaCha20_BLAKE3", cipher.ChaCha20, mac.BLAKE3)
+	ChaCha20BLAKE3 = NewEtM("ChaCha20_BLAKE3", cipher.ChaCha20, mac.BLAKE3)
 
 	// ChaCha20SHA3 is the Encrypt-Then-MAC combination of ChaCha20 and SHA3.
-	ChaCha20SHA3 = etm.Build("ChaCha20_SHA3", cipher.ChaCha20, sha3k16)
+	ChaCha20SHA3 = NewEtM("ChaCha20_SHA3", cipher.ChaCha20, sha3k16)
 
-	// AES256BLAKE3 is the Encrypt-Then-MAC combination of AES256-CTR and BLAKE3.
-	AES256BLAKE3 = etm.Build("AES256CTR_BLAKE3", cipher.AESCTR256, mac.BLAKE3)
+	// AES256BLAKE3 is the Encrypt-Then-MAC combination of AES-CTR and BLAKE3.
+	AES256BLAKE3 = NewEtM("AESCTR_BLAKE3", cipher.AESCTR, mac.BLAKE3)
 
-	// AES256SHA3 is the Encrypt-Then-MAC combination of AES256-CTR and SHA3.
-	AES256SHA3 = etm.Build("AES256CTR_SHA3", cipher.AESCTR256, sha3k16)
+	// AES256SHA3 is the Encrypt-Then-MAC combination of AES-CTR and SHA3.
+	AES256SHA3 = NewEtM("AESCTR_SHA3", cipher.AESCTR, sha3k16)
 
 	sha3k16 = mac.Fixed(mac.SHA3, 16)
 )
 
 func init() {
+	Register(AESGCM)
 	Register(ChaCha20Poly1305)
+	Register(XChaCha20Poly1305)
 	Register(ChaCha20BLAKE3)
+	Register(ChaCha20SHA3)
 	Register(AES256BLAKE3)
 	Register(AES256SHA3)
 }
@@ -116,3 +138,6 @@ type Registry struct{}
 var _ scheme.ByName[Scheme] = Registry{}
 
 func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+
+// Algorithm is an AEAD algorithm.
+type Algorithm = scheme.Algorithm[Scheme, Registry]

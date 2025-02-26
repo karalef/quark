@@ -7,48 +7,95 @@ import (
 	"io"
 )
 
+// NopCloser is analog of io.NopCloser but for io.Writer.
+func NopCloser(w io.Writer) io.WriteCloser {
+	if _, ok := w.(io.ReaderFrom); ok {
+		return nopCloserReaderFrom{w}
+	}
+	return nopCloser{w}
+}
+
+type nopCloser struct{ io.Writer }
+
+func (nopCloser) Close() error { return nil }
+
+var _ io.ReaderFrom = nopCloserReaderFrom{}
+
+type nopCloserReaderFrom struct{ io.Writer }
+
+func (nc nopCloserReaderFrom) ReadFrom(r io.Reader) (n int64, err error) {
+	return nc.Writer.(io.ReaderFrom).ReadFrom(r)
+}
+
+func (nopCloserReaderFrom) Close() error { return nil }
+
+// ChainCloser chains the wc to c.
+func ChainCloser(c io.Closer, wc io.WriteCloser) io.WriteCloser {
+	return chainedCloser{c, wc}
+}
+
+type chainedCloser struct {
+	c io.Closer
+	io.WriteCloser
+}
+
+func (c chainedCloser) Close() error {
+	if err := c.WriteCloser.Close(); err != nil {
+		return errors.Join(err, c.c.Close())
+	}
+	return c.c.Close()
+}
+
 // ByteReader is an io.Reader and io.ByteReader interface.
 type ByteReader interface {
 	io.Reader
 	io.ByteReader
 }
 
+// WrapEncode is a function that wraps the encoder writer.
+type WrapEncode = func(io.Writer) (io.WriteCloser, error)
+
+// WrapDecode is a function that wraps the decoder reader.
+type WrapDecode = func(io.Reader) (io.Reader, error)
+
 // Stream represents an de/encodable bytes stream.
+// The underlying reader/writer has no buffering, so less Write/Read calls -
+// less overhead.
 type Stream struct {
 	// Reader represents the data to be encoded.
 	Reader io.Reader
-	W      io.WriteCloser // if set, represents wrapped encodable stream.
+
+	// W is a message writer. It wraps the stream writer.
+	W WrapEncode
 
 	// Writer represents the decoded data output.
 	Writer io.Writer
-	R      io.Reader // if set, represents wrapped decodable stream.
+
+	// R is a message reader. It wraps the stream reader.
+	R WrapDecode
 }
-
-// Read provides the io.Reader interface to wrap the decodable stream.
-// Call before decoding causes stack overflow or nil pointer dereference.
-func (s *Stream) Read(p []byte) (int, error) { return s.R.Read(p) }
-
-// Write provides the io.Writer interface to wrap the encodable stream.
-// Call before encoding causes stack overflow or nil pointer dereference.
-func (s *Stream) Write(p []byte) (int, error) { return s.W.Write(p) }
 
 // EncodeMsgpack implements msgpack.CustomEncoder.
 func (s *Stream) EncodeMsgpack(enc *Encoder) error {
 	if s.Reader == nil {
 		return errors.New("pack: Stream.Reader is nil")
 	}
-	writer := s.W
 	sw := &streamWriter{w: enc.Writer()}
-	if writer == nil {
-		writer = sw
+	w := io.WriteCloser(sw)
+	if s.W != nil {
+		wrapped, err := s.W(sw)
+		if err != nil {
+			return err
+		}
+		if wrapped != nil {
+			w = wrapped
+		}
 	}
-	s.W = sw
-	_, err := io.Copy(writer, s.Reader)
-	if err != nil {
+	if _, err := io.Copy(w, s.Reader); err != nil {
 		return err
 	}
-	if writer != sw {
-		return errors.Join(writer.Close(), sw.Close())
+	if w != sw {
+		return errors.Join(w.Close(), sw.Close())
 	}
 	return sw.Close()
 }
@@ -62,17 +109,22 @@ func (s *Stream) DecodeMsgpack(dec *Decoder) error {
 	if !ok {
 		br = bufio.NewReader(dec.Buffered())
 	}
-	reader := s.R
+
 	sr := &streamReader{r: br}
-	if reader == nil {
-		reader = sr
+	r := io.Reader(sr)
+	if s.R != nil {
+		wrapped, err := s.R(br)
+		if err != nil {
+			return err
+		}
+		if wrapped != nil {
+			r = wrapped
+		}
 	}
-	s.R = sr
-	_, err := io.Copy(s.Writer, reader)
-	if err != nil {
+	if _, err := io.Copy(s.Writer, r); err != nil {
 		return err
 	}
-	if sr.eof && sr == reader {
+	if sr.eof && sr == r {
 		return nil
 	}
 	return sr.Close()

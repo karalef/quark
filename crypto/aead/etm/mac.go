@@ -11,66 +11,32 @@ import (
 // MinMACKeySize is the minimum size of the MAC key.
 const MinMACKeySize = 16
 
-// DeriveMACKey derives the MAC key from the cipher key and nonce. It uses nonce
-// as IV and encrypts a zero block(s) to obtain the MAC key. Panics if size is
-// less than MinMACKeySize.
-func DeriveMACKey(scheme cipher.Scheme, key, nonce []byte, size uint) (cipher.Cipher, []byte, error) {
-	bs, err := CheckMACKeySize(scheme, size)
-	if err != nil {
-		panic(err)
-	}
-	if len(key) != scheme.KeySize() {
-		return nil, nil, cipher.ErrKeySize
-	}
-	if len(nonce) != scheme.IVSize() {
-		return nil, nil, cipher.ErrIVSize
-	}
-	stream := scheme.New(key, nonce)
-	return stream, deriveMACKey(stream, size, bs), nil
-}
-
-// CheckMacKeySize checks that size is at least MinMACKeySize.
-// Returns the block size of the cipher (for cases where the block size is unknown).
-func CheckMACKeySize(scheme cipher.Scheme, size uint) (uint, error) {
-	bs := scheme.BlockSize()
-	if bs == 0 {
-		bs = int(size)
-	}
-	if size < MinMACKeySize {
-		return uint(bs), errMacKeySize
-	}
-	return uint(bs), nil
-}
-
 var errMacKeySize = errors.New("mac key size must be in range [MinMACKeySize, cipher.BlockSize()]")
 
-// DeriveMACKeyFast is like DeriveMACKey but requires known block size and does
-// not verifies the sizes of the key, nonce and mac key.
-func DeriveMACKeyFast(scheme cipher.Scheme, key, nonce []byte, size uint) (cipher.Cipher, []byte) {
-	return deriveMACKeyFast(scheme, key, nonce, size, uint(scheme.BlockSize()))
-}
-
-func deriveMACKeyFast(scheme cipher.Scheme, key, nonce []byte, size, bs uint) (cipher.Cipher, []byte) {
-	stream := scheme.New(key, nonce)
-	return stream, deriveMACKey(stream, size, bs)
-}
-
-// deriveMACKey encrypts a zero blocks to obtain the MAC key.
-// even if the cipher has no block size the bs must be equal to size.
-func deriveMACKey(ciph cipher.Cipher, size, bs uint) []byte {
-	blocks := size / bs
-	if size%bs != 0 {
-		blocks++
+// DeriveMACKey derives the MAC key from the cipher key and nonce. It uses
+// nonce as IV and encrypts a zero block to obtain the MAC key. Panics if size
+// or scheme.BlockSize() is less than MinMACKeySize.
+func DeriveMACKey(scheme cipher.Scheme, key, nonce []byte, size uint) (cipher.Cipher, []byte) {
+	bs := uint(scheme.BlockSize())
+	if size < MinMACKeySize || size > bs {
+		panic(errMacKeySize)
 	}
-	zeros := make([]byte, bs*blocks)
-	ciph.XORKeyStream(zeros, zeros)
-	return zeros[:size:size]
+	stream := scheme.New(key, nonce)
+	return stream, DeriveMACKeyFast(stream, size, bs)
+}
+
+// DeriveMACKeyFast encrypts a zero block to obtain the MAC key. Even if the
+// cipher has no block size the bs must be equal to size. It does not check any
+// conditions, so it may panic or drain wrong bytes count from key stream.
+func DeriveMACKeyFast(ciph cipher.Cipher, size, bs uint) []byte {
+	block := make([]byte, bs)
+	ciph.XORKeyStream(block, block)
+	return block[:size:size]
 }
 
 // NewMAC creates a new MAC state and writes the additional data to it with
-// padding (if scheme.BlockSize() is not 0). This MAC state automatically
-// writes paddings and sizes of ciphertext and additional data.
-// Panics if key is not of length scheme.KeySize() or exeeds scheme.MaxKeySize().
+// padding. This MAC state automatically writes paddings and sizes of ciphertext
+// and additional data.
 func NewMAC(scheme mac.Scheme, key []byte, additionalData []byte) mac.State {
 	state := &macState{
 		state: scheme.New(key),
@@ -89,6 +55,10 @@ type macState struct {
 	adLen int
 	count int
 }
+
+func (s macState) Size() int      { return s.state.Size() }
+func (s macState) BlockSize() int { return len(s.buf) }
+func (macState) Reset()           { panic("etm: EtM MAC state is not resettable") }
 
 func (s *macState) Write(p []byte) (n int, err error) {
 	n, err = s.state.Write(p)

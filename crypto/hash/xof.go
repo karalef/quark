@@ -10,20 +10,6 @@ func NewFromXOF(scheme xof.Scheme, size int) Scheme {
 	return xofScheme{Scheme: scheme, size: size}
 }
 
-// shake
-var (
-	// Shake128 is a SHAKE128 with 32 bytes output.
-	Shake128 = NewFromXOF(xof.Shake128, 32)
-
-	// Shake256 is a SHAKE256 with 64 bytes output.
-	Shake256 = NewFromXOF(xof.Shake256, 64)
-)
-
-func init() {
-	Register(Shake128)
-	Register(Shake256)
-}
-
 type xofScheme struct {
 	xof.Scheme
 	size int

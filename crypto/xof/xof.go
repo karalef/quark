@@ -68,3 +68,6 @@ type Registry struct{}
 var _ scheme.ByName[Scheme] = Registry{}
 
 func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+
+// Algorithm is an alias for scheme.Algorithm[Scheme, Registry].
+type Algorithm = scheme.Algorithm[Scheme, Registry]

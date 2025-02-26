@@ -45,16 +45,13 @@ func (t Tag) String() string {
 	return typ.Name
 }
 
-// BlockTypePrefix is the prefix of the block type.
-const BlockTypePrefix = "QUARK"
-
 // BlockType returns the block type of the tag.
 func (t Tag) BlockType() string {
 	typ, err := t.Type()
 	if err != nil {
 		return "INVALID"
 	}
-	return BlockTypePrefix + " " + strings.ToUpper(typ.Name)
+	return MAGIC + " " + strings.ToUpper(typ.Name)
 }
 
 var packableType = reflect.TypeOf((*Packable)(nil)).Elem()

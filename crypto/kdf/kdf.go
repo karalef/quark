@@ -3,126 +3,91 @@ package kdf
 import (
 	"errors"
 
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/scheme"
 )
 
-// Scheme represents the key derivation function.
+// Expander expands a state into a key with length size using the provided info.
+type Expander interface {
+	Expand(info []byte, length uint) []byte
+}
+
+// Extractor represents a scheme with custom extraction phase.
+type Extractor[T any] interface {
+	Extract(secret T, salt []byte) (Expander, error)
+}
+
+// Scheme represents the scheme of key derivation function.
 type Scheme interface {
 	scheme.Scheme
 
-	// NewCost allocates a new typed Cost for this function and returns a pointer.
-	NewCost() Cost
+	// Extract extracts a state from a secret and salt and returns a state
+	// expander.
+	Extract(secret, salt []byte) Expander
 
-	// New creates a new KDF.
-	// Returns an error if the cost parameters are invalid for this scheme.
-	New(Cost) (KDF, error)
+	// Expander returns a state expander for the provided pseudo-random key.
+	// The prk must have enough entropy to safety skip the extraction.
+	Expander(prk []byte) Expander
 }
 
-// Derive is an alias for Scheme.New and KDF.Derive.
-func Derive(s Scheme, c Cost, password string, salt []byte, size int) ([]byte, error) {
-	kdf, err := s.New(c)
-	if err != nil {
-		return nil, err
-	}
-	return kdf.Derive([]byte(password), salt, uint32(size)), nil
-}
+// errors
+var (
+	ErrSecret = errors.New("secret is too short")
+	ErrSize   = errors.New("invalid key size")
+)
 
-// KDF represents the key derivation function.
-type KDF interface {
-	Cost() Cost
-	// Derive derives a key of the specified size from a password and salt.
-	// Panics if size is zero.
-	Derive(password, salt []byte, size uint32) []byte
-}
-
-// Cost represents the key derivation function cost parameters.
-// It must be msgpack en/decodable.
-type Cost interface {
-	Validate() error
-
-	// New allocates a new typed Cost and returns a pointer.
-	New() Cost
-}
-
-// ErrPassword is returned when the password is empty.
-var ErrPassword = errors.New("kdf: empty password")
-
-// ErrInvalidParams is returned when the parameters are invalid.
-type ErrInvalidParams struct {
-	KDF Scheme
-	Err error
-}
-
-func (e ErrInvalidParams) Error() string {
-	return "kdf: invalid " + e.KDF.Name() + " parameters: " + e.Err.Error()
-}
-
-// Func represents the KDF as function.
-type Func[T Cost] func(password, salt []byte, size uint32, cost T) []byte
-
-// New creates a new scheme.
+// New creates a new Scheme.
 // It does not register the scheme.
-// The returned scheme ensures that the size are at least 1 and the Cost is correct.
-func New[T Cost](name string, fn Func[T]) Scheme {
-	return baseScheme[T]{
+func New(name string, new func(secret, salt []byte) Expander, exp func(prk []byte) Expander) Scheme {
+	return kdf{
 		String: scheme.String(name),
-		derive: fn,
+		new:    new,
+		exp:    exp,
 	}
 }
 
-type baseScheme[T Cost] struct {
-	derive Func[T]
+type kdf struct {
 	scheme.String
+	new func(secret, salt []byte) Expander
+	exp func(prk []byte) Expander
 }
 
-func (s baseScheme[T]) NewCost() Cost {
-	var c T
-	return c.New()
-}
+func (s kdf) Extract(secret, salt []byte) Expander { return s.new(secret, salt) }
 
-func (s baseScheme[T]) New(cost Cost) (KDF, error) {
-	c, ok := cost.(T)
-	if !ok {
-		return nil, ErrInvalidParams{
-			KDF: s,
-			Err: errors.New("kdf: wrong cost type"),
-		}
+func (s kdf) Expander(prk []byte) Expander { return s.exp(prk) }
+
+// NewSalted creates a new Salted with random salt of length saltSize.
+func NewSalted(kdf Scheme, saltSize uint) Salted {
+	salt := crypto.Rand(int(saltSize))
+	return Salted{
+		Scheme: scheme.NewAlgorithm[Scheme, Registry](kdf),
+		Salt:   salt,
 	}
-	if err := c.Validate(); err != nil {
-		return nil, ErrInvalidParams{
-			KDF: s,
-			Err: err,
-		}
-	}
-	return baseKDF[T]{
-		kdf:  s.derive,
-		cost: c,
-	}, nil
 }
 
-type baseKDF[T Cost] struct {
-	cost T
-	kdf  Func[T]
+// Salted contains salt and KDF scheme.
+type Salted struct {
+	Scheme Algorithm `msgpack:"scheme"`
+
+	// Salt is the salt used for the KDF.
+	Salt []byte `msgpack:"salt"`
 }
 
-func (kdf baseKDF[T]) Cost() Cost { return kdf.cost }
+// Extract extracts the KDF state from the secret.
+func (s Salted) Extract(secret []byte) Expander { return s.Scheme.Scheme.Extract(secret, s.Salt) }
 
-func (kdf baseKDF[T]) Derive(password, salt []byte, size uint32) []byte {
-	if size < 1 {
-		panic("kdf: size must be at least 1")
-	}
-	return kdf.kdf(password, salt, size, kdf.cost)
-}
+// Expander returns a state expander for the provided pseudo-random key.
+func (s Salted) Expander(prk []byte) Expander { return s.Scheme.Scheme.Expander(prk) }
 
 var kdfs = make(scheme.Map[Scheme])
 
 // Register registers a KDF.
-func Register(kdf Scheme) { kdfs.Register(kdf) }
+func Register(KDF Scheme) { kdfs.Register(KDF) }
 
 // ByName returns the KDF by the provided name.
 func ByName(name string) (Scheme, error) { return kdfs.ByName(name) }
 
-// ListNames returns all registered KDF algorithms.
+// ListNames returns all registered KDF names.
 func ListNames() []string { return kdfs.ListNames() }
 
 // List returns all registered KDF schemes.
@@ -134,3 +99,6 @@ type Registry struct{}
 var _ scheme.ByName[Scheme] = Registry{}
 
 func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+
+// Algorithm is an alias for scheme.Algorithm[Scheme, Registry].
+type Algorithm = scheme.Algorithm[Scheme, Registry]
