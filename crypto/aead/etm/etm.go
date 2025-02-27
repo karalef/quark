@@ -1,14 +1,14 @@
 package etm
 
 import (
-	"github.com/karalef/aead"
+	"github.com/karalef/quark/crypto/aead/internal"
 	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/mac"
 )
 
 // New creates a new cipher. Panics if it is impossible to derive a MAC key or
 // MAC key size is less than MinMACKeySize.
-func New(ciph cipher.Scheme, m mac.Scheme, key, nonce, ad []byte) aead.Cipher {
+func New(ciph cipher.Scheme, m mac.Scheme, key, nonce, ad []byte) internal.Cipher {
 	bs := ciph.BlockSize()
 	if m.KeySize() > bs {
 		// impossible to derive a MAC key larger than the cipher block size
@@ -21,7 +21,7 @@ func New(ciph cipher.Scheme, m mac.Scheme, key, nonce, ad []byte) aead.Cipher {
 }
 
 // NewWithKeySize creates a new cipher. Panics if size is invalid.
-func NewWithKeySize(ciph cipher.Scheme, m mac.Scheme, key, nonce, ad []byte, size uint) aead.Cipher {
+func NewWithKeySize(ciph cipher.Scheme, m mac.Scheme, key, nonce, ad []byte, size uint) internal.Cipher {
 	bs := uint(ciph.BlockSize())
 	if size < MinMACKeySize || size > bs {
 		panic(errMacKeySize)

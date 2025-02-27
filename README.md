@@ -6,6 +6,10 @@ Quark is a post-quantum crypto-secure crypto library.
 
 *"Imagine that it's fifteen years from now. Somebody announces that he's built a large quantum computer. RSA is dead. DSA is dead. Elliptic curves, hyperelliptic curves, class groups, whatever, dead, dead, dead. So users are going to run around screaming and say 'Oh my God, what do we do?'..."* - https://pqcrypto.org
 
+# Warning
+
+Be careful when using cryptographic libraries implemented by non-cryptographers (including this one), as they may contain vulnerabilities.
+
 ## Usage
 
 #### [Using go](https://pkg.go.dev/cmd/go#hdr-Compile_and_install_packages_and_dependencies)
