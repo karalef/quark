@@ -1,21 +1,17 @@
-package eddilithium
+package circl
 
 import (
 	circlsign "github.com/cloudflare/circl/sign"
-	"github.com/cloudflare/circl/sign/eddilithium2"
-	"github.com/cloudflare/circl/sign/eddilithium3"
 	"github.com/karalef/quark/crypto/hash"
 	"github.com/karalef/quark/crypto/sign/internal"
 	"github.com/karalef/quark/crypto/sign/stream"
 	"github.com/karalef/quark/scheme"
 )
 
-var (
-	// ED25519Mode2 is the hybrid signature scheme of ED25519 and Dilithium in mode 2.
-	ED25519Mode2 = circlScheme{"ED25519_Dilithium2", eddilithium2.Scheme()}
-	// ED448Mode3 is the hybrid signature scheme of ED448 and Dilithium in mode 3.
-	ED448Mode3 = circlScheme{"ED448_Dilithium3", eddilithium3.Scheme()}
-)
+// New creates a new circl signature scheme.
+func New(name string, sch circlsign.Scheme) internal.Scheme {
+	return circlScheme{String: scheme.String(name), scheme: sch}
+}
 
 var _ internal.Scheme = circlScheme{}
 

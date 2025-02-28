@@ -5,10 +5,21 @@ import (
 	"github.com/karalef/quark/scheme"
 )
 
+var (
+	// Kyber512 is the Kyber-512 PKE scheme.
+	Kyber512 = kyber.Kyber512
+
+	// Kyber768 is the Kyber-768 PKE scheme.
+	Kyber768 = kyber.Kyber768
+
+	// Kyber1024 is the Kyber-1024 PKE scheme.
+	Kyber1024 = kyber.Kyber1024
+)
+
 func init() {
-	Register(kyber.Kyber512)
-	Register(kyber.Kyber768)
-	Register(kyber.Kyber1024)
+	Register(Kyber512)
+	Register(Kyber768)
+	Register(Kyber1024)
 }
 
 // UnpackPublic unpacks a public key from the provided scheme name and key material.

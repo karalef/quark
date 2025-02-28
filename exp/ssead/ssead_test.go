@@ -9,7 +9,6 @@ import (
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/cipher"
 	"github.com/karalef/quark/crypto/sign"
-	"github.com/karalef/quark/crypto/sign/eddilithium"
 	"github.com/karalef/quark/exp/ssead"
 )
 
@@ -22,7 +21,7 @@ func Rand(n int) []byte {
 }
 
 var (
-	signat = eddilithium.ED448Mode3
+	signat = sign.ED448Dilithium3
 	scheme = ssead.New("TEST", cipher.AESCTR, signat)
 	pk, sk = crypto.Generate(signat)
 	pt     = []byte("plaintext")
@@ -35,7 +34,7 @@ func TestSSEAD(t *testing.T) {
 	iv := Rand(scheme.IVSize())
 	ad := []byte("associated data")
 
-	enc := scheme.Encrypt(sk.(sign.PrivateKey), key, iv, ad)
+	enc := scheme.Encrypt(sk, key, iv, ad)
 	enc.Encrypt(ct, pt)
 	sig = enc.Sign()
 

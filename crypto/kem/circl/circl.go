@@ -2,21 +2,14 @@ package circl
 
 import (
 	circlkem "github.com/cloudflare/circl/kem"
-	"github.com/cloudflare/circl/kem/frodo/frodo640shake"
-	"github.com/cloudflare/circl/kem/kyber/kyber1024"
-	"github.com/cloudflare/circl/kem/kyber/kyber512"
-	"github.com/cloudflare/circl/kem/kyber/kyber768"
 	"github.com/karalef/quark/crypto/kem/internal"
 	"github.com/karalef/quark/scheme"
 )
 
-// kem schemes.
-var (
-	Kyber512      = circlScheme{"Kyber512", kyber512.Scheme()}
-	Kyber768      = circlScheme{"Kyber768", kyber768.Scheme()}
-	Kyber1024     = circlScheme{"Kyber1024", kyber1024.Scheme()}
-	Frodo640Shake = circlScheme{"Frodo640SHAKE", frodo640shake.Scheme()}
-)
+// New creates a new circl signature scheme.
+func New(name string, sch circlkem.Scheme) internal.Scheme {
+	return circlScheme{scheme.String(name), sch}
+}
 
 var _ internal.Scheme = circlScheme{}
 

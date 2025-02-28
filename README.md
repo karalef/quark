@@ -25,12 +25,12 @@ import (
     "time"
 
     "github.com/karalef/quark/crypto"
-    "github.com/karalef/quark/crypto/sign/eddilithium"
+    "github.com/karalef/quark/crypto/sign"
 )
 
 func main() {
-    // Generate a new ED448Mode3 (hybrid of ED448 and Dilithium3) key pair.
-    pk, sk := crypto.Generate(eddilithium.ED448Mode3)
+    // Generate a new ML-DSA-65 key pair.
+    pk, sk := crypto.Generate(sign.MLDSA65)
 
     msg := []byte("Hello, world!")
 
@@ -62,11 +62,11 @@ import (
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kdf"
-	"github.com/karalef/quark/crypto/kem/circl"
+	"github.com/karalef/quark/crypto/kem"
 )
 
 // generate KEM key pair
-var pk, sk = crypto.Generate(circl.Kyber768)
+var pk, sk = crypto.Generate(kem.MLKEM768)
 
 func main() {
 	s, data := Send("Hello")
