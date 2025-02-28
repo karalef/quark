@@ -5,11 +5,11 @@ import (
 	"github.com/cloudflare/circl/pke/kyber/kyber512"
 	"github.com/cloudflare/circl/pke/kyber/kyber768"
 	"github.com/karalef/quark/crypto"
-	"github.com/karalef/quark/crypto/pke"
+	"github.com/karalef/quark/crypto/pke/internal"
 	"github.com/karalef/quark/scheme"
 )
 
-var _ pke.Scheme = kyberScheme[*kyber512.PublicKey, *kyber512.PrivateKey]{}
+var _ internal.Scheme = kyberScheme[*kyber512.PublicKey, *kyber512.PrivateKey]{}
 
 type kyberScheme[PK kyberPublicKey, SK kyberPrivateKey[SK]] struct {
 	scheme.String
@@ -21,26 +21,26 @@ type kyberScheme[PK kyberPublicKey, SK kyberPrivateKey[SK]] struct {
 	es, s   int
 }
 
-func (s kyberScheme[PK, SK]) DeriveKey(seed []byte) (pke.PublicKey, pke.PrivateKey) {
+func (s kyberScheme[PK, SK]) DeriveKey(seed []byte) (internal.PublicKey, internal.PrivateKey) {
 	if len(seed) != s.s {
-		panic(pke.ErrSeedSize)
+		panic(internal.ErrSeedSize)
 	}
 	pk, sk := s.derive(seed)
 	pub := kyberPubKey{pk: pk, scheme: s}
 	return pub, kyberPrivKey[SK]{sk, pub}
 }
 
-func (s kyberScheme[_, SK]) UnpackPrivate(key []byte) (pke.PrivateKey, error) {
+func (s kyberScheme[_, SK]) UnpackPrivate(key []byte) (internal.PrivateKey, error) {
 	if len(key) != s.PrivateKeySize() {
-		return nil, pke.ErrKeySize
+		return nil, internal.ErrKeySize
 	}
 	pub := kyberPubKey{pk: s.public(key[s.sk:]), scheme: s}
 	return kyberPrivKey[SK]{s.private(key[:s.sk]), pub}, nil
 }
 
-func (s kyberScheme[PK, _]) UnpackPublic(key []byte) (pke.PublicKey, error) {
+func (s kyberScheme[PK, _]) UnpackPublic(key []byte) (internal.PublicKey, error) {
 	if len(key) != s.PublicKeySize() {
-		return nil, pke.ErrKeySize
+		return nil, internal.ErrKeySize
 	}
 	return kyberPubKey{pk: s.public(key), scheme: s}, nil
 }
@@ -65,14 +65,14 @@ type kyberPrivateKey[T any] interface {
 	Unpack(buf []byte)
 }
 
-var _ pke.PublicKey = &kyberPubKey{}
+var _ internal.PublicKey = &kyberPubKey{}
 
 type kyberPubKey struct {
 	pk     kyberPublicKey
-	scheme pke.Scheme
+	scheme internal.Scheme
 }
 
-func (k kyberPubKey) Scheme() pke.Scheme { return k.scheme }
+func (k kyberPubKey) Scheme() internal.Scheme { return k.scheme }
 
 func (k kyberPubKey) Pack() []byte {
 	buf := make([]byte, k.scheme.PublicKeySize())
@@ -80,7 +80,7 @@ func (k kyberPubKey) Pack() []byte {
 	return buf
 }
 
-func (k kyberPubKey) Equal(other pke.PublicKey) bool {
+func (k kyberPubKey) Equal(other internal.PublicKey) bool {
 	if other == nil {
 		return false
 	}
@@ -91,25 +91,25 @@ func (k kyberPubKey) Equal(other pke.PublicKey) bool {
 
 func (k kyberPubKey) Encrypt(plaintext []byte, seed []byte) ([]byte, error) {
 	if len(seed) != k.scheme.EncryptionSeedSize() {
-		panic(pke.ErrSeedSize)
+		panic(internal.ErrSeedSize)
 	}
 	if len(plaintext) != k.scheme.PlaintextSize() {
-		return nil, pke.ErrPlaintext
+		return nil, internal.ErrPlaintext
 	}
 	ct := make([]byte, k.scheme.Size())
 	k.pk.EncryptTo(ct, plaintext, seed)
 	return ct, nil
 }
 
-var _ pke.PrivateKey = kyberPrivKey[*kyber512.PrivateKey]{}
+var _ internal.PrivateKey = kyberPrivKey[*kyber512.PrivateKey]{}
 
 type kyberPrivKey[T any] struct {
 	sk kyberPrivateKey[T]
 	pk kyberPubKey
 }
 
-func (k kyberPrivKey[_]) Scheme() pke.Scheme    { return k.pk.scheme }
-func (k kyberPrivKey[_]) Public() pke.PublicKey { return k.pk }
+func (k kyberPrivKey[_]) Scheme() internal.Scheme    { return k.pk.scheme }
+func (k kyberPrivKey[_]) Public() internal.PublicKey { return k.pk }
 
 func (k kyberPrivKey[T]) Pack() []byte {
 	buf := make([]byte, k.pk.scheme.PrivateKeySize())
@@ -117,7 +117,7 @@ func (k kyberPrivKey[T]) Pack() []byte {
 	return buf
 }
 
-func (k kyberPrivKey[T]) Equal(other pke.PrivateKey) bool {
+func (k kyberPrivKey[T]) Equal(other internal.PrivateKey) bool {
 	if other == nil {
 		return false
 	}
@@ -133,7 +133,7 @@ func (k kyberPrivKey[T]) Equal(other pke.PrivateKey) bool {
 
 func (k kyberPrivKey[T]) Decrypt(ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) != k.pk.scheme.Size() {
-		return nil, pke.ErrCiphertext
+		return nil, internal.ErrCiphertext
 	}
 	pt := make([]byte, k.pk.scheme.PlaintextSize())
 	k.sk.DecryptTo(pt, ciphertext)

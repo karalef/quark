@@ -1,9 +1,8 @@
 package kem
 
 import (
-	"errors"
-
 	"github.com/karalef/quark/crypto"
+	"github.com/karalef/quark/crypto/kem/internal"
 )
 
 // Generate derives a key-pair from a seed generated using crypto/rand.
@@ -17,43 +16,22 @@ func Encapsulate(p PublicKey) (ciphertext []byte, secret []byte, err error) {
 }
 
 // Scheme represents a KEM scheme.
-type Scheme interface {
-	crypto.KeyScheme[PublicKey, PrivateKey]
-
-	// Size of encapsulated shared secret.
-	Size() int
-
-	// Size of shared secret.
-	SharedSecretSize() int
-
-	// Size of encapsulation seed.
-	EncapsulationSeedSize() int
-}
+type Scheme = internal.Scheme
 
 // PrivateKey represents a KEM private key.
-type PrivateKey interface {
-	crypto.PrivateKey[Scheme, PrivateKey, PublicKey]
-
-	// Decapsulate decapsulates the shared secret from the provided ciphertext.
-	Decapsulate(ciphertext []byte) ([]byte, error)
-}
+type PrivateKey = internal.PrivateKey
 
 // PublicKey represents a KEM public key.
-type PublicKey interface {
-	crypto.PublicKey[Scheme, PublicKey]
-
-	// Encapsulate encapsulates a shared secret generated from provided seed.
-	Encapsulate(seed []byte) (ciphertext, secret []byte, err error)
-}
+type PublicKey = internal.PublicKey
 
 // ErrKeySize is returned when the key size is invalid.
-var ErrKeySize = errors.New("invalid key size")
+var ErrKeySize = internal.ErrKeySize
 
 // ErrSeedSize is an error with which DeriveKey panics.
-var ErrSeedSize = errors.New("invalid seed size")
+var ErrSeedSize = internal.ErrSeedSize
 
 // ErrCiphertext is returned when the ciphertext size is invalid.
-var ErrCiphertext = errors.New("invalid ciphertext size")
+var ErrCiphertext = internal.ErrCiphertext
 
 // ErrEncapsulationSeed is an error with which Encapsulate panics.
-var ErrEncapsulationSeed = errors.New("invalid encapsulation seed size")
+var ErrEncapsulationSeed = internal.ErrEncapsulationSeed

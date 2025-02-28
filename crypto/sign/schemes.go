@@ -1,7 +1,6 @@
-package schemes
+package sign
 
 import (
-	"github.com/karalef/quark/crypto/sign"
 	"github.com/karalef/quark/crypto/sign/eddilithium"
 	"github.com/karalef/quark/crypto/sign/falcon1024"
 	"github.com/karalef/quark/scheme"
@@ -14,7 +13,7 @@ func init() {
 }
 
 // UnpackPublic unpacks a public key from the provided scheme name and key material.
-func UnpackPublic(schemeName string, key []byte) (sign.PublicKey, error) {
+func UnpackPublic(schemeName string, key []byte) (PublicKey, error) {
 	scheme, err := ByName(schemeName)
 	if err != nil {
 		return nil, err
@@ -23,7 +22,7 @@ func UnpackPublic(schemeName string, key []byte) (sign.PublicKey, error) {
 }
 
 // UnpackPrivate unpacks a private key from the provided scheme name and key material.
-func UnpackPrivate(schemeName string, key []byte) (sign.PrivateKey, error) {
+func UnpackPrivate(schemeName string, key []byte) (PrivateKey, error) {
 	scheme, err := ByName(schemeName)
 	if err != nil {
 		return nil, err
@@ -31,24 +30,24 @@ func UnpackPrivate(schemeName string, key []byte) (sign.PrivateKey, error) {
 	return scheme.UnpackPrivate(key)
 }
 
-var schemes = make(scheme.Map[sign.Scheme])
+var schemes = make(scheme.Map[Scheme])
 
 // Register registers a signature scheme.
-func Register(scheme sign.Scheme) { schemes.Register(scheme) }
+func Register(scheme Scheme) { schemes.Register(scheme) }
 
 // ByName returns the signature scheme by the provided name.
-func ByName(name string) (sign.Scheme, error) { return schemes.ByName(name) }
+func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
 
 // ListNames returns all registered signature algorithms.
 func ListNames() []string { return schemes.ListNames() }
 
 // List returns all registered signature schemes.
-func List() []sign.Scheme { return schemes.List() }
+func List() []Scheme { return schemes.List() }
 
 // Registry implements scheme.ByName.
 type Registry struct{}
 
-func (Registry) ByName(name string) (sign.Scheme, error) { return ByName(name) }
+func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
 
 // Algorithm is a typed scheme.Algorithm.
-type Algorithm = scheme.Algorithm[sign.Scheme, Registry]
+type Algorithm = scheme.Algorithm[Scheme, Registry]

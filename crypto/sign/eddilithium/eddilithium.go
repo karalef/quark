@@ -5,7 +5,7 @@ import (
 	"github.com/cloudflare/circl/sign/eddilithium2"
 	"github.com/cloudflare/circl/sign/eddilithium3"
 	"github.com/karalef/quark/crypto/hash"
-	"github.com/karalef/quark/crypto/sign"
+	"github.com/karalef/quark/crypto/sign/internal"
 	"github.com/karalef/quark/crypto/sign/stream"
 	"github.com/karalef/quark/scheme"
 )
@@ -17,7 +17,7 @@ var (
 	ED448Mode3 = circlScheme{"ED448_Dilithium3", eddilithium3.Scheme()}
 )
 
-var _ sign.Scheme = circlScheme{}
+var _ internal.Scheme = circlScheme{}
 
 type circlScheme struct {
 	scheme.String
@@ -29,27 +29,27 @@ func (s circlScheme) PublicKeySize() int  { return s.scheme.PublicKeySize() }
 func (s circlScheme) SeedSize() int       { return s.scheme.SeedSize() }
 func (s circlScheme) Size() int           { return s.scheme.SignatureSize() }
 
-func (s circlScheme) DeriveKey(seed []byte) (sign.PublicKey, sign.PrivateKey) {
+func (s circlScheme) DeriveKey(seed []byte) (internal.PublicKey, internal.PrivateKey) {
 	if len(seed) != s.SeedSize() {
-		panic(sign.ErrSeedSize)
+		panic(internal.ErrSeedSize)
 	}
 	pub, priv := s.scheme.DeriveKey(seed)
 	pk := circlPubKey{pk: circlPublicKey{pub}, scheme: s}
 	return pk, circlPrivKey{circlPrivateKey{priv}, pk}
 }
 
-func (s circlScheme) UnpackPublic(key []byte) (sign.PublicKey, error) {
+func (s circlScheme) UnpackPublic(key []byte) (internal.PublicKey, error) {
 	pub, err := s.scheme.UnmarshalBinaryPublicKey(key)
 	if err != nil {
-		return nil, sign.ErrKeySize
+		return nil, internal.ErrKeySize
 	}
 	return circlPubKey{pk: circlPublicKey{pub}, scheme: s}, nil
 }
 
-func (s circlScheme) UnpackPrivate(key []byte) (sign.PrivateKey, error) {
+func (s circlScheme) UnpackPrivate(key []byte) (internal.PrivateKey, error) {
 	priv, err := s.scheme.UnmarshalBinaryPrivateKey(key)
 	if err != nil {
-		return nil, sign.ErrKeySize
+		return nil, internal.ErrKeySize
 	}
 	pk := circlPubKey{pk: circlPublicKey{priv.Public().(circlsign.PublicKey)}, scheme: s}
 	return circlPrivKey{circlPrivateKey{priv}, pk}, nil
@@ -61,26 +61,26 @@ func (k circlPrivateKey) Sign(msg []byte) []byte {
 	return k.PrivateKey.Scheme().Sign(k.PrivateKey, msg, nil)
 }
 
-var _ sign.PrivateKey = (*circlPrivKey)(nil)
+var _ internal.PrivateKey = (*circlPrivKey)(nil)
 
 type circlPrivKey struct {
 	sk  circlPrivateKey
 	pub circlPubKey
 }
 
-func (k circlPrivKey) Scheme() sign.Scheme    { return k.pub.Scheme() }
-func (k circlPrivKey) Public() sign.PublicKey { return k.pub }
+func (k circlPrivKey) Scheme() internal.Scheme    { return k.pub.Scheme() }
+func (k circlPrivKey) Public() internal.PublicKey { return k.pub }
 
 func (k circlPrivKey) Pack() []byte {
 	b, _ := k.sk.MarshalBinary()
 	return b
 }
 
-func (k circlPrivKey) Sign() sign.Signer {
+func (k circlPrivKey) Sign() internal.Signer {
 	return stream.StreamSigner(k.sk, hash.SHA3_512)
 }
 
-func (k circlPrivKey) Equal(other sign.PrivateKey) bool {
+func (k circlPrivKey) Equal(other internal.PrivateKey) bool {
 	if other == nil {
 		return false
 	}
@@ -92,30 +92,30 @@ type circlPublicKey struct{ circlsign.PublicKey }
 
 func (pub circlPublicKey) Verify(msg, sig []byte) (bool, error) {
 	if len(sig) != pub.Scheme().SignatureSize() {
-		return false, sign.ErrSignature
+		return false, internal.ErrSignature
 	}
 	return pub.Scheme().Verify(pub.PublicKey, msg, sig, nil), nil
 }
 
-var _ sign.PublicKey = circlPubKey{}
+var _ internal.PublicKey = circlPubKey{}
 
 type circlPubKey struct {
 	pk     circlPublicKey
 	scheme circlScheme
 }
 
-func (pub circlPubKey) Scheme() sign.Scheme { return pub.scheme }
+func (pub circlPubKey) Scheme() internal.Scheme { return pub.scheme }
 
 func (pub circlPubKey) Pack() []byte {
 	b, _ := pub.pk.MarshalBinary()
 	return b
 }
 
-func (pub circlPubKey) Verify() sign.Verifier {
+func (pub circlPubKey) Verify() internal.Verifier {
 	return stream.StreamVerifier(pub.pk, hash.SHA3_512)
 }
 
-func (pub circlPubKey) Equal(other sign.PublicKey) bool {
+func (pub circlPubKey) Equal(other internal.PublicKey) bool {
 	if other == nil {
 		return false
 	}

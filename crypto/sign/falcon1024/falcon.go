@@ -6,12 +6,12 @@ import (
 	"github.com/algorand/falcon"
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/hash"
-	"github.com/karalef/quark/crypto/sign"
+	"github.com/karalef/quark/crypto/sign/internal"
 	"github.com/karalef/quark/crypto/sign/stream"
 )
 
 // Scheme is a falcon1024 signature scheme.
-var Scheme sign.Scheme = falconScheme{}
+var Scheme internal.Scheme = falconScheme{}
 
 type falconScheme struct{}
 
@@ -22,32 +22,32 @@ const (
 	privateKeySize = falcon.PrivateKeySize + falcon.PublicKeySize
 )
 
-func (s falconScheme) DeriveKey(seed []byte) (sign.PublicKey, sign.PrivateKey) {
+func (s falconScheme) DeriveKey(seed []byte) (internal.PublicKey, internal.PrivateKey) {
 	pub, priv, err := falcon.GenerateKey(seed)
 	if err != nil {
-		panic(sign.ErrSeedSize)
+		panic(internal.ErrSeedSize)
 	}
 	return s.makeKeys(priv[:], pub[:])
 }
 
-func (s falconScheme) UnpackPublic(key []byte) (sign.PublicKey, error) {
+func (s falconScheme) UnpackPublic(key []byte) (internal.PublicKey, error) {
 	if len(key) != falcon.PublicKeySize {
-		return nil, sign.ErrKeySize
+		return nil, internal.ErrKeySize
 	}
 	pub := new(falconPubKey)
 	copy(pub[:], key)
 	return pub, nil
 }
 
-func (s falconScheme) UnpackPrivate(key []byte) (sign.PrivateKey, error) {
+func (s falconScheme) UnpackPrivate(key []byte) (internal.PrivateKey, error) {
 	if len(key) != privateKeySize {
-		return nil, sign.ErrKeySize
+		return nil, internal.ErrKeySize
 	}
 	_, sk := s.makeKeys(key[:falcon.PrivateKeySize], key[falcon.PrivateKeySize:])
 	return sk, nil
 }
 
-func (falconScheme) makeKeys(sk, pk []byte) (sign.PublicKey, sign.PrivateKey) {
+func (falconScheme) makeKeys(sk, pk []byte) (internal.PublicKey, internal.PrivateKey) {
 	priv := &falconPrivKey{pub: new(falconPubKey)}
 	copy(priv.falconPrivateKey[:], sk)
 	copy(priv.pub[:], pk)
@@ -67,14 +67,14 @@ func (priv *falconPrivateKey) Sign(msg []byte) []byte {
 	return ct[:]
 }
 
-var _ sign.PrivateKey = (*falconPrivKey)(nil)
+var _ internal.PrivateKey = (*falconPrivKey)(nil)
 
 type falconPrivKey struct {
 	pub *falconPubKey
 	falconPrivateKey
 }
 
-func (*falconPrivKey) Scheme() sign.Scheme { return Scheme }
+func (*falconPrivKey) Scheme() internal.Scheme { return Scheme }
 
 func (priv falconPrivKey) Pack() []byte {
 	out := make([]byte, privateKeySize)
@@ -83,9 +83,9 @@ func (priv falconPrivKey) Pack() []byte {
 	return out
 }
 
-func (priv falconPrivKey) Public() sign.PublicKey { return priv.pub }
+func (priv falconPrivKey) Public() internal.PublicKey { return priv.pub }
 
-func (priv *falconPrivKey) Equal(other sign.PrivateKey) bool {
+func (priv *falconPrivKey) Equal(other internal.PrivateKey) bool {
 	if priv == nil || other == nil {
 		return false
 	}
@@ -96,7 +96,7 @@ func (priv *falconPrivKey) Equal(other sign.PrivateKey) bool {
 	return priv == o || priv.falconPrivateKey == o.falconPrivateKey
 }
 
-func (priv falconPrivKey) Sign() sign.Signer {
+func (priv falconPrivKey) Sign() internal.Signer {
 	return stream.StreamSigner(&priv.falconPrivateKey, hash.SHA3_512)
 }
 
@@ -104,21 +104,21 @@ type falconPublicKey falcon.PublicKey
 
 func (pub *falconPublicKey) Verify(msg, signature []byte) (bool, error) {
 	if len(signature) != falcon.CTSignatureSize {
-		return false, sign.ErrSignature
+		return false, internal.ErrSignature
 	}
 	err := (*falcon.PublicKey)(pub).VerifyCTSignature(falcon.CTSignature(signature), msg)
 	return err == nil, nil
 }
 
-var _ sign.PublicKey = (*falconPubKey)(nil)
+var _ internal.PublicKey = (*falconPubKey)(nil)
 
 type falconPubKey falconPublicKey
 
-func (*falconPubKey) Scheme() sign.Scheme { return Scheme }
+func (*falconPubKey) Scheme() internal.Scheme { return Scheme }
 
 func (pub falconPubKey) Pack() []byte { return bytes.Clone(pub[:]) }
 
-func (pub *falconPubKey) Equal(other sign.PublicKey) bool {
+func (pub *falconPubKey) Equal(other internal.PublicKey) bool {
 	if pub == nil || other == nil {
 		return false
 	}
@@ -129,6 +129,6 @@ func (pub *falconPubKey) Equal(other sign.PublicKey) bool {
 	return pub == o || *pub == *o
 }
 
-func (pub *falconPubKey) Verify() sign.Verifier {
+func (pub *falconPubKey) Verify() internal.Verifier {
 	return stream.StreamVerifier((*falconPublicKey)(pub), hash.SHA3_512)
 }
