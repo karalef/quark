@@ -3,6 +3,7 @@ package kdf
 import (
 	"github.com/karalef/quark/crypto/mac"
 	"github.com/karalef/quark/crypto/xof"
+	"github.com/karalef/quark/scheme"
 )
 
 func init() {
@@ -17,23 +18,36 @@ func init() {
 // NewXOF creates a new Scheme from XOF.
 // It does not register the scheme.
 func NewXOF(name string, x xof.Scheme) Scheme {
-	return New(name, func(secret, salt []byte) Expander {
-		return xof.Extract(x, secret, salt)
-	}, func(prk []byte) Expander {
-		return xof.Extract(x, nil, prk)
+	return New(name, func(in []byte) KDF {
+		return expander{xof.Extract(x, in, nil)}
 	})
 }
 
 // NewHKDF creates a new Scheme from HMAC.
 // It does not register the scheme.
 func NewHKDF(name string, hmac mac.Scheme) Scheme {
-	return New(name, func(secret, salt []byte) Expander {
-		prk := mac.Extract(hmac, secret, salt)
-		return mac.NewExpander(hmac, prk)
-	}, func(prk []byte) Expander {
-		return mac.NewExpander(hmac, prk)
-	})
+	return hkdf{scheme.String(name), hmac}
 }
+
+type hkdf struct {
+	scheme.String
+	hmac mac.Scheme
+}
+
+func (h hkdf) New(prk []byte) KDF {
+	if len(prk) < MinSize {
+		panic(ErrShort)
+	}
+	return expander{mac.NewExpander(h.hmac, prk)}
+}
+
+type expander struct {
+	exp interface {
+		Expand(info []byte, l uint) []byte
+	}
+}
+
+func (e expander) Derive(info []byte, length uint) []byte { return e.exp.Expand(info, length) }
 
 // schemes.
 var (

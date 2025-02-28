@@ -1,22 +1,11 @@
 package mac
 
-// NewHKDF returns a new HKDF.
-func NewHKDF(hmac Scheme) HKDF { return HKDF{hmac} }
-
 // NewExpander returns a new Expander.
 func NewExpander(hmac Scheme, prk []byte) Expander {
 	return Expander{
 		Scheme: hmac,
 		PRK:    prk,
 	}
-}
-
-// HKDF is a HKDF crypto.Extractor.
-type HKDF struct{ Scheme }
-
-// Extract implements crypto.Extractor.
-func (h HKDF) Extract(salt, secret []byte) Expander {
-	return NewExpander(h.Scheme, Extract(h.Scheme, secret, salt))
 }
 
 // Expander implements crypto.Expander.
