@@ -30,12 +30,12 @@ func (mk Master) New(info []byte) (Cipher, error) {
 }
 
 // Encrypter returns a new encrypter using the key derived with info.
-func (mk Master) Encrypter(info []byte, s NonceSource) (Encrypter, error) {
+func (mk Master) Encrypter(info []byte, prf PRF) (Encrypter, error) {
 	k, err := mk.New(info)
 	if err != nil {
 		return Encrypter{}, err
 	}
-	return NewEncrypter(k, s), nil
+	return NewEncrypter(k, prf), nil
 }
 
 // Data contains encrypted data.
@@ -117,44 +117,57 @@ func (c Cipher) DecryptData(data Data, ad []byte) ([]byte, error) {
 	return c.decryptData(data.Data, data, ad)
 }
 
-// NewEncrypter returns a new encrypter from the given key and nonce source.
-// If the nonce source is nil, LFSRNonce is used.
-func NewEncrypter(key Cipher, source NonceSource) Encrypter {
-	if source == nil {
-		source = NewLFSR(key.NonceSize(), 0)
+// NewNonceSource returns a new nonce source.
+func NewNonceSource(prf PRF, size int) NonceSource {
+	return NonceSource{prf: prf, size: size}
+}
+
+// NonceSource represents the source of nonce.
+// It can be counter, random generator, something hybrid or whatever.
+type NonceSource struct {
+	prf  PRF
+	size int
+}
+
+// Size returns the nonce size in bytes.
+func (ns NonceSource) Size() int { return ns.size }
+
+// Next return the next nonce.
+func (ns NonceSource) Next() []byte {
+	dst := make([]byte, ns.size)
+	ns.prf.FillBytes(dst)
+	return dst
+}
+
+// NewEncrypter returns a new encrypter from the given key and PRF that is used
+// as a nonce source. If the prf is nil, LFSR is used.
+func NewEncrypter(key Cipher, prf PRF) Encrypter {
+	if prf == nil {
+		prf = NewLFSR(LFSRBlockSize(key.NonceSize()), 0)
 	}
 	return Encrypter{
-		key:    key,
-		source: source,
+		key: key,
+		ns:  NewNonceSource(prf, key.NonceSize()),
 	}
 }
 
-// Encrypter encrypts multiple data using nonce source.
+// Encrypter encrypts multiple data using the PRF as a nonce source.
 type Encrypter struct {
-	key    Cipher
-	source NonceSource
+	key Cipher
+	ns  NonceSource
 }
 
 // Encrypt creates a new AEAD cipher with associated data.
-func (e Encrypter) Encrypt(ad []byte) (aead.Cipher, error) {
-	if nonce, ok := e.source.Next(); ok {
-		return e.key.Encrypt(nonce, ad), nil
-	}
-	return nil, ErrNonceSourceOverflow
+func (e Encrypter) Encrypt(ad []byte) aead.Cipher {
+	return e.key.Encrypt(e.ns.Next(), ad)
 }
 
 // Encrypt encrypts the data without internal buffering.
-func (e Encrypter) EncryptData(data, ad []byte) (Data, error) {
-	if nonce, ok := e.source.Next(); ok {
-		return e.key.EncryptData(data, nonce, ad), nil
-	}
-	return Data{}, ErrNonceSourceOverflow
+func (e Encrypter) EncryptData(data, ad []byte) Data {
+	return e.key.EncryptData(data, e.ns.Next(), ad)
 }
 
 // Encrypt encrypts the data.
-func (e Encrypter) EncryptDataBuf(data, ad []byte) (Data, error) {
-	if nonce, ok := e.source.Next(); ok {
-		return e.key.EncryptDataBuf(data, nonce, ad), nil
-	}
-	return Data{}, ErrNonceSourceOverflow
+func (e Encrypter) EncryptDataBuf(data, ad []byte) Data {
+	return e.key.EncryptDataBuf(data, e.ns.Next(), ad)
 }
