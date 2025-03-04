@@ -4,7 +4,7 @@ import (
 	"github.com/karalef/quark/scheme"
 )
 
-// Expander expands a state into a key with length size using the provided material.
+// Expander expands a material into a key with length size.
 type Expander interface {
 	Expand(material []byte, length uint) []byte
 }

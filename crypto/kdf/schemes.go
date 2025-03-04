@@ -17,23 +17,22 @@ func init() {
 // NewXOF creates a new Scheme from XOF.
 // It does not register the scheme.
 func NewXOF(name string, x xof.Scheme) Scheme {
-	return New(name, func(secret, salt []byte) Expander {
-		return xof.Extract(x, secret, salt)
-	}, func(prk []byte) Expander {
-		return xof.Extract(x, nil, prk)
+	return New(name, func(in []byte) KDF {
+		return xof.Extract(x, in, nil)
 	})
 }
 
 // NewHKDF creates a new Scheme from HMAC.
 // It does not register the scheme.
 func NewHKDF(name string, hmac mac.Scheme) Scheme {
-	return New(name, func(secret, salt []byte) Expander {
-		prk := mac.Extract(hmac, secret, salt)
-		return mac.NewExpander(hmac, prk)
-	}, func(prk []byte) Expander {
-		return mac.NewExpander(hmac, prk)
+	return New(name, func(prk []byte) KDF {
+		return hkdf{mac.NewExpander(hmac, prk)}
 	})
 }
+
+type hkdf struct{ mac.Expander }
+
+func (h hkdf) Derive(info []byte, length uint) []byte { return h.Expand(info, length) }
 
 // schemes.
 var (

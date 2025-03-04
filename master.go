@@ -3,26 +3,25 @@ package quark
 import (
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kdf"
-	"github.com/karalef/quark/scheme"
 )
 
 // NewMaster returns a new master key.
-func NewMaster(scheme aead.Scheme, exp kdf.Expander) Master {
+func NewMaster(scheme aead.Scheme, kdf kdf.KDF) Master {
 	return Master{
 		sch: scheme,
-		exp: exp,
+		kdf: kdf,
 	}
 }
 
 // Master is a key used to derive a cipher keys.
 type Master struct {
 	sch aead.Scheme
-	exp kdf.Expander
+	kdf kdf.KDF
 }
 
 // Derive derives a key with the given info.
 func (mk Master) Derive(info []byte) []byte {
-	return mk.exp.Expand(info, uint(mk.sch.KeySize()))
+	return mk.kdf.Derive(info, uint(mk.sch.KeySize()))
 }
 
 // New derives a cipher key with the given info.
@@ -37,51 +36,4 @@ func (mk Master) Encrypter(info []byte, prf PRF) (Encrypter, error) {
 		return Encrypter{}, err
 	}
 	return NewEncrypter(k, prf), nil
-}
-
-// Extractor is a custom extractor that can use any secret transport mechanism.
-type Extractor[T kdf.Extractor[Secret], Secret any] struct {
-	Extractor T      `msgpack:"ext"`
-	Salt      []byte `msgpack:"salt"`
-}
-
-// Extract derives the expander from the secret.
-func (e Extractor[T, Secret]) Extract(secret Secret) (kdf.Expander, error) {
-	return e.Extractor.Extract(secret, e.Salt)
-}
-
-// Expand expands the master key.
-func (e Extractor[T, Secret]) Expand(key []byte) kdf.Expander {
-	return e.Extractor.Expand(key)
-}
-
-// NewMasterKey returns a new master key.
-func NewMasterKey[T kdf.Extractor[Secret], Secret any](cipher aead.Scheme, salt []byte, ext T) MasterKey[T, Secret] {
-	return MasterKey[T, Secret]{
-		Extractor: Extractor[T, Secret]{
-			Extractor: ext,
-			Salt:      salt,
-		},
-		Cipher: scheme.NewAlgorithm[aead.Scheme, aead.Registry](cipher),
-	}
-}
-
-// MasterKey is a master key that can use any secret transport mechanism.
-type MasterKey[T kdf.Extractor[Secret], Secret any] struct {
-	Extractor[T, Secret]
-	Cipher aead.Algorithm `msgpack:"cipher"`
-}
-
-// Extract extracts the master key from the secret.
-func (m MasterKey[T, Secret]) Extract(secret Secret) (Master, error) {
-	master, err := m.Extractor.Extract(secret)
-	if err != nil {
-		return Master{}, err
-	}
-	return NewMaster(m.Cipher.Scheme, master), nil
-}
-
-// Expand expands the master key.
-func (m MasterKey[T, Secret]) Expand(key []byte) kdf.Expander {
-	return m.Extractor.Expand(key)
 }

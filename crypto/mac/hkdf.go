@@ -8,13 +8,13 @@ func NewExpander(hmac Scheme, prk []byte) Expander {
 	}
 }
 
-// Expander implements crypto.Expander.
+// Expander contains hkdf state.
 type Expander struct {
 	Scheme Scheme
 	PRK    []byte
 }
 
-// Expand implements crypto.Expander.
+// Expand expands the PRK with info into a key of the provided length.
 func (e Expander) Expand(info []byte, length uint) []byte {
 	return Expand(e.Scheme, e.PRK, info, length)
 }

@@ -4,39 +4,27 @@ import (
 	"encoding/binary"
 )
 
-// NewExtractor returns a new XOF-based crypto.Extractor.
-func NewExtractor(x Scheme) Extractor { return Extractor{x} }
+// NewKDF returns a new XOF-based KDF.
+func NewKDF(x State) KDF { return KDF{x} }
 
-// NewExpander returns a new XOF-based crypto.Expander.
-func NewExpander(x State) Expander { return Expander{x} }
+// KDF is a XOF-based KDF.
+type KDF struct{ State }
 
-// Extractor is a XOF-based crypto.Extractor.
-type Extractor struct{ Scheme }
-
-// Extract implements crypto.Extractor.
-func (e Extractor) Extract(salt, secret []byte) Expander {
-	return Expander{Extract(e.Scheme, secret, salt)}
-}
-
-// Expander is a XOF-based crypto.Expander.
-type Expander struct{ State }
-
-// Expand implements crypto.Expander.
-func (e Expander) Expand(info []byte, length uint) []byte {
-	return Expand(e.State, info, length)
+// Derive derives a key of size length using the underlying state and info.
+func (e KDF) Derive(info []byte, length uint) []byte {
+	return Derive(e.State, info, length)
 }
 
 // Extract returns the XOF state for the provided secret and salt.
-func Extract(x Scheme, secret, salt []byte) Expander {
+func Extract(x Scheme, secret, salt []byte) KDF {
 	f := x.New()
 	f.Write(salt)
 	f.Write(secret)
-	return NewExpander(f)
+	return NewKDF(f)
 }
 
-// Expand returns a derived key of size length using the provided hmac,
-// pseudo-random key and info.
-func Expand(state State, info []byte, length uint) []byte {
+// Derive derives a key of size length using the provided state and info.
+func Derive(state State, info []byte, length uint) []byte {
 	if length == 0 {
 		panic("invalid key size")
 	}
