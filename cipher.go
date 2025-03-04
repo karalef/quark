@@ -1,42 +1,6 @@
 package quark
 
-import (
-	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/kdf"
-)
-
-// NewMaster returns a new master key.
-func NewMaster(scheme aead.Scheme, kdf kdf.Expander) Master {
-	return Master{
-		KDF:    kdf,
-		Scheme: scheme,
-	}
-}
-
-// Master is a key used to derive a cipher keys.
-type Master struct {
-	KDF    kdf.Expander
-	Scheme aead.Scheme
-}
-
-// Derive derives a key with the given info.
-func (mk Master) Derive(info []byte) []byte {
-	return mk.KDF.Expand(info, uint(mk.Scheme.KeySize()))
-}
-
-// New derives a cipher key with the given info.
-func (mk Master) New(info []byte) (Cipher, error) {
-	return NewCipher(mk.Scheme, mk.Derive(info))
-}
-
-// Encrypter returns a new encrypter using the key derived with info.
-func (mk Master) Encrypter(info []byte, prf PRF) (Encrypter, error) {
-	k, err := mk.New(info)
-	if err != nil {
-		return Encrypter{}, err
-	}
-	return NewEncrypter(k, prf), nil
-}
+import "github.com/karalef/quark/crypto/aead"
 
 // Data contains encrypted data.
 type Data struct {

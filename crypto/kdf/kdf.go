@@ -15,6 +15,8 @@ type Expander interface {
 // Extractor represents a scheme with custom extraction phase.
 type Extractor[T any] interface {
 	Extract(secret T, salt []byte) (Expander, error)
+
+	Expand(key []byte) Expander
 }
 
 // Scheme represents the scheme of key derivation function.
@@ -26,8 +28,8 @@ type Scheme interface {
 	Extract(secret, salt []byte) Expander
 
 	// Expander returns a state expander for the provided pseudo-random key.
-	// The prk must have enough entropy to safety skip the extraction.
-	Expander(prk []byte) Expander
+	// The key must have enough entropy to safety skip the extraction.
+	Expander(key []byte) Expander
 }
 
 // errors
