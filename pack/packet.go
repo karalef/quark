@@ -69,12 +69,12 @@ func RegisterPacketType(typ PacketType) {
 	}
 
 	tagToTypeMut.Lock()
+	defer tagToTypeMut.Unlock()
 	if reged, ok := tagToType[typ.Tag]; ok {
 		panic(fmt.Sprintf("pack: duplicate tag 0x%x (%s); already registered as %s", typ.Tag, typ.Name, reged.Name))
 	}
 
 	tagToType[typ.Tag] = typ
-	tagToTypeMut.Unlock()
 }
 
 // RegisteredTypes returns all registered packet types.

@@ -29,7 +29,9 @@ func (nc nopCloserReaderFrom) ReadFrom(r io.Reader) (n int64, err error) {
 
 func (nopCloserReaderFrom) Close() error { return nil }
 
-// ChainCloser chains the wc to c.
+// ChainCloser returns the io.WriteCloser which uses wc to write. Calling the
+// Close method will close the wc first and then c. It is useful for wrapping
+// the c where the wrapper accepts the io.Writer and does not close it.
 func ChainCloser(c io.Closer, wc io.WriteCloser) io.WriteCloser {
 	return chainedCloser{c, wc}
 }
