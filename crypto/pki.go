@@ -78,7 +78,7 @@ type Public[Self Key] interface {
 }
 
 // PublicKey represents a PKI public key.
-type PublicKey[S Scheme, Self Key] interface {
+type PublicKey[S PublicScheme[Self], Self Key] interface {
 	SchemeKey[S]
 
 	// Equal checks if the key is equal to the provided key.
@@ -94,15 +94,18 @@ type Private[Self, Pub Key] interface {
 }
 
 // PrivateKey represents a PKI private key.
-type PrivateKey[S Scheme, Self, Public Key] interface {
-	PublicKey[S, Self]
+type PrivateKey[S KeyScheme[Public, Self], Self, Public Key] interface {
+	SchemeKey[S]
+
+	// Equal checks if the key is equal to the provided key.
+	Equal(Self) bool
 
 	// Public returns the public key.
 	Public() Public
 }
 
 // CorrespondsTo checks if the private key corresponds to the public key.
-func CorrespondsTo[Sch Scheme, P PublicKey[Sch, P], S PrivateKey[Sch, S, P]](pk P, sk S) bool {
+func CorrespondsTo[Sch KeyScheme[P, S], P PublicKey[Sch, P], S PrivateKey[Sch, S, P]](pk P, sk S) bool {
 	return pk.Equal(sk.Public())
 }
 
