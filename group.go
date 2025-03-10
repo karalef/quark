@@ -2,26 +2,17 @@ package quark
 
 import (
 	"errors"
+	"iter"
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/pke"
 )
 
-// EncryptSecret encrypts a part of secret for recipient.
-// Panics if the length of secret is less than the plaintext size of recipient.
-func EncryptSecret(recipient pke.PublicKey, secret []byte) ([]byte, error) {
-	size := recipient.Scheme().PlaintextSize()
-	return pke.Encrypt(recipient, secret[:size])
-}
-
 // SecretSize finds the smallest plaintext size among all recipients.
-// It also returns the biggest size to use padding.
+// It also returns the recipients count and the biggest size to use padding.
 // Panics if recipients is empty.
-func SecretSize(recipients []pke.PublicKey) (size, biggest int) {
-	if len(recipients) == 0 {
-		panic("recipients is empty")
-	}
-	for _, recipient := range recipients {
+func SecretSize(recipients iter.Seq[pke.PublicKey]) (size, biggest int) {
+	for recipient := range recipients {
 		ptSize := recipient.Scheme().PlaintextSize()
 		if size == 0 {
 			size, biggest = ptSize, ptSize
@@ -29,25 +20,30 @@ func SecretSize(recipients []pke.PublicKey) (size, biggest int) {
 		}
 		size, biggest = min(size, ptSize), max(biggest, ptSize)
 	}
+	if size == 0 {
+		panic("invalid secret size")
+	}
 	return
 }
 
-// EncryptGroupSecret generates a random shared secret and encrypts it for each
-// recipient (in the same order). Panics if recipients is empty.
-func EncryptGroupSecret(recipients []pke.PublicKey) ([]byte, [][]byte, error) {
+// NewGroupSecret generates a new secret for the group with size calculated
+// for provided recipients.
+func NewGroupSecret(recipients iter.Seq[pke.PublicKey]) (GroupSecret, []byte) {
 	size, biggest := SecretSize(recipients)
-	secrets := make([][]byte, len(recipients))
-
 	padded := crypto.Rand(biggest)
-	for i, recipient := range recipients {
-		ct, err := EncryptSecret(recipient, padded)
-		if err != nil {
-			return nil, nil, err
-		}
-		secrets[i] = ct
-	}
+	secret := make([]byte, size)
+	copy(secret, padded[:size])
+	return GroupSecret(padded), secret
+}
 
-	return padded[:size:size], secrets, nil
+// GroupSecret contains a secret and padding for recipients.
+type GroupSecret []byte
+
+// EncryptFor encrypts a part of secret for recipient.
+// Panics if the length of secret is less than the plaintext size of recipient.
+func (gs GroupSecret) EncryptFor(recipient pke.PublicKey) ([]byte, error) {
+	size := recipient.Scheme().PlaintextSize()
+	return pke.Encrypt(recipient, gs[:size])
 }
 
 // ErrNotEncrypted is returned when there is no encyrpted secret for the recipient.
