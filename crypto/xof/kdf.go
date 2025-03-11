@@ -4,15 +4,12 @@ import (
 	"encoding/binary"
 )
 
-// NewKDF returns a new XOF-based KDF.
-func NewKDF(x State) KDF { return KDF{x} }
-
 // KDF is a XOF-based KDF.
-type KDF struct{ State }
+type KDF struct{ s State }
 
 // Derive derives a key of size length using the underlying state and info.
 func (e KDF) Derive(info []byte, length uint) []byte {
-	return Derive(e.State, info, length)
+	return Derive(e.s, info, length)
 }
 
 // Extract returns the XOF state for the provided secret and salt.
@@ -20,7 +17,7 @@ func Extract(x Scheme, secret, salt []byte) KDF {
 	f := x.New()
 	f.Write(salt)
 	f.Write(secret)
-	return NewKDF(f)
+	return KDF{f}
 }
 
 // Derive derives a key of size length using the provided state and info.

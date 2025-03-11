@@ -26,13 +26,18 @@ func NewXOF(name string, x xof.Scheme) Scheme {
 // It does not register the scheme.
 func NewHKDF(name string, hmac mac.Scheme) Scheme {
 	return New(name, func(prk []byte) KDF {
-		return hkdf{mac.NewExpander(hmac, prk)}
+		return hkdf{s: hmac, k: prk}
 	})
 }
 
-type hkdf struct{ mac.Expander }
+type hkdf struct {
+	s mac.Scheme
+	k []byte
+}
 
-func (h hkdf) Derive(info []byte, length uint) []byte { return h.Expand(info, length) }
+func (h hkdf) Derive(info []byte, length uint) []byte {
+	return mac.Expand(h.s, h.k, info, length)
+}
 
 // schemes.
 var (

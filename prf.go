@@ -6,6 +6,7 @@ import (
 
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/cipher"
+	"github.com/karalef/quark/crypto/xof"
 	"github.com/karalef/quark/pkg/lfsr"
 )
 
@@ -14,7 +15,7 @@ type PRF interface {
 	FillBytes([]byte)
 }
 
-// NewCounter creates a new nonce source which increments the value by 1.
+// NewCounter creates a new counter PRF which increments the value by 1.
 func NewCounter() Counter { return Counter{big.NewInt(1)} }
 
 var _ PRF = Counter{}
@@ -42,7 +43,7 @@ type Reader struct{ r io.Reader }
 
 func (r Reader) FillBytes(dst []byte) { _ = crypto.OrPanic(io.ReadFull(r.r, dst)) }
 
-// NewLFSR creates a new nonce source that uses LFSR.
+// NewLFSR creates a new PRF that uses LFSR.
 // bs must be big as possible, len(dst)%bs == 0, one of 1, 2, 4, 8.
 // If seed is 0, it will be obtained from crypto/rand.
 func NewLFSR(bs int, seed uint64) LFSR {
@@ -88,7 +89,7 @@ func LFSRBlockSize(s int) int {
 
 var _ PRF = LFSR{}
 
-// LFSR is a nonce source that uses LFSR.
+// LFSR is a PRF that uses LFSR.
 type LFSR struct {
 	lfsr lfsr.Bytes
 	bs   int
@@ -102,7 +103,7 @@ func (l LFSR) FillBytes(dst []byte) {
 	}
 }
 
-// NewCBPRF creates a new nonce source that uses CBPRF.
+// NewCBPRF creates a new PRF that uses CBPRF.
 // The seed must be length of scheme.KeySize() + scheme.IVSize().
 // If seed is nil, it will be obtained from crypto/rand.
 func NewCBPRF(scheme cipher.Scheme, seed []byte) CBPRF {
@@ -112,14 +113,36 @@ func NewCBPRF(scheme cipher.Scheme, seed []byte) CBPRF {
 		panic("seed must be length of scheme.KeySize() + scheme.IVSize()")
 	}
 
-	return CBPRF{
-		cipher.NewPRF(scheme, seed[:scheme.IVSize()], seed[scheme.IVSize():]),
-	}
+	return CBPRF{c: scheme.New(seed[:scheme.KeySize()], seed[scheme.KeySize():])}
 }
 
 var _ PRF = CBPRF{}
 
 // CBPRF is a cipher-based pseudo-random function.
-type CBPRF struct{ prf cipher.PRF }
+type CBPRF struct{ c cipher.Cipher }
 
-func (c CBPRF) FillBytes(dst []byte) { c.prf.ReadE(dst) }
+func (c CBPRF) FillBytes(dst []byte) {
+	clear(dst)
+	c.c.XORKeyStream(dst, dst)
+}
+
+// NewXPRF creates a new PRF that uses XOF.
+// If the seed is empty, random 32 bytes will be used.
+//
+//nolint:errcheck
+func NewXPRF(x xof.Scheme, seed []byte) XPRF {
+	if len(seed) == 0 {
+		seed = crypto.Rand(32)
+	}
+	s := x.New()
+	s.Write(seed)
+	return XPRF{x: s}
+}
+
+var _ PRF = XPRF{}
+
+// NewXPRF is a XOF-based pseudo-random function.
+type XPRF struct{ x xof.State }
+
+//nolint:errcheck
+func (x XPRF) FillBytes(dst []byte) { x.x.Read(dst) }

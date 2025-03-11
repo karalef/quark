@@ -1,24 +1,5 @@
 package mac
 
-// NewExpander returns a new Expander.
-func NewExpander(hmac Scheme, prk []byte) Expander {
-	return Expander{
-		Scheme: hmac,
-		PRK:    prk,
-	}
-}
-
-// Expander contains hkdf state.
-type Expander struct {
-	Scheme Scheme
-	PRK    []byte
-}
-
-// Expand expands the PRK with info into a key of the provided length.
-func (e Expander) Expand(info []byte, length uint) []byte {
-	return Expand(e.Scheme, e.PRK, info, length)
-}
-
 // Extract extracts the PRK for the provided secret and salt using HKDF.
 // MAC scheme must be hash-based.
 func Extract(hmac Scheme, secret, salt []byte) []byte {
