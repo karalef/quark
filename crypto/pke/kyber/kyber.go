@@ -113,7 +113,9 @@ func (k kyberPrivKey[_]) Public() internal.PublicKey { return k.pk }
 
 func (k kyberPrivKey[T]) Pack() []byte {
 	buf := make([]byte, k.pk.scheme.PrivateKeySize())
-	k.sk.Pack(buf)
+	pk := k.pk.scheme.PublicKeySize()
+	k.pk.pk.Pack(buf[:pk])
+	k.sk.Pack(buf[pk:])
 	return buf
 }
 
