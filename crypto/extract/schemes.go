@@ -17,14 +17,14 @@ func init() {
 
 // NewKDF creates a new Scheme from KDF and extraction function.
 // It does not register the scheme.
-func NewKDF(name string, k kdf.Scheme, ext func(material, salt []byte) kdf.KDF) Scheme {
-	return New(name, ext, k.New)
+func NewKDF(name string, ext func(material, salt []byte) kdf.KDF) Scheme {
+	return New(name, ext)
 }
 
 // NewXOF creates a new Scheme from XOF.
 // It does not register the scheme.
-func NewXOF(x xof.Scheme, k kdf.Scheme) Scheme {
-	return NewKDF(x.Name(), k, func(material, salt []byte) kdf.KDF {
+func NewXOF(x xof.Scheme) Scheme {
+	return NewKDF(x.Name(), func(material, salt []byte) kdf.KDF {
 		return xof.Extract(x, material, salt)
 	})
 }
@@ -32,16 +32,16 @@ func NewXOF(x xof.Scheme, k kdf.Scheme) Scheme {
 // NewHKDF creates a new Scheme from HMAC.
 // It does not register the scheme.
 func NewHKDF(hmac mac.Scheme, k kdf.Scheme) Scheme {
-	return NewKDF(hmac.Name(), k, func(material, salt []byte) kdf.KDF {
+	return NewKDF(hmac.Name(), func(material, salt []byte) kdf.KDF {
 		return k.New(mac.Extract(hmac, material, salt))
 	})
 }
 
 // schemes.
 var (
-	BLAKE3x  = NewXOF(xof.BLAKE3x, kdf.BLAKE3x)
-	SHAKE128 = NewXOF(xof.Shake128, kdf.SHAKE128)
-	SHAKE256 = NewXOF(xof.Shake256, kdf.SHAKE256)
+	BLAKE3x  = NewXOF(xof.BLAKE3x)
+	SHAKE128 = NewXOF(xof.Shake128)
+	SHAKE256 = NewXOF(xof.Shake256)
 
 	HMAC_BLAKE3 = NewHKDF(mac.BLAKE3, kdf.HMAC_BLAKE3)
 	HMAC_SHA256 = NewHKDF(mac.SHA256, kdf.HMAC_SHA256)

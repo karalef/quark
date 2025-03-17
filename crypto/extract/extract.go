@@ -13,31 +13,23 @@ type Scheme interface {
 	// Extract extracts a master key from a low-entropy material and salt and
 	// returns a KDF.
 	Extract(material, salt []byte) kdf.KDF
-
-	// Expander skips the extraction phase and returns a KDF.
-	// The key must have enough entropy to safety skip the extraction.
-	Expander(key []byte) kdf.KDF
 }
 
 // New creates a new Scheme.
 // It does not register the scheme.
-func New(name string, ext func(material, salt []byte) kdf.KDF, exp func(prk []byte) kdf.KDF) Scheme {
+func New(name string, ext func(material, salt []byte) kdf.KDF) Scheme {
 	return extractor{
 		String: scheme.String(name),
 		ext:    ext,
-		exp:    exp,
 	}
 }
 
 type extractor struct {
 	scheme.String
 	ext func(secret, salt []byte) kdf.KDF
-	exp func(prk []byte) kdf.KDF
 }
 
 func (s extractor) Extract(secret, salt []byte) kdf.KDF { return s.ext(secret, salt) }
-
-func (s extractor) Expander(prk []byte) kdf.KDF { return s.exp(prk) }
 
 // NewSalted creates a new Salted with random salt of length saltSize.
 func NewSalted(kdf Scheme, saltSize uint) Salted {
@@ -58,9 +50,6 @@ type Salted struct {
 
 // Extract extracts the KDF state from the secret.
 func (s Salted) Extract(material []byte) kdf.KDF { return s.Scheme.Scheme.Extract(material, s.Salt) }
-
-// Expander returns a state expander for the provided pseudo-random key.
-func (s Salted) Expander(key []byte) kdf.KDF { return s.Scheme.Scheme.Expander(key) }
 
 var kdfs = make(scheme.Map[Scheme])
 
