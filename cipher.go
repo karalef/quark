@@ -98,6 +98,9 @@ type MasterKey struct {
 	kdf kdf.KDF
 }
 
+// Scheme returns the cipher scheme.
+func (mk MasterKey) Scheme() aead.Scheme { return mk.sch }
+
 // Derive derives a key with the given info.
 func (mk MasterKey) Derive(info []byte) []byte {
 	return mk.kdf.Derive(info, uint(mk.sch.KeySize()))

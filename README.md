@@ -61,24 +61,24 @@ import (
 	"github.com/karalef/quark"
 	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead"
-	"github.com/karalef/quark/crypto/kdf"
+	"github.com/karalef/quark/crypto/extract"
 	"github.com/karalef/quark/crypto/kem"
 )
 
 // generate KEM key pair
-var pk, sk = crypto.Generate(kem.MLKEM768)
+var pk, sk = crypto.Generate(kem.Kyber768)
 
 func main() {
 	s, data := Send("Hello")
 	Receive(s, data, "Hello")
 }
 
-func Send(msg string) (quark.Sealed, [][]quark.Data) {
+func Send(msg string) (quark.MasterKeyExchange, [][]quark.Data) {
 	cipher := aead.ChaCha20Poly1305 // cipher scheme
-	kdfSch := kdf.HMAC_SHA3         // KDF scheme
+	extSch := extract.HMAC_SHA3     // extract scheme
 
 	// encapsulate a random shared secret and derive a master key.
-	sealed, master, err := quark.Seal(pk, cipher, kdfSch, 16)
+	sealed, master, err := quark.NewMasterKeyExchange(pk, extSch, cipher, 16)
 	if err != nil {
 		panic(err)
 	}
@@ -86,7 +86,7 @@ func Send(msg string) (quark.Sealed, [][]quark.Data) {
 	data := make([][]quark.Data, 10)
 	for i := range 10 {
 		// create a nonce source to encrypt several parts with the same key.
-		ns := quark.NewLFSR(master.Scheme.NonceSize(), 0)
+		ns := quark.NewCounter()
 
 		// info is a some data to expand the master key and derive a cipher key.
 		info := []byte("testing " + strconv.Itoa(i))
@@ -103,20 +103,16 @@ func Send(msg string) (quark.Sealed, [][]quark.Data) {
 			ad := []byte{byte(i), byte(j)}
 
 			// encrypt data with optional additional data
-			ed, err := enc.EncryptData(plaintext, ad)
-			if err != nil {
-				panic(err)
-			}
-			data[i][j] = ed
+			data[i][j] = enc.EncryptData(plaintext, ad)
 		}
 	}
 
 	return sealed, data
 }
 
-func Receive(s quark.Sealed, data [][]quark.Data, must string) {
+func Receive(s quark.MasterKeyExchange, data [][]quark.Data, must string) {
 	// extract the master key from encapsulated shared secret.
-	master, err := s.Extract(sk)
+	master, err := s.New(sk)
 	if err != nil {
 		panic(err)
 	}
@@ -148,4 +144,5 @@ func Receive(s quark.Sealed, data [][]quark.Data, must string) {
 		}
 	}
 }
+
 ```
