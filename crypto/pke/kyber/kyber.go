@@ -34,8 +34,8 @@ func (s kyberScheme[_, SK]) UnpackPrivate(key []byte) (internal.PrivateKey, erro
 	if len(key) != s.PrivateKeySize() {
 		return nil, internal.ErrKeySize
 	}
-	pub := kyberPubKey{pk: s.public(key[s.sk:]), scheme: s}
-	return kyberPrivKey[SK]{s.private(key[:s.sk]), pub}, nil
+	pub := kyberPubKey{pk: s.public(key[:s.pk]), scheme: s}
+	return kyberPrivKey[SK]{s.private(key[s.pk:]), pub}, nil
 }
 
 func (s kyberScheme[PK, _]) UnpackPublic(key []byte) (internal.PublicKey, error) {
