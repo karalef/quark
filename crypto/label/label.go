@@ -1,4 +1,4 @@
-package expand
+package label
 
 import (
 	"github.com/karalef/quark/scheme"
@@ -9,12 +9,12 @@ type Expander interface {
 	Expand(material []byte, length uint) []byte
 }
 
-// Scheme is the key expander scheme.
+// Scheme is the expand label scheme.
 type Scheme interface {
 	scheme.Scheme
 
-	// New initialize the expander with context.
-	New(context string) Expander
+	// New initialize the expander with label.
+	New(label string) Expander
 }
 
 var schemes = make(scheme.Map[Scheme])
