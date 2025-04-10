@@ -3,8 +3,8 @@ package xof
 import "golang.org/x/crypto/sha3"
 
 func init() {
-	Register(Shake128)
-	Register(Shake256)
+	Schemes.Register(Shake128)
+	Schemes.Register(Shake256)
 }
 
 // shake schemes.

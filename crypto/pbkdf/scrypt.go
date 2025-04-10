@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	Register(Scrypt)
+	Schemes.Register(Scrypt)
 }
 
 // Scrypt is a scrypt KDF.

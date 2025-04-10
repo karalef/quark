@@ -79,36 +79,25 @@ func blake3WithSize(size int) func() State {
 	}
 }
 
-var schemes = make(scheme.Map[Scheme])
+// Schemes is a registry of hash schemes.
+var Schemes = make(scheme.Map[Scheme])
 
 func init() {
-	Register(SHA256)
-	Register(SHA512)
-	Register(SHA3)
-	Register(SHA3_512)
-	Register(BLAKE2b128)
-	Register(BLAKE2b256)
-	Register(BLAKE2b512)
-	Register(BLAKE3)
-	Register(BLAKE3_128)
-	Register(BLAKE3_512)
+	Schemes.Register(SHA256)
+	Schemes.Register(SHA512)
+	Schemes.Register(SHA3)
+	Schemes.Register(SHA3_512)
+	Schemes.Register(BLAKE2b128)
+	Schemes.Register(BLAKE2b256)
+	Schemes.Register(BLAKE2b512)
+	Schemes.Register(BLAKE3)
+	Schemes.Register(BLAKE3_128)
+	Schemes.Register(BLAKE3_512)
 }
-
-// Register registers a hash scheme.
-func Register(scheme Scheme) { schemes.Register(scheme) }
-
-// ByName returns the hash scheme by the provided name.
-func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
-
-// ListNames returns all registered hash algorithms.
-func ListNames() []string { return schemes.ListNames() }
-
-// List returns all registered hash schemes.
-func List() []Scheme { return schemes.List() }
 
 // Registry implements scheme.ByName.
 type Registry struct{}
 
 var _ scheme.ByName[Scheme] = Registry{}
 
-func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+func (Registry) ByName(name string) (Scheme, error) { return Schemes.ByName(name) }

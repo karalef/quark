@@ -1,5 +1,22 @@
 package mac
 
+// NewKDF creates a KDF with the provided secret and salt.
+func NewKDF(hmac Scheme, secret, salt []byte) KDF {
+	prk := Extract(hmac, secret, salt)
+	return KDF{hmac, prk}
+}
+
+// KDF represents an HKDF extracted PRK with a scheme.
+type KDF struct {
+	Scheme Scheme
+	PRK    []byte
+}
+
+// Derive calls Expand with the underlying scheme and PRK.
+func (k KDF) Derive(info []byte, length uint) []byte {
+	return Expand(k.Scheme, k.PRK, info, length)
+}
+
 // Extract extracts the PRK for the provided secret and salt using HKDF.
 // MAC scheme must be hash-based.
 func Extract(hmac Scheme, secret, salt []byte) []byte {
@@ -35,5 +52,12 @@ func Expand(hmac Scheme, prk, info []byte, length uint) []byte {
 		out = exp.Tag(out)
 	}
 
-	return out
+	return out[:length]
+}
+
+// Key derives a key of the provided length using HKDF.
+// MAC scheme must be hash-based.
+// Panics if length is bigger than hmac.Size()*255.
+func Key(hmac Scheme, secret, salt, info []byte, length uint) []byte {
+	return Expand(hmac, Extract(hmac, secret, salt), info, length)
 }

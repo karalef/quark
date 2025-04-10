@@ -1,8 +1,11 @@
 package quark
 
 import (
+	"io"
+
 	"github.com/karalef/quark/crypto/aead"
 	"github.com/karalef/quark/crypto/kdf"
+	"github.com/karalef/quark/pack/binary"
 )
 
 // Data contains encrypted data.
@@ -12,6 +15,46 @@ type Data struct {
 	Nonce []byte
 	Data  []byte
 	Tag   []byte
+}
+
+// Stream represents encrypted data stream.
+// Since the Stream temporary stores the decoder before the decryption,
+// the decoding must be paused before the data is decrypted.
+type Stream struct {
+	_msgpack struct{} `msgpack:",as_array"`
+
+	Nonce []byte
+	Data  binary.Stream
+	Tag   []byte
+}
+
+// DecodeMsgpack implements binary.CustomDecoder interface.
+// It decodes only a nonce and stores the input stream.
+func (s *Stream) DecodeMsgpack(dec *binary.Decoder) error {
+	if _, err := dec.DecodeArrayLen(); err != nil {
+		return err
+	}
+	if err := dec.Decode(&s.Nonce); err != nil {
+		return err
+	}
+	// store the input stream to decrypt
+	s.Data.Reader = dec.Buffered()
+	return nil
+}
+
+type streamReader struct {
+	tag []byte
+	aead.Reader
+}
+
+func (e streamReader) Close() error { e.AEAD.Tag(e.tag[:0]); return nil }
+
+func (e streamReader) Read(p []byte) (int, error) {
+	n, err := e.Reader.Read(p)
+	if err == io.EOF {
+		_ = e.Close()
+	}
+	return n, err
 }
 
 // NewCipher creates a new Cipher.
@@ -34,6 +77,24 @@ func (c Cipher) NonceSize() int { return c.scheme.NonceSize() }
 // Encrypt creates a new AEAD cipher with associated data.
 func (c Cipher) Encrypt(nonce, ad []byte) aead.Cipher {
 	return c.scheme.Encrypt(c.key, nonce, ad)
+}
+
+// EncryptStream encrypts the data stream.
+func (c Cipher) EncryptStream(data io.Reader, nonce, ad []byte) Stream {
+	tag := make([]byte, c.scheme.TagSize())
+	return Stream{
+		Nonce: nonce,
+		Data: binary.Stream{
+			Reader: streamReader{
+				Reader: aead.Reader{
+					AEAD: c.Encrypt(nonce, ad),
+					R:    data,
+				},
+				tag: tag,
+			},
+		},
+		Tag: tag,
+	}
 }
 
 func (c Cipher) encryptData(dst, src, nonce, ad []byte) Data {
@@ -61,6 +122,27 @@ func (c Cipher) EncryptData(data, nonce, ad []byte) Data {
 // Decrypt creates a new AEAD cipher with associated data.
 func (c Cipher) Decrypt(nonce, ad []byte) aead.Cipher {
 	return c.scheme.Decrypt(c.key, nonce, ad)
+}
+
+// DecryptStream decrypts the data stream.
+func (c Cipher) DecryptStream(dst io.Writer, data Stream, ad []byte) error {
+	ciph := c.Decrypt(data.Nonce, ad)
+	data.Data.Writer = aead.Writer{
+		AEAD: ciph,
+		W:    dst,
+	}
+
+	dec := binary.GetDecoder(data.Data.Reader)
+	defer binary.PutDecoder(dec)
+	err := dec.Decode(&data.Data)
+	if err != nil {
+		return err
+	}
+	if err = dec.Decode(&data.Tag); err != nil {
+		return err
+	}
+
+	return aead.Verify(ciph, data.Tag)
 }
 
 func (c Cipher) decryptData(dst []byte, data Data, ad []byte) ([]byte, error) {
@@ -161,8 +243,14 @@ type Encrypter struct {
 }
 
 // Encrypt creates a new AEAD cipher with associated data.
-func (e Encrypter) Encrypt(ad []byte) aead.Cipher {
-	return e.key.Encrypt(e.ns.Next(), ad)
+func (e Encrypter) Encrypt(ad []byte) ([]byte, aead.Cipher) {
+	n := e.ns.Next()
+	return n, e.key.Encrypt(n, ad)
+}
+
+// EncryptStream encrypts the data stream.
+func (e Encrypter) EncryptStream(data io.Reader, ad []byte) Stream {
+	return e.key.EncryptStream(data, e.ns.Next(), ad)
 }
 
 // Encrypt encrypts the data without internal buffering.

@@ -35,5 +35,13 @@ func Equal(tag1, tag2 []byte) bool {
 	return crypto.Equal(tag1, tag2)
 }
 
+// Verify checks that the tag is correct.
+func Verify(s State, tag []byte) error {
+	if !Equal(tag, s.Tag(nil)) {
+		return ErrMismatch
+	}
+	return nil
+}
+
 // ErrMismatch is returned when the Tags do not match.
 var ErrMismatch = errors.New("MAC tags do not match")

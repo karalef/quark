@@ -6,8 +6,8 @@ import (
 )
 
 func init() {
-	Register(BLAKE2xb)
-	Register(BLAKE3x)
+	Schemes.Register(BLAKE2xb)
+	Schemes.Register(BLAKE3x)
 }
 
 // blake xofs.

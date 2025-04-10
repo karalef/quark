@@ -10,12 +10,12 @@ import (
 )
 
 func init() {
-	Register(SHA256)
-	Register(SHA3)
-	Register(BLAKE2b128)
-	Register(BLAKE2b)
-	Register(BLAKE3_128)
-	Register(BLAKE3)
+	Schemes.Register(SHA256)
+	Schemes.Register(SHA3)
+	Schemes.Register(BLAKE2b128)
+	Schemes.Register(BLAKE2b)
+	Schemes.Register(BLAKE3_128)
+	Schemes.Register(BLAKE3)
 }
 
 var _ State = hmac{}

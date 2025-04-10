@@ -115,26 +115,15 @@ func (pbkdf base[T]) Derive(password, salt []byte, size uint32) []byte {
 	return pbkdf.derive(password, salt, size, pbkdf.cost)
 }
 
-var pbkdfs = make(scheme.Map[Scheme])
-
-// Register registers a PBKDF.
-func Register(pbkdf Scheme) { pbkdfs.Register(pbkdf) }
-
-// ByName returns the PBKDF by the provided name.
-func ByName(name string) (Scheme, error) { return pbkdfs.ByName(name) }
-
-// ListNames returns all registered PBKDF algorithms.
-func ListNames() []string { return pbkdfs.ListNames() }
-
-// List returns all registered PBKDF schemes.
-func List() []Scheme { return pbkdfs.List() }
+// Schemes is a registry of PBKDF schemes.
+var Schemes = make(scheme.Map[Scheme])
 
 // Registry implements scheme.ByName.
 type Registry struct{}
 
 var _ scheme.ByName[Scheme] = Registry{}
 
-func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+func (Registry) ByName(name string) (Scheme, error) { return Schemes.ByName(name) }
 
 // Algorithm is an alias for scheme.Algorithm[Scheme, Registry].
 type Algorithm = scheme.Algorithm[Scheme, Registry]

@@ -6,10 +6,10 @@ import (
 )
 
 func init() {
-	Register(Risretto255)
-	Register(P256)
-	Register(P384)
-	Register(P521)
+	Schemes.Register(Risretto255)
+	Schemes.Register(P256)
+	Schemes.Register(P384)
+	Schemes.Register(P521)
 }
 
 // groups.
@@ -29,23 +29,12 @@ func New(name string, g group.Group) Scheme {
 	}
 }
 
-var schemes = make(scheme.Map[Scheme])
-
-// Register registers a scheme.
-func Register(scheme Scheme) { schemes.Register(scheme) }
-
-// ByName returns the scheme by the provided name.
-func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
-
-// ListNames returns all registered algorithms.
-func ListNames() []string { return schemes.ListNames() }
-
-// List returns all registered schemes.
-func List() []Scheme { return schemes.List() }
+// Schemes is a registry of secret sharing schemes.
+var Schemes = make(scheme.Map[Scheme])
 
 // Registry implements scheme.ByName.
 type Registry struct{}
 
 var _ scheme.ByName[Scheme] = Registry{}
 
-func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+func (Registry) ByName(name string) (Scheme, error) { return Schemes.ByName(name) }

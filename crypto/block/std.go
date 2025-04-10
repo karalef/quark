@@ -5,9 +5,9 @@ import (
 )
 
 func init() {
-	Register(AES128)
-	Register(AES192)
-	Register(AES256)
+	Schemes.Register(AES128)
+	Schemes.Register(AES192)
+	Schemes.Register(AES256)
 }
 
 // variants.

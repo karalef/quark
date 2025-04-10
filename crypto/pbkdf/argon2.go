@@ -7,8 +7,8 @@ import (
 )
 
 func init() {
-	Register(Argon2i)
-	Register(Argon2id)
+	Schemes.Register(Argon2i)
+	Schemes.Register(Argon2id)
 }
 
 // Argon2i KDF.

@@ -6,37 +6,28 @@ import (
 )
 
 func init() {
-	Register(BLAKE3x)
-	Register(SHAKE128)
-	Register(SHAKE256)
-	Register(HMAC_BLAKE3)
-	Register(HMAC_SHA256)
-	Register(HMAC_SHA3)
+	Schemes.Register(BLAKE3x)
+	Schemes.Register(SHAKE128)
+	Schemes.Register(SHAKE256)
+	Schemes.Register(HKDF_BLAKE3)
+	Schemes.Register(HKDF_SHA256)
+	Schemes.Register(HKDF_SHA3)
 }
 
 // NewXOF creates a new Scheme from XOF.
 // It does not register the scheme.
 func NewXOF(name string, x xof.Scheme) Scheme {
-	return New(name, func(in []byte) KDF {
-		return xof.Extract(x, in, nil)
+	return New(name, func(ikm, salt []byte) KDF {
+		return xof.NewKDF(x, ikm, salt)
 	})
 }
 
 // NewHKDF creates a new Scheme from HMAC.
 // It does not register the scheme.
 func NewHKDF(name string, hmac mac.Scheme) Scheme {
-	return New(name, func(prk []byte) KDF {
-		return hkdf{s: hmac, k: prk}
+	return New(name, func(ikm, salt []byte) KDF {
+		return mac.NewKDF(hmac, ikm, salt)
 	})
-}
-
-type hkdf struct {
-	s mac.Scheme
-	k []byte
-}
-
-func (h hkdf) Derive(info []byte, length uint) []byte {
-	return mac.Expand(h.s, h.k, info, length)
 }
 
 // schemes.
@@ -45,7 +36,7 @@ var (
 	SHAKE128 = NewXOF(xof.Shake128.Name(), xof.Shake128)
 	SHAKE256 = NewXOF(xof.Shake256.Name(), xof.Shake256)
 
-	HMAC_BLAKE3 = NewHKDF(mac.BLAKE3.Name(), mac.BLAKE3)
-	HMAC_SHA256 = NewHKDF(mac.SHA256.Name(), mac.SHA256)
-	HMAC_SHA3   = NewHKDF(mac.SHA3.Name(), mac.SHA3)
+	HKDF_BLAKE3 = NewHKDF("HKDF_BLAKE3", mac.BLAKE3)
+	HKDF_SHA256 = NewHKDF("HKDF_SHA256", mac.SHA256)
+	HKDF_SHA3   = NewHKDF("HKDF_SHA3", mac.SHA3)
 )

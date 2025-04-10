@@ -11,13 +11,13 @@ type KDF interface {
 type Scheme interface {
 	scheme.Scheme
 
-	// New creates a KDF from a master key.
-	New(masterKey []byte) KDF
+	// New creates a KDF from an input key material.
+	New(ikm, salt []byte) KDF
 }
 
 // New creates a new Scheme.
 // It does not register the scheme.
-func New(name string, new func([]byte) KDF) Scheme {
+func New(name string, new func([]byte, []byte) KDF) Scheme {
 	return kdf{
 		String: scheme.String(name),
 		new:    new,
@@ -26,31 +26,20 @@ func New(name string, new func([]byte) KDF) Scheme {
 
 type kdf struct {
 	scheme.String
-	new func([]byte) KDF
+	new func([]byte, []byte) KDF
 }
 
-func (s kdf) New(in []byte) KDF { return s.new(in) }
+func (s kdf) New(ikm, salt []byte) KDF { return s.new(ikm, salt) }
 
-var schemes = make(scheme.Map[Scheme])
-
-// Register registers a Scheme.
-func Register(sch Scheme) { schemes.Register(sch) }
-
-// ByName returns the Scheme by the provided name.
-func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
-
-// ListNames returns all registered names.
-func ListNames() []string { return schemes.ListNames() }
-
-// List returns all registered schemes.
-func List() []Scheme { return schemes.List() }
+// Schemes is a registry of KDF schemes.
+var Schemes = make(scheme.Map[Scheme])
 
 // Registry implements scheme.ByName.
 type Registry struct{}
 
 var _ scheme.ByName[Scheme] = Registry{}
 
-func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+func (Registry) ByName(name string) (Scheme, error) { return Schemes.ByName(name) }
 
 // Algorithm is an alias for scheme.Algorithm[Scheme, Registry].
 type Algorithm = scheme.Algorithm[Scheme, Registry]

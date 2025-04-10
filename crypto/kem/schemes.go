@@ -53,23 +53,23 @@ var (
 )
 
 func init() {
-	Register(MLKEM512)
-	Register(MLKEM768)
-	Register(MLKEM1024)
-	Register(Kyber512)
-	Register(Kyber768)
-	Register(Kyber1024)
-	Register(Frodo640Shake)
-	Register(Kyber512X25519)
-	Register(Kyber768X25519)
-	Register(Kyber768X448)
-	Register(Kyber1024X448)
-	Register(X25519MLKEM768)
+	Schemes.Register(MLKEM512)
+	Schemes.Register(MLKEM768)
+	Schemes.Register(MLKEM1024)
+	Schemes.Register(Kyber512)
+	Schemes.Register(Kyber768)
+	Schemes.Register(Kyber1024)
+	Schemes.Register(Frodo640Shake)
+	Schemes.Register(Kyber512X25519)
+	Schemes.Register(Kyber768X25519)
+	Schemes.Register(Kyber768X448)
+	Schemes.Register(Kyber1024X448)
+	Schemes.Register(X25519MLKEM768)
 }
 
 // UnpackPublic unpacks a public key from the provided scheme name and key material.
 func UnpackPublic(schemeName string, key []byte) (PublicKey, error) {
-	scheme, err := ByName(schemeName)
+	scheme, err := Schemes.ByName(schemeName)
 	if err != nil {
 		return nil, err
 	}
@@ -78,31 +78,20 @@ func UnpackPublic(schemeName string, key []byte) (PublicKey, error) {
 
 // UnpackPrivate unpacks a private key from the provided scheme name and key material.
 func UnpackPrivate(schemeName string, key []byte) (PrivateKey, error) {
-	scheme, err := ByName(schemeName)
+	scheme, err := Schemes.ByName(schemeName)
 	if err != nil {
 		return nil, err
 	}
 	return scheme.UnpackPrivate(key)
 }
 
-var schemes = make(scheme.Map[Scheme])
-
-// Register registers a KEM scheme.
-func Register(scheme Scheme) { schemes.Register(scheme) }
-
-// ByName returns the KEM scheme by the provided name.
-func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
-
-// ListNames returns all registered KEM algorithms.
-func ListNames() []string { return schemes.ListNames() }
-
-// List returns all registered KEM schemes.
-func List() []Scheme { return schemes.List() }
+// Schemes is a registry of KEM schemes.
+var Schemes = make(scheme.Map[Scheme])
 
 // Registry implements scheme.ByName.
 type Registry struct{}
 
-func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+func (Registry) ByName(name string) (Scheme, error) { return Schemes.ByName(name) }
 
 // Algorithm is a typed scheme.Algorithm.
 type Algorithm = scheme.Algorithm[Scheme, Registry]

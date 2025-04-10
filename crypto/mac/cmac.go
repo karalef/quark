@@ -3,16 +3,16 @@ package mac
 import "github.com/karalef/quark/crypto/block"
 
 func init() {
-	Register(AES128CMAC)
-	Register(AES192CMAC)
-	Register(AES256CMAC)
+	Schemes.Register(AES128CMAC)
+	Schemes.Register(AES192CMAC)
+	Schemes.Register(AES256CMAC)
 }
 
 // AES-CMAC
 var (
-	AES128CMAC = New("AES128_CMAC", block.AES128.KeySize(), 0, block.CMACBlockSize, block.CMACBlockSize, newAESCMAC)
-	AES192CMAC = New("AES192_CMAC", block.AES192.KeySize(), 0, block.CMACBlockSize, block.CMACBlockSize, newAESCMAC)
-	AES256CMAC = New("AES256_CMAC", block.AES256.KeySize(), 0, block.CMACBlockSize, block.CMACBlockSize, newAESCMAC)
+	AES128CMAC = New("AES128CMAC", block.AES128.KeySize(), 0, block.CMACBlockSize, block.CMACBlockSize, newAESCMAC)
+	AES192CMAC = New("AES192CMAC", block.AES192.KeySize(), 0, block.CMACBlockSize, block.CMACBlockSize, newAESCMAC)
+	AES256CMAC = New("AES256CMAC", block.AES256.KeySize(), 0, block.CMACBlockSize, block.CMACBlockSize, newAESCMAC)
 )
 
 func newAESCMAC(key []byte) State {

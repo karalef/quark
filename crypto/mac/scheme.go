@@ -104,23 +104,12 @@ func CheckKeySize(s Scheme, size int) error {
 // ErrKeySize is returned when the key size is invalid.
 var ErrKeySize = errors.New("invalid key size")
 
-var schemes = make(scheme.Map[Scheme])
-
-// Register registers a MAC scheme.
-func Register(scheme Scheme) { schemes.Register(scheme) }
-
-// ByName returns the MAC scheme by the provided name.
-func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
-
-// ListNames returns all registered MAC algorithms.
-func ListNames() []string { return schemes.ListNames() }
-
-// List returns all registered MAC schemes.
-func List() []Scheme { return schemes.List() }
+// Schemes is a registry of MAC schemes.
+var Schemes = make(scheme.Map[Scheme])
 
 // Registry implements scheme.ByName.
 type Registry struct{}
 
 var _ scheme.ByName[Scheme] = Registry{}
 
-func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+func (Registry) ByName(name string) (Scheme, error) { return Schemes.ByName(name) }

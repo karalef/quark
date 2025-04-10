@@ -8,9 +8,9 @@ import (
 )
 
 func init() {
-	Register(AESCTR)
-	Register(ChaCha20)
-	Register(XChaCha20)
+	Schemes.Register(AESCTR)
+	Schemes.Register(ChaCha20)
+	Schemes.Register(XChaCha20)
 }
 
 // variants.

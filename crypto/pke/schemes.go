@@ -17,14 +17,14 @@ var (
 )
 
 func init() {
-	Register(Kyber512)
-	Register(Kyber768)
-	Register(Kyber1024)
+	Schemes.Register(Kyber512)
+	Schemes.Register(Kyber768)
+	Schemes.Register(Kyber1024)
 }
 
 // UnpackPublic unpacks a public key from the provided scheme name and key material.
 func UnpackPublic(schemeName string, key []byte) (PublicKey, error) {
-	scheme, err := ByName(schemeName)
+	scheme, err := Schemes.ByName(schemeName)
 	if err != nil {
 		return nil, err
 	}
@@ -33,31 +33,20 @@ func UnpackPublic(schemeName string, key []byte) (PublicKey, error) {
 
 // UnpackPrivate unpacks a private key from the provided scheme name and key material.
 func UnpackPrivate(schemeName string, key []byte) (PrivateKey, error) {
-	scheme, err := ByName(schemeName)
+	scheme, err := Schemes.ByName(schemeName)
 	if err != nil {
 		return nil, err
 	}
 	return scheme.UnpackPrivate(key)
 }
 
-var schemes = make(scheme.Map[Scheme])
-
-// Register registers a PKE scheme.
-func Register(scheme Scheme) { schemes.Register(scheme) }
-
-// ByName returns the PKE scheme by the provided name.
-func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
-
-// ListNames returns all registered PKE algorithms.
-func ListNames() []string { return schemes.ListNames() }
-
-// List returns all registered PKE schemes.
-func List() []Scheme { return schemes.List() }
+// Schemes is a registry of PKE schemes.
+var Schemes = make(scheme.Map[Scheme])
 
 // Registry implements scheme.ByName.
 type Registry struct{}
 
-func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+func (Registry) ByName(name string) (Scheme, error) { return Schemes.ByName(name) }
 
 // Algorithm is a typed scheme.Algorithm.
 type Algorithm = scheme.Algorithm[Scheme, Registry]

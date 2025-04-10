@@ -6,10 +6,6 @@ import (
 )
 
 // KDF combines pbkdf scheme and cost.
-// It can be used as KDF extractor+expander, like
-// [KDF.Derive(passphrase, append(salt, info), length)], but as it is KDF,
-// it mostly uses slow memory-hard functions that are not suitable for multiple
-// keys derivation.
 type KDF struct {
 	Scheme Scheme `msgpack:"scheme"`
 	Cost   Cost   `msgpack:"cost"`
@@ -66,7 +62,7 @@ type Fixed struct {
 	Len uint32 `msgpack:"len"`
 }
 
-// Derive derives a key of the specified size from a passphrase.
+// Derive derives a key from a passphrase.
 func (f Fixed) Derive(passphrase, salt []byte) ([]byte, error) {
 	return f.KDF.Derive(passphrase, salt, f.Len)
 }

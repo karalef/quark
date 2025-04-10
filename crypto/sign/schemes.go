@@ -32,17 +32,17 @@ var (
 )
 
 func init() {
-	Register(Falcon1024)
-	Register(MLDSA44)
-	Register(MLDSA65)
-	Register(MLDSA87)
-	Register(ED25519Dilithium2)
-	Register(ED448Dilithium3)
+	Schemes.Register(Falcon1024)
+	Schemes.Register(MLDSA44)
+	Schemes.Register(MLDSA65)
+	Schemes.Register(MLDSA87)
+	Schemes.Register(ED25519Dilithium2)
+	Schemes.Register(ED448Dilithium3)
 }
 
 // UnpackPublic unpacks a public key from the provided scheme name and key material.
 func UnpackPublic(schemeName string, key []byte) (PublicKey, error) {
-	scheme, err := ByName(schemeName)
+	scheme, err := Schemes.ByName(schemeName)
 	if err != nil {
 		return nil, err
 	}
@@ -51,31 +51,20 @@ func UnpackPublic(schemeName string, key []byte) (PublicKey, error) {
 
 // UnpackPrivate unpacks a private key from the provided scheme name and key material.
 func UnpackPrivate(schemeName string, key []byte) (PrivateKey, error) {
-	scheme, err := ByName(schemeName)
+	scheme, err := Schemes.ByName(schemeName)
 	if err != nil {
 		return nil, err
 	}
 	return scheme.UnpackPrivate(key)
 }
 
-var schemes = make(scheme.Map[Scheme])
-
-// Register registers a signature scheme.
-func Register(scheme Scheme) { schemes.Register(scheme) }
-
-// ByName returns the signature scheme by the provided name.
-func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
-
-// ListNames returns all registered signature algorithms.
-func ListNames() []string { return schemes.ListNames() }
-
-// List returns all registered signature schemes.
-func List() []Scheme { return schemes.List() }
+// Schemes is a registry of signature schemes.
+var Schemes = make(scheme.Map[Scheme])
 
 // Registry implements scheme.ByName.
 type Registry struct{}
 
-func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+func (Registry) ByName(name string) (Scheme, error) { return Schemes.ByName(name) }
 
 // Algorithm is a typed scheme.Algorithm.
 type Algorithm = scheme.Algorithm[Scheme, Registry]

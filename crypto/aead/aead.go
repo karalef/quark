@@ -109,33 +109,22 @@ var (
 )
 
 func init() {
-	Register(AESGCM)
-	Register(ChaCha20Poly1305)
-	Register(XChaCha20Poly1305)
-	Register(ChaCha20BLAKE3)
-	Register(AES256SHA3)
+	Schemes.Register(AESGCM)
+	Schemes.Register(ChaCha20Poly1305)
+	Schemes.Register(XChaCha20Poly1305)
+	Schemes.Register(ChaCha20BLAKE3)
+	Schemes.Register(AES256SHA3)
 }
 
-var schemes = make(scheme.Map[Scheme])
-
-// Register registers a AEAD scheme.
-func Register(scheme Scheme) { schemes.Register(scheme) }
-
-// ByName returns the AEAD scheme by the provided name.
-func ByName(name string) (Scheme, error) { return schemes.ByName(name) }
-
-// ListNames returns all registered AEAD algorithms.
-func ListNames() []string { return schemes.ListNames() }
-
-// List returns all registered AEAD schemes.
-func List() []Scheme { return schemes.List() }
+// Schemes is a registry of AEAD schemes.
+var Schemes = make(scheme.Map[Scheme])
 
 // Registry implements scheme.ByName.
 type Registry struct{}
 
 var _ scheme.ByName[Scheme] = Registry{}
 
-func (Registry) ByName(name string) (Scheme, error) { return ByName(name) }
+func (Registry) ByName(name string) (Scheme, error) { return Schemes.ByName(name) }
 
 // Algorithm is an AEAD algorithm.
 type Algorithm = scheme.Algorithm[Scheme, Registry]
