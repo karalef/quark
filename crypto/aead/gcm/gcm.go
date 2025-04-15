@@ -17,6 +17,7 @@ import (
 	"encoding/binary"
 	"errors"
 
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/aead/internal"
 	"github.com/karalef/quark/crypto/aead/internal/alias"
 )
@@ -250,13 +251,9 @@ func (g *gcm) Decrypt(dst, src []byte) { g.crypt(dst, src, src) }
 
 // Tag calculates GHASH of the data and appends the result to dst.
 func (g *gcm) Tag(dst []byte) []byte {
-	req := len(dst) + g.tagSize
-	if cap(dst) < req {
-		newT := make([]byte, req)
-		dst = newT[:copy(newT, dst)]
-	}
-	g.tag(dst[len(dst):req])
-	return dst[:req]
+	dst, tail := crypto.ExtendSlice(dst, g.tagSize)
+	g.tag(tail)
+	return dst
 }
 
 // Reset resets the counter and state.

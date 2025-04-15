@@ -7,10 +7,10 @@ import (
 	"io"
 )
 
-// NewWriter returns a writer that returns no error.
+// NewWriter returns a writer that never returns an error.
 func NewWriter(w io.Writer) Writer { return writer{w} }
 
-// Writer is a writer that returns no error.
+// Writer is a writer that never returns an error.
 type Writer interface {
 	Write([]byte)
 	WriteString(string)
@@ -51,4 +51,21 @@ func LenOrPanic(b []byte, req int, err error) {
 	if len(b) != req {
 		panic(err)
 	}
+}
+
+// SliceForAppend returns a slice that can be used to append n more bytes to b.
+func SliceForAppend(b []byte, n int) []byte {
+	if cap(b)-len(b) >= n {
+		return b
+	}
+	newb := make([]byte, len(b)+n)
+	return newb[:copy(newb, b)]
+}
+
+// ExtendSlice extends a slice to n additional length and returns it and a slice
+// that points to the additional data.
+func ExtendSlice(b []byte, n int) ([]byte, []byte) {
+	l := len(b)
+	b = SliceForAppend(b, n)
+	return b[:l+n], b[l : l+n]
 }

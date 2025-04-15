@@ -19,6 +19,7 @@ func (k KDF) Derive(info []byte, length uint) []byte {
 
 // Extract extracts the PRK for the provided secret and salt using HKDF.
 // MAC scheme must be hash-based.
+// The salt size must be the equal to HMAC key size.
 func Extract(hmac Scheme, secret, salt []byte) []byte {
 	ext := hmac.New(salt)
 	ext.Write(secret)

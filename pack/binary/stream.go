@@ -60,20 +60,26 @@ type WrapEncode = func(io.Writer) (io.WriteCloser, error)
 // WrapDecode is a function that wraps the decoder reader.
 type WrapDecode = func(io.Reader) (io.Reader, error)
 
-// Stream represents an de/encodable bytes stream.
-// The underlying reader/writer has no buffering, so less Write/Read calls -
-// less overhead.
+// NewStream returns a new Stream.
+func NewStream(data io.Reader) *Stream { return &Stream{Reader: data} }
+
+// Stream represents a MessagePack de/encodable bytes stream.
+// The Reader/Writer field is required for encoding/decoding.
 type Stream struct {
 	// Reader represents the data to be encoded.
+	// It must be not nil while encoding.
 	Reader io.Reader
 
-	// W is a message writer. It wraps the stream writer.
+	// W is a message writer. It wraps the stream writer. It is used when some
+	// stream algorithm is not implemented to wrap the io.Reader.
 	W WrapEncode
 
 	// Writer represents the decoded data output.
+	// It must be not nil while decoding.
 	Writer io.Writer
 
-	// R is a message reader. It wraps the stream reader.
+	// R is a message reader. It wraps the stream reader. It is used when some
+	// stream algorithm is not implemented to wrap the io.Writer.
 	R WrapDecode
 
 	// Buffer is the buffer size used for encoding.
@@ -81,7 +87,7 @@ type Stream struct {
 }
 
 // EncodeMsgpack implements msgpack.CustomEncoder.
-func (s *Stream) EncodeMsgpack(enc *Encoder) error {
+func (s Stream) EncodeMsgpack(enc *Encoder) error {
 	if s.Reader == nil {
 		return errors.New("pack: Stream.Reader is nil")
 	}
@@ -91,20 +97,20 @@ func (s *Stream) EncodeMsgpack(enc *Encoder) error {
 	} else {
 		sw = NewBuffered(enc.Writer(), s.Buffer)
 	}
-	w := sw
+	w, same := sw, true
 	if s.W != nil {
 		wrapped, err := s.W(sw)
 		if err != nil {
 			return err
 		}
 		if wrapped != nil {
-			w = wrapped
+			w, same = wrapped, false
 		}
 	}
 	if _, err := io.Copy(w, s.Reader); err != nil {
 		return err
 	}
-	if w != sw {
+	if !same {
 		return errors.Join(w.Close(), sw.Close())
 	}
 	return sw.Close()
@@ -121,20 +127,20 @@ func (s *Stream) DecodeMsgpack(dec *Decoder) error {
 	}
 
 	sr := NewReader(br)
-	r := io.Reader(sr)
+	r, same := io.Reader(sr), true
 	if s.R != nil {
 		wrapped, err := s.R(br)
 		if err != nil {
 			return err
 		}
 		if wrapped != nil {
-			r = wrapped
+			r, same = wrapped, false
 		}
 	}
 	if _, err := io.Copy(s.Writer, r); err != nil {
 		return err
 	}
-	if sr.eof && sr == r {
+	if sr.eof && same {
 		return nil
 	}
 	return sr.Close()
@@ -194,8 +200,8 @@ func (b *Buffered) Close() error {
 // NewWriter returns a new Writer.
 func NewWriter(w io.Writer) *Writer { return &Writer{out: w} }
 
-// Writer is a buffered binary writer that puts the length prefix before each
-// written chunk.
+// Writer is a binary writer that puts the length prefix before each written
+// chunk.
 type Writer struct {
 	out io.Writer
 	len [binary.MaxVarintLen64]byte
@@ -228,20 +234,20 @@ func NewReader(r ByteReader) *Reader { return &Reader{r: r} }
 
 // Reader is a binary reader that reads the stream created by Writer.
 type Reader struct {
-	r         ByteReader
-	remaining uint64
-	eof       bool
+	r   ByteReader
+	rem uint64
+	eof bool
 }
 
 func (sr *Reader) readLen() (err error) {
-	sr.remaining, err = binary.ReadUvarint(sr.r)
+	sr.rem, err = binary.ReadUvarint(sr.r)
 	if err != nil {
 		if err == io.EOF {
 			return io.ErrUnexpectedEOF
 		}
 		return
 	}
-	if sr.remaining == 0 {
+	if sr.rem == 0 {
 		sr.eof = true
 		err = io.EOF
 	}
@@ -258,7 +264,7 @@ func (sr *Reader) Read(p []byte) (n int, err error) {
 	if sr.eof {
 		return 0, io.EOF
 	}
-	if sr.remaining < 1 {
+	if sr.rem < 1 {
 		err = sr.readLen()
 		if err != nil {
 			return
@@ -266,15 +272,15 @@ func (sr *Reader) Read(p []byte) (n int, err error) {
 	}
 
 	toRead := uint64(len(p))
-	if toRead > sr.remaining {
-		toRead = sr.remaining
+	if toRead > sr.rem {
+		toRead = sr.rem
 	}
 
 	n, err = io.ReadFull(sr.r, p[:toRead])
 	if err == io.EOF && uint64(n) != toRead {
 		err = io.ErrUnexpectedEOF
 	}
-	sr.remaining -= uint64(n)
+	sr.rem -= uint64(n)
 	return
 }
 
@@ -283,7 +289,7 @@ func (sr *Reader) Close() error {
 	if sr.eof {
 		return nil
 	}
-	if sr.remaining > 0 {
+	if sr.rem > 0 {
 		return errors.New("binary.Reader.Close: stream has remaining bytes")
 	}
 	if err := sr.readLen(); err != io.EOF {

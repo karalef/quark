@@ -28,11 +28,6 @@ func GetEncoder(w io.Writer) *Encoder {
 	return enc
 }
 
-// PutEncoder puts the encoder to the pool.
-func PutEncoder(enc *Encoder) {
-	msgpack.PutEncoder(enc)
-}
-
 // GetDecoder gets the decoder from the pool.
 func GetDecoder(in io.Reader) *Decoder {
 	dec := msgpack.GetDecoder()
@@ -40,10 +35,11 @@ func GetDecoder(in io.Reader) *Decoder {
 	return dec
 }
 
+// PutEncoder puts the encoder to the pool.
+func PutEncoder(enc *Encoder) { msgpack.PutEncoder(enc) }
+
 // PutDecoder puts the decoder to the pool.
-func PutDecoder(dec *Decoder) {
-	msgpack.PutDecoder(dec)
-}
+func PutDecoder(dec *Decoder) { msgpack.PutDecoder(dec) }
 
 // Encode encodes an object into binary MessagePack format.
 func Encode(w io.Writer, v any) error {

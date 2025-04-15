@@ -71,6 +71,9 @@ type Cipher struct {
 	key    []byte
 }
 
+// Scheme returns the cipher scheme.
+func (c Cipher) Scheme() aead.Scheme { return c.scheme }
+
 // NonceSize returns the nonce size for the AEAD scheme.
 func (c Cipher) NonceSize() int { return c.scheme.NonceSize() }
 

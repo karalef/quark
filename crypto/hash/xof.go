@@ -1,6 +1,7 @@
 package hash
 
 import (
+	"github.com/karalef/quark/crypto"
 	"github.com/karalef/quark/crypto/xof"
 )
 
@@ -29,13 +30,7 @@ func (s *xofState) Reset()                      { s.s.Reset() }
 func (s *xofState) Write(p []byte) (int, error) { return s.s.Write(p) }
 
 func (s *xofState) Sum(b []byte) []byte {
-	top := len(b) + s.scheme.size
-	if cap(b) < top {
-		newb := make([]byte, len(b), top)
-		copy(newb, b)
-		b = newb
-	}
-	res := b[len(b):top]
-	s.s.Clone().Read(res)
-	return b[:top]
+	b, tail := crypto.ExtendSlice(b, s.scheme.size)
+	s.s.Clone().Read(tail)
+	return b
 }
