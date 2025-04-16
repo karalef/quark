@@ -1,12 +1,14 @@
-package mac
+package hmac
 
 import (
 	"errors"
 
+	"github.com/karalef/quark/crypto"
+	"github.com/karalef/quark/crypto/hash"
 	"github.com/karalef/quark/scheme"
 )
 
-// Scheme represents the MAC scheme.
+// Scheme represents the HMAC scheme.
 type Scheme interface {
 	scheme.Scheme
 	Size() int
@@ -15,19 +17,20 @@ type Scheme interface {
 	// KeySize returns the key size in bytes.
 	// If the key size is not fixed, it returns 0.
 	KeySize() int
+
 	// MaxKeySize returns the maximum key size in bytes if the key can be length of [1, MaxKeySize()].
 	// Returns 0 if the key size is fixed.
 	MaxKeySize() int
 
-	// New returns a new MAC instance.
+	// New returns a new HMAC instance.
 	// Panics if key is not of valid length.
-	New(key []byte) State
+	New(key []byte) hash.State
 }
 
-// NewFunc represents the function to create a MAC.
-type NewFunc func(key []byte) State
+// NewFunc represents the function to create a HMAC.
+type NewFunc func(key []byte) hash.State
 
-// New creates new MAC scheme.
+// New creates new HMAC scheme.
 // It does not register the scheme.
 // The returned scheme guarantees the correct key length.
 func New(name string, keySize, maxKeySize, size, blockSize int, new NewFunc) Scheme {
@@ -77,7 +80,7 @@ func (s baseScheme) Size() int       { return s.size }
 func (s baseScheme) BlockSize() int  { return s.block }
 func (s baseScheme) KeySize() int    { return s.keySize }
 func (s baseScheme) MaxKeySize() int { return s.maxSize }
-func (s baseScheme) New(key []byte) State {
+func (s baseScheme) New(key []byte) hash.State {
 	if err := CheckKeySize(s, len(key)); err != nil {
 		panic(err)
 	}
@@ -100,6 +103,22 @@ func CheckKeySize(s Scheme, size int) error {
 	}
 	return nil
 }
+
+// Equal compares two Tags for equality without leaking timing information.
+func Equal(tag1, tag2 []byte) bool {
+	return crypto.Equal(tag1, tag2)
+}
+
+// Verify checks that the tag is correct.
+func Verify(s hash.State, tag []byte) error {
+	if !Equal(tag, s.Sum(nil)) {
+		return ErrMismatch
+	}
+	return nil
+}
+
+// ErrMismatch is returned when tags do not match.
+var ErrMismatch = errors.New("MAC tags do not match")
 
 // ErrKeySize is returned when the key size is invalid.
 var ErrKeySize = errors.New("invalid key size")

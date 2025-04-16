@@ -1,7 +1,7 @@
 package kdf
 
 import (
-	"github.com/karalef/quark/crypto/mac"
+	"github.com/karalef/quark/crypto/hmac"
 	"github.com/karalef/quark/crypto/xof"
 )
 
@@ -24,9 +24,9 @@ func NewXOF(name string, x xof.Scheme) Scheme {
 
 // NewHKDF creates a new Scheme from HMAC.
 // It does not register the scheme.
-func NewHKDF(name string, hmac mac.Scheme) Scheme {
+func NewHKDF(name string, scheme hmac.Scheme) Scheme {
 	return New(name, func(ikm, salt []byte) KDF {
-		return mac.NewKDF(hmac, ikm, salt)
+		return hmac.NewKDF(scheme, ikm, salt)
 	})
 }
 
@@ -36,7 +36,7 @@ var (
 	SHAKE128 = NewXOF(xof.Shake128.Name(), xof.Shake128)
 	SHAKE256 = NewXOF(xof.Shake256.Name(), xof.Shake256)
 
-	HKDF_BLAKE3 = NewHKDF("HKDF_BLAKE3", mac.BLAKE3)
-	HKDF_SHA256 = NewHKDF("HKDF_SHA256", mac.SHA256)
-	HKDF_SHA3   = NewHKDF("HKDF_SHA3", mac.SHA3)
+	HKDF_BLAKE3 = NewHKDF("HKDF_BLAKE3", hmac.BLAKE3)
+	HKDF_SHA256 = NewHKDF("HKDF_SHA256", hmac.SHA256)
+	HKDF_SHA3   = NewHKDF("HKDF_SHA3", hmac.SHA3)
 )

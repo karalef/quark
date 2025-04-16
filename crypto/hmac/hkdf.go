@@ -1,4 +1,4 @@
-package mac
+package hmac
 
 // NewKDF creates a KDF with the provided secret and salt.
 func NewKDF(hmac Scheme, secret, salt []byte) KDF {
@@ -18,17 +18,15 @@ func (k KDF) Derive(info []byte, length uint) []byte {
 }
 
 // Extract extracts the PRK for the provided secret and salt using HKDF.
-// MAC scheme must be hash-based.
 // The salt size must be the equal to HMAC key size.
 func Extract(hmac Scheme, secret, salt []byte) []byte {
 	ext := hmac.New(salt)
 	ext.Write(secret)
-	return ext.Tag(nil)
+	return ext.Sum(nil)
 }
 
 // Expand expands a presudo-random key with info into a key of the provided
 // length using HKDF.
-// MAC scheme must be hash-based.
 // Panics if length is bigger than hmac.Size()*255.
 func Expand(hmac Scheme, prk, info []byte, length uint) []byte {
 	bs := uint(hmac.Size())
@@ -50,14 +48,13 @@ func Expand(hmac Scheme, prk, info []byte, length uint) []byte {
 		}
 		exp.Write(info)
 		exp.Write([]byte{counter})
-		out = exp.Tag(out)
+		out = exp.Sum(out)
 	}
 
 	return out[:length]
 }
 
 // Key derives a key of the provided length using HKDF.
-// MAC scheme must be hash-based.
 // Panics if length is bigger than hmac.Size()*255.
 func Key(hmac Scheme, secret, salt, info []byte, length uint) []byte {
 	return Expand(hmac, Extract(hmac, secret, salt), info, length)

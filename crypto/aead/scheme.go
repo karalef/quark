@@ -7,7 +7,7 @@ import (
 	"github.com/karalef/quark/crypto/aead/etm"
 	"github.com/karalef/quark/crypto/aead/internal"
 	"github.com/karalef/quark/crypto/cipher"
-	"github.com/karalef/quark/crypto/mac"
+	"github.com/karalef/quark/crypto/hmac"
 	"github.com/karalef/quark/scheme"
 )
 
@@ -29,7 +29,7 @@ func New(name string, keySize, nonceSize, tagSize int, newFunc NewFunc) Scheme {
 }
 
 // NewEtM creates new AEAD scheme using EtM (Encrypt-then-MAC) construction.
-func NewEtM(name string, cipher cipher.Scheme, mac mac.Scheme) Scheme {
+func NewEtM(name string, cipher cipher.Scheme, mac hmac.Scheme) Scheme {
 	if cipher == nil || mac == nil {
 		panic("nil scheme part")
 	}
@@ -75,7 +75,7 @@ func (d decrypter) Crypt(dst, src []byte) { d.Cipher.Decrypt(dst, src) }
 
 // errors.
 var (
-	ErrMAC       = mac.ErrMismatch
+	ErrMAC       = hmac.ErrMismatch
 	ErrKeySize   = errors.New("invalid key size")
 	ErrNonceSize = errors.New("invalid nonce size")
 )

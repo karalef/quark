@@ -10,7 +10,7 @@ import (
 	"github.com/karalef/quark/crypto/aead/gcm"
 	"github.com/karalef/quark/crypto/aead/internal"
 	"github.com/karalef/quark/crypto/cipher"
-	"github.com/karalef/quark/crypto/mac"
+	"github.com/karalef/quark/crypto/hmac"
 	"github.com/karalef/quark/scheme"
 )
 
@@ -62,8 +62,8 @@ type Scheme interface {
 // Verify compares the cipher tag and the provided one.
 // Returns an error if MACs are not equal.
 func Verify(c Cipher, tag []byte) error {
-	if !mac.Equal(c.Tag(nil), tag) {
-		return mac.ErrMismatch
+	if !hmac.Equal(c.Tag(nil), tag) {
+		return hmac.ErrMismatch
 	}
 	return nil
 }
@@ -102,10 +102,10 @@ var (
 		})
 
 	// ChaCha20BLAKE3 is the Encrypt-Then-MAC combination of ChaCha20 and BLAKE3.
-	ChaCha20BLAKE3 = NewEtM("ChaCha20_BLAKE3", cipher.ChaCha20, mac.BLAKE3)
+	ChaCha20BLAKE3 = NewEtM("ChaCha20_BLAKE3", cipher.ChaCha20, hmac.BLAKE3)
 
 	// AES256SHA3 is the Encrypt-Then-MAC combination of AES-CTR and SHA3.
-	AES256SHA3 = NewEtM("AESCTR_SHA3", cipher.AESCTR, mac.SHA3)
+	AES256SHA3 = NewEtM("AESCTR_SHA3", cipher.AESCTR, hmac.SHA3)
 )
 
 func init() {

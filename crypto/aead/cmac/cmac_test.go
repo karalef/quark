@@ -1,4 +1,4 @@
-package block_test
+package cmac_test
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/karalef/quark/crypto/block"
+	"github.com/karalef/quark/crypto/aead/cmac"
 )
 
 type cmacTestVector struct {
@@ -49,7 +49,7 @@ func TestCmac(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			mac := block.CMACTag(nil, b, plain)
+			mac := cmac.Tag(nil, b, plain)
 			expected, err := hex.DecodeString(vec.mac)
 			if err != nil {
 				t.Fatal(err)
@@ -77,7 +77,7 @@ func TestCmacStream(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cmac := block.NewCMAC(b)
+			cmac := cmac.New(b)
 			cmac.Write(plain)
 			mac := cmac.Sum(nil)
 			expected, err := hex.DecodeString(vec.mac)

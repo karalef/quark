@@ -1,7 +1,7 @@
 package label
 
 import (
-	"github.com/karalef/quark/crypto/mac"
+	"github.com/karalef/quark/crypto/hmac"
 	"github.com/zeebo/blake3"
 )
 
@@ -14,7 +14,7 @@ func init() {
 var BLAKE3 = blake3scheme{}
 
 // HKDF_SHA3 is the HKDF that uses SHA3 as the hash function.
-var HKDF_SHA3 = hmacScheme{mac.SHA3}
+var HKDF_SHA3 = hmacScheme{hmac.SHA3}
 
 type blake3scheme struct{}
 
@@ -34,7 +34,7 @@ func (b blake3exp) Expand(material []byte, len uint) []byte {
 	return dst
 }
 
-type hmacScheme struct{ mac.Scheme }
+type hmacScheme struct{ hmac.Scheme }
 
 func (s hmacScheme) New(context string) Expander {
 	return hmacExp{ctx: []byte(context), Scheme: s.Scheme}
@@ -42,9 +42,9 @@ func (s hmacScheme) New(context string) Expander {
 
 type hmacExp struct {
 	ctx []byte
-	mac.Scheme
+	hmac.Scheme
 }
 
 func (h hmacExp) Expand(material []byte, len uint) []byte {
-	return mac.Expand(h.Scheme, material, h.ctx, len)
+	return hmac.Expand(h.Scheme, material, h.ctx, len)
 }

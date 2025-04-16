@@ -5,7 +5,8 @@ import (
 	"errors"
 
 	"github.com/karalef/quark/crypto/cipher"
-	"github.com/karalef/quark/crypto/mac"
+	"github.com/karalef/quark/crypto/hash"
+	"github.com/karalef/quark/crypto/hmac"
 )
 
 // MinMACKeySize is the minimum size of the MAC key.
@@ -37,7 +38,7 @@ func DeriveMACKeyFast(ciph cipher.Cipher, size, bs uint) []byte {
 // NewMAC creates a new MAC state and writes the additional data to it with
 // padding. This MAC state automatically writes paddings and sizes of ciphertext
 // and additional data.
-func NewMAC(scheme mac.Scheme, key []byte, additionalData []byte) mac.State {
+func NewMAC(scheme hmac.Scheme, key []byte, additionalData []byte) hash.State {
 	state := &macState{
 		state: scheme.New(key),
 		adLen: len(additionalData),
@@ -50,7 +51,7 @@ func NewMAC(scheme mac.Scheme, key []byte, additionalData []byte) mac.State {
 }
 
 type macState struct {
-	state mac.State
+	state hash.State
 	buf   []byte
 	adLen int
 	count int
@@ -83,9 +84,9 @@ func (s macState) writeLen(n int) {
 	s.state.Write(buf[:])
 }
 
-func (s macState) Tag(b []byte) []byte {
+func (s macState) Sum(b []byte) []byte {
 	s.writePad(s.count)
 	s.writeLen(s.adLen)
 	s.writeLen(s.count)
-	return s.state.Tag(b)
+	return s.state.Sum(b)
 }
